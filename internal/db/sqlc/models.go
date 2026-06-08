@@ -2,117 +2,113 @@
 // versions:
 //   sqlc v1.31.1
 
-package sql
+package sqlc
 
 import (
-	"database/sql"
-	"encoding/json"
-
-	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Course struct {
-	ID       uuid.UUID
+	ID       pgtype.UUID
 	Name     string
 	Semester string
 }
 
 type Enrolment struct {
-	ID       uuid.UUID
-	UserID   uuid.UUID
-	CourseID uuid.UUID
+	ID       pgtype.UUID
+	UserID   pgtype.UUID
+	CourseID pgtype.UUID
 	Role     string
 }
 
 type Exam struct {
-	ID           uuid.UUID
-	CourseID     uuid.UUID
-	CreatedBy    uuid.UUID
+	ID           pgtype.UUID
+	CourseID     pgtype.UUID
+	CreatedBy    pgtype.UUID
 	Name         string
-	VersionLabel sql.NullString
-	ExamDate     sql.NullTime
-	CreatedAt    sql.NullTime
+	VersionLabel pgtype.Text
+	ExamDate     pgtype.Timestamptz
+	CreatedAt    pgtype.Timestamptz
 }
 
 type ExamGrade struct {
-	ID              uuid.UUID
-	OmrMarkingID    uuid.UUID
-	ExamTemplateID  uuid.UUID
-	QuestionResults json.RawMessage
-	TotalScore      sql.NullString
-	MaxScore        sql.NullString
-	TemplateVersion sql.NullInt32
-	GradedAt        sql.NullTime
+	ID              pgtype.UUID
+	OmrMarkingID    pgtype.UUID
+	ExamTemplateID  pgtype.UUID
+	QuestionResults []byte
+	TotalScore      pgtype.Numeric
+	MaxScore        pgtype.Numeric
+	TemplateVersion pgtype.Int4
+	GradedAt        pgtype.Timestamptz
 }
 
 type ExamTemplate struct {
-	ID             uuid.UUID
-	ExamID         uuid.UUID
-	QuestionConfig json.RawMessage
-	AnswerKey      json.RawMessage
-	ScoringRules   pqtype.NullRawMessage
+	ID             pgtype.UUID
+	ExamID         pgtype.UUID
+	QuestionConfig []byte
+	AnswerKey      []byte
+	ScoringRules   []byte
 	TotalQuestions int32
-	Version        sql.NullInt32
+	Version        pgtype.Int4
 }
 
 type OmrDetectedMark struct {
-	ID              uuid.UUID
-	MarkingID       uuid.UUID
+	ID              pgtype.UUID
+	MarkingID       pgtype.UUID
 	QuestionNumber  int32
-	DetectedValue   sql.NullString
-	ConfidenceScore sql.NullFloat64
-	NeedsReview     sql.NullBool
-	X               sql.NullInt32
-	Y               sql.NullInt32
-	Width           sql.NullInt32
-	Height          sql.NullInt32
+	DetectedValue   pgtype.Text
+	ConfidenceScore pgtype.Float4
+	NeedsReview     pgtype.Bool
+	X               pgtype.Int4
+	Y               pgtype.Int4
+	Width           pgtype.Int4
+	Height          pgtype.Int4
 }
 
 type OmrMarking struct {
-	ID            uuid.UUID
-	ScanID        uuid.UUID
-	OmrTemplateID uuid.UUID
-	Status        sql.NullString
-	ErrorMessage  sql.NullString
-	CreatedAt     sql.NullTime
-	StartedAt     sql.NullTime
-	FinishedAt    sql.NullTime
+	ID            pgtype.UUID
+	ScanID        pgtype.UUID
+	OmrTemplateID pgtype.UUID
+	Status        pgtype.Text
+	ErrorMessage  pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	StartedAt     pgtype.Timestamptz
+	FinishedAt    pgtype.Timestamptz
 }
 
 type OmrTemplate struct {
-	ID        uuid.UUID
+	ID        pgtype.UUID
 	Name      string
 	PageCount int32
-	Version   sql.NullInt32
-	CreatedAt sql.NullTime
+	Version   pgtype.Int4
+	CreatedAt pgtype.Timestamptz
 }
 
 type ReviewRequest struct {
-	ID                 uuid.UUID
-	ExamGradeID        uuid.UUID
-	StudentID          uuid.UUID
-	QuestionNumber     sql.NullString
-	StudentComment     sql.NullString
-	Status             sql.NullString
-	InstructorResponse sql.NullString
-	CreatedAt          sql.NullTime
-	ResolvedAt         sql.NullTime
+	ID                 pgtype.UUID
+	ExamGradeID        pgtype.UUID
+	StudentID          pgtype.UUID
+	QuestionNumber     pgtype.Text
+	StudentComment     pgtype.Text
+	Status             pgtype.Text
+	InstructorResponse pgtype.Text
+	CreatedAt          pgtype.Timestamptz
+	ResolvedAt         pgtype.Timestamptz
 }
 
 type Scan struct {
-	ID             uuid.UUID
-	ExamID         uuid.UUID
-	UploaderUserID uuid.UUID
+	ID             pgtype.UUID
+	ExamID         pgtype.UUID
+	UploaderUserID pgtype.UUID
 	Path           string
-	PageCount      sql.NullInt32
+	PageCount      pgtype.Int4
 }
 
 type User struct {
-	ID           uuid.UUID
+	ID           pgtype.UUID
 	Email        string
 	Name         string
 	PasswordHash string
 	Role         string
-	CreatedAt    sql.NullTime
+	CreatedAt    pgtype.Timestamptz
 }

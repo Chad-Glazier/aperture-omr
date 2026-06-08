@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"ubc/team15/config"
+	"ubc/team15/internal/db/sqlc"
 
 	"github.com/jackc/pgx/v5"
 )
 
-func Connect() (*pgx.Conn, error) {
+func Connect() (*sqlc.Queries, error) {
 	ctx := context.Background()
 
 	// Check the link below for a description of how Postgres connection 
@@ -26,5 +27,5 @@ func Connect() (*pgx.Conn, error) {
 		return nil, err
 	}
 
-	return conn, nil
+	return sqlc.New(conn), nil
 }

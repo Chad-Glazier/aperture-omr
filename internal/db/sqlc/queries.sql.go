@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: queries.sql
 
-package sql
+package sqlc
 
 import (
 	"context"
@@ -14,7 +14,7 @@ SELECT id, exam_id, uploader_user_id, path, page_count FROM scans LIMIT 1
 `
 
 func (q *Queries) GetScan(ctx context.Context) (Scan, error) {
-	row := q.db.QueryRowContext(ctx, getScan)
+	row := q.db.QueryRow(ctx, getScan)
 	var i Scan
 	err := row.Scan(
 		&i.ID,

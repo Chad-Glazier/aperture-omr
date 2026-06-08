@@ -19,7 +19,9 @@ paths:
         - Health
       summary: Ping the service
       description: |
-        Simple health-check endpoint.
+        Simple health-check endpoint. Confirms that the service is running and has a database connection.
       responses:
         "200":
           description: The service is functional.
+        "500":
+          description: The service failed to connect to the database. Check the server logs.
