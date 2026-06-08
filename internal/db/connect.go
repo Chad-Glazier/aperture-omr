@@ -12,8 +12,8 @@ import (
 func Connect() (*sqlc.Queries, error) {
 	ctx := context.Background()
 
-	// Check the link below for a description of how Postgres connection 
-	// strings work: 
+	// Check the link below for a description of how Postgres connection
+	// strings work:
 	// https://www.geeksforgeeks.org/postgresql/postgresql-connection-string/
 	conn, err := pgx.Connect(ctx, fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s",
