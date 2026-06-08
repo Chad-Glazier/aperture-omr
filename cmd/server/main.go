@@ -44,6 +44,7 @@ func main() {
 	//
 
 	handler := middleware.Cors(mux)
+	handler = middleware.Logger(handler)
 
 	//
 	// Configure the server.
@@ -58,8 +59,7 @@ func main() {
 	// Start the server.
 	//
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	logger.Info("server started at http://" + config.HOST + ":" + config.PORT)
+	slog.Info("server started at http://" + config.HOST + ":" + config.PORT)
 
 	err = server.ListenAndServe()
 	if err != nil {

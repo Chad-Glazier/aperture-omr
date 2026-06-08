@@ -3,15 +3,19 @@ This package contains configuration constants.
 */
 package config
 
+//
+// This file manages configuration constants.
+//
+
 import (
 	"log/slog"
 	"os"
 )
 
 var (
-	HOST              string
-	PORT              string
-	VERSION           string
+	HOST              string // The hostname for the HTTP server.
+	PORT              string // The port for the HTTP server.
+	VERSION           string // The semantic version of the OMR service.
 	DATABASE_HOST     string
 	DATABASE_PORT     string
 	DATABASE_USER     string

@@ -19,15 +19,12 @@ Since we use OpenCV as a dependency, the program takes a while to build. If you 
 ## File Structure
 
 In keeping with Go conventions, the top-level directories are as follows:
-- `cmd` contains "main" packages that serve as entrypoints to the program.
-- `internal` contains packages that are used internally. This will be most of the project.
-- `config` wraps configuration data.
-  - This package is responsible for exposing configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. 
-- `api` includes the specification(s) for the HTTP server. It does not contain the actual server code, just the specification.
+- [`cmd`](./cmd) contains "main" packages that serve as entrypoints to the program.
+- [`api`](./api) includes the specification(s) for the HTTP server. It does not contain the actual server code, just the specification.
+- [`internal`](./internal) contains packages that are used internally. This will be most of the project.
+  - [`db`](./internal/data/) contains all database interactions. Most of the queries are generated with sqlc (I explain this more [here](./internal/db/sqlc/README.md)).
+  - [`http`](./internal/http/) contains the handler functions and middleware that make up the HTTP API for the service. We are just using the standard [`net/http`](https://pkg.go.dev/net/http) library since the API should be relatively simple.
+- [`config`](./config) wraps configuration data.
+  - Conventionally, this folder would simply include `.env` files and stuff. However, in this project we define it as an actual Go package that is responsible for exposing configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This is *not* conventional, but it seems nice for now.
 
-For more info about these standards, refer to [this document](https://github.com/golang-standards/project-layout).
-
-### Package Overview
-
-- [`internal/data`](./internal/data/) contains all database interactions. Most of the queries are generated with sqlc (I explain this more [here](./internal/data/sqlc/README.md)).
-- [`internal/http`](./internal/http/) contains the handler functions and middleware that make up the HTTP API for the service.
+For more info about these directory naming standards, refer to [this document](https://github.com/golang-standards/project-layout). This is not an "official" project setup, but it is a popular one.
