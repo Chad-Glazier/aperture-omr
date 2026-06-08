@@ -8,3 +8,4 @@ sql:
         package: "sqlc"
         out: "."
         sql_package: "pgx/v5"
+        emit_interface: true

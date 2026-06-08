@@ -1,40 +1,30 @@
-package main
-
-//
-// This entrypoint starts an HTTP server that exposes the RestAPI documented in
-// `/api/openapi.yaml`.
-//
+package httpserver
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 
-	"ubc/team15/config"
-	"ubc/team15/internal/db"
-	"ubc/team15/internal/http/handler"
-	"ubc/team15/internal/http/middleware"
+	"ubco-team15/omr/config"
+	"ubco-team15/omr/internal/database"
+	"ubco-team15/omr/internal/httpserver/handler"
+	"ubco-team15/omr/internal/httpserver/middleware"
 )
 
-func main() {
+// Starts the HTTP server.
+func Start() {
 
-	//
-	// First, we ensure that we can connect to the database.
-	//
-
-	_, err := db.Connect()
+	err := database.CheckConnection()
 	if err != nil {
 		slog.Error("error connecting to database", "error", err)
 		os.Exit(1)
 	}
 
 	//
-	// Register the handler functions to a multiplexer.
+	// Register the handlers.
 	//
 
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
 	mux.HandleFunc("GET /", handler.DocsPage)
 	mux.HandleFunc("GET /health", handler.Health)
@@ -55,15 +45,11 @@ func main() {
 		Handler: handler,
 	}
 
-	//
-	// Start the server.
-	//
-
-	slog.Info("server started at http://" + config.HOST + ":" + config.PORT)
+	slog.Info("starting server at http://" + config.HOST + ":" + config.PORT)
 
 	err = server.ListenAndServe()
 	if err != nil {
-		fmt.Println("server failed to start")
+		slog.Error("server failed to start")
 	}
 
 }

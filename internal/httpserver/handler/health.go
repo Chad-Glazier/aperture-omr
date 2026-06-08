@@ -3,13 +3,13 @@ package handler
 import (
 	"log/slog"
 	"net/http"
-	"ubc/team15/internal/db"
+	"ubco-team15/omr/internal/database"
 )
 
 // Writes a 200 response to indicate that the server is functioning.
 func Health(w http.ResponseWriter, r *http.Request) {
 
-	_, err := db.Connect()
+	err := database.CheckConnection()
 	if err != nil {
 		slog.Error("error connecting to database", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

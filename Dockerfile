@@ -3,9 +3,9 @@ FROM ghcr.io/hybridgroup/opencv:4.13.0
 
 ENV GOPATH=/go
 
-COPY . /go/src/ubc/team15
+COPY . /go/src/ubco-team15/omr
 
-WORKDIR /go/src/ubc/team15
-RUN go build -o /build/server ./cmd/server/
+WORKDIR /go/src/ubco-team15/omr
+RUN go build -o /build/omr .
 
-CMD ["/build/server"]
+CMD ["/build/omr", "serve"]

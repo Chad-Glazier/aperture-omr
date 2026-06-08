@@ -12,10 +12,19 @@ import (
 	"os"
 )
 
+type RuntimeEnvironment int
+
+const (
+	Test RuntimeEnvironment = iota
+	Development
+	Production
+)
+
 var (
-	HOST              string // The hostname for the HTTP server.
-	PORT              string // The port for the HTTP server.
-	VERSION           string // The semantic version of the OMR service.
+	MODE              RuntimeEnvironment // Test, Development, or Production
+	HOST              string             // The hostname for the HTTP server.
+	PORT              string             // The port for the HTTP server.
+	VERSION           string             // The version of the OMR service.
 	DATABASE_HOST     string
 	DATABASE_PORT     string
 	DATABASE_USER     string
@@ -24,19 +33,67 @@ var (
 )
 
 func init() {
-	HOST = "localhost"
-	PORT = "3000"
-	VERSION = "0.0.1"
-	DATABASE_HOST = MustGetenv("POSTGRES_HOST")
-	DATABASE_PORT = MustGetenv("POSTGRES_PORT")
-	DATABASE_USER = MustGetenv("POSTGRES_USER")
-	DATABASE_PASSWORD = MustGetenv("POSTGRES_PASSWORD")
-	DATABASE_NAME = MustGetenv("POSTGRES_DB")
+
+	runtimeEnv, isDefined := os.LookupEnv("OMR_MODE")
+	if !isDefined {
+		// try checking command-line flags.
+		for _, arg := range os.Args[1:] {
+			switch arg {
+			case "--production", "--prod":
+				runtimeEnv = "PRODUCTION"
+			case "--development", "--dev":
+				runtimeEnv = "DEVELOPMENT"
+			case "--test":
+				runtimeEnv = "TEST"
+			}
+		}
+	}
+
+	// If the mode is not specified by the environment or the command-line
+	// flags, then we default to test mode and log a warning.
+	if runtimeEnv == "" {
+		slog.Warn(
+			"environment variable OMR_MODE not found; " +
+				"defaulting to test mode",
+		)
+		runtimeEnv = "TEST"
+	}
+
+	switch runtimeEnv {
+	case "TEST":
+		MODE = Test
+		HOST = "localhost"
+		PORT = "3000"
+		VERSION = "test"
+
+	case "DEVELOPMENT":
+		MODE = Development
+		HOST = "localhost"
+		PORT = getenv("OMR_PORT", "3000")
+		VERSION = getenv("OMR_VERSION", "0.0.1")
+		DATABASE_HOST = getenv("POSTGRES_HOST", "localhost")
+		DATABASE_PORT = getenv("POSTGRES_PORT", "5432")
+		DATABASE_USER = getenv("POSTGRES_USER", "test_user")
+		DATABASE_PASSWORD = getenv("POSTGRES_PASSWORD", "pass")
+		DATABASE_NAME = getenv("POSTGRES_DB", "test_database")
+
+	case "PRODUCTION":
+		MODE = Production
+		HOST = "localhost"
+		PORT = mustGetenv("OMR_PORT")
+		VERSION = getenv("OMR_VERSION", "0.0.1")
+		DATABASE_HOST = mustGetenv("POSTGRES_HOST")
+		DATABASE_PORT = mustGetenv("POSTGRES_PORT")
+		DATABASE_USER = mustGetenv("POSTGRES_USER")
+		DATABASE_PASSWORD = mustGetenv("POSTGRES_PASSWORD")
+		DATABASE_NAME = mustGetenv("POSTGRES_DB")
+	}
+
 }
 
 // Returns an environment variable's value if it exists and exits the program
 // otherwise.
-func MustGetenv(key string) string {
+func mustGetenv(key string) string {
 	value, isDefined := os.LookupEnv(key)
 	if !isDefined {
 		slog.Error("expected environment variable " + key + " to be defined")
@@ -46,11 +103,20 @@ func MustGetenv(key string) string {
 }
 
 // Returns an environment variable's value if it exists, returning the
-// specified default otherwise.
-func MayGetenv(key string, fallback string) string {
+// specified default otherwise. If the default is used a warning is logged.
+func getenv(key string, fallback string) string {
 	value, isDefined := os.LookupEnv(key)
 	if !isDefined {
+		slog.Warn(
+			"environment variable " + key + " not found; " +
+				"defaulting to " + fallback,
+		)
 		return fallback
 	}
 	return value
+}
+
+// Returns true if and only if the runtime is in testing mode.
+func TestMode() bool {
+	return MODE == Test
 }
