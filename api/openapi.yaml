@@ -1,0 +1,25 @@
+openapi: "3.0.3"
+info:
+  title: OMR Service
+  version: "0.0.1"
+  description: |
+    A service to perform Optical Mark Recognition (OMR) on PDFs scans of bubblesheets.
+
+servers:
+  - url: http://localhost:3000/
+
+tags:
+  - name: Health
+    description: Service health and availability
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Ping the service
+      description: |
+        Simple health-check endpoint.
+      responses:
+        "200":
+          description: The service is functional.

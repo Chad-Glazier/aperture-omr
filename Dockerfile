@@ -6,6 +6,6 @@ ENV GOPATH=/go
 COPY . /go/src/ubc/team15
 
 WORKDIR /go/src/ubc/team15
-RUN go build -o /build/version ./cmd/version/
+RUN go build -o /build/server ./cmd/server/
 
-CMD ["/build/version"]
+CMD ["/build/server"]

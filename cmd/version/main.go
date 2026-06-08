@@ -1,23 +1,25 @@
 package main
 
+//
+// This entrypoint just prints the version of the project and its dependencies.
+//
+
 import (
 	"fmt"
 	"runtime"
-	"ubc/team15/internal/term"
+	"ubc/team15/config"
 
 	"gocv.io/x/gocv"
 )
 
-const VERSION = "0.0.1"
-
 func main() {
 	s := "\n"
-	s += fmt.Sprintf("  OMR version           %s\n", term.FgBrightCyan(VERSION))
+	s += "  OMR version           \u001B[96m" + config.VERSION + "\u001B[0m\n"
 	s += "  ─┬─\n"
-	s += fmt.Sprintf("   ├──runtime           %s\n", term.FgCyan(runtime.Version()))
-	s += fmt.Sprintf("   ├──gocv version      %s\n", term.FgCyan(gocv.Version()))
-	s += fmt.Sprintf("   └──opencv version    %s\n", term.FgCyan(gocv.OpenCVVersion()))
+	s += fmt.Sprintf("   ├──runtime           %s\n", runtime.Version())
+	s += fmt.Sprintf("   ├──gocv version      %s\n", gocv.Version())
+	s += fmt.Sprintf("   └──opencv version    %s\n", gocv.OpenCVVersion())
 	s += "\n"
 
-	fmt.Printf(s)
+	fmt.Print(s)
 }
