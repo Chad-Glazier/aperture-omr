@@ -4,27 +4,71 @@ This directory contains the source code for the OMR service.
 
 ## Setup
 
-The [Dockerfile](./Dockerfile) can be used to start the OMR service. 
+The docker image can be built from the top-level dockerfile. 
 
 ```sh
 # from the `app/omr` directory...
-docker build --tag omr .
-docker run --rm omr:latest
+docker build --tag omr_server .
 ```
 
-Since we use OpenCV as a dependency, the program takes a while to build. If you want a faster development environment, you can run the project outside of a container but you'll first need to install [OpenCV](https://gocv.io/getting-started/) and the [Go compiler](https://go.dev/doc/install).
+Since we use OpenCV as a dependency the program takes a while to build. Refer to the [this section](#setting-up-a-local-environment) if you need a faster build for development. 
 
->Note: The Go version, set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
+Once the image is built, you can run the app via docker in one of three modes:
+
+```sh
+# Run without specifying a mode (defaults to test mode)
+docker run --rm -p 3000:3000 omr_server
+
+# Run in test mode
+docker run --rm -e OMR_MODE=TEST -p 3000:3000 omr_server
+
+# Run in development mode
+docker run --rm -e OMR_MODE=DEVELOPMENT -p 3000:3000 omr_server
+
+# Run in production mode
+docker run --rm -e OMR_MODE=PRODUCTION -p 3000:3000 omr_server
+```
+
+- In test mode, all external services are mocked. This means that the program will run without a real database or file storage system but will still pretend that it does by using volatile memory to store data.
+- In development mode, external services are used and the information needed to connect to them must be passed via environment variables. If a variable is omitted, the service will use a default and log a warning.
+- Similarly, production mode requires access to external services. Unlike development mode, the program will refuse to start if a necessary environment variable is missing.
+
+An example set of environment variables are written in [`.env.example`](./.env.example). If you want to see exactly how those variables are used, refer to the [config package](./config/).
+
+>The Go version set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
+
+## Setting Up a Local Environment
+
+In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/) and [Go](https://go.dev/doc/install) installed. Once those are installed, you should be able to run the program:
+
+```sh
+go run .
+```
+
+This should print a help message that describes the subcommands for the program. 
+
+If you get an error that mentions missing C/C++ objects, it's likely that GoCV isn't seeing your OpenCV installation. Refer to [their documentation](https://gocv.io/getting-started/) to correct this.
 
 ## File Structure
 
 In keeping with Go conventions, the top-level directories are as follows:
-- [`cmd`](./cmd) contains "main" packages that serve as entrypoints to the program.
+- [`cmd`](./cmd) contains the [Cobra](https://github.com/spf13/cobra) commands that serve as entrypoints to the program. The [`rootCmd`](./cmd/root.go) command is used by the top-level [`main.go`](./main.go) program.
 - [`api`](./api) includes the specification(s) for the HTTP server. It does not contain the actual server code, just the specification.
 - [`internal`](./internal) contains packages that are used internally. This will be most of the project.
   - [`database`](./internal/database/) contains all database interactions. Most of the queries are generated with sqlc (I explain this more [here](./internal/database/sqlc/README.md)).
   - [`httpserver`](./internal/httpserver/) contains the handler functions and middleware that make up the HTTP API for the service. We are just using the standard [`net/http`](https://pkg.go.dev/net/http) library since the API should be relatively simple.
 - [`config`](./config) wraps configuration data.
-  - Conventionally, this folder would simply include `.env` files and stuff. However, in this project we define it as an actual Go package that is responsible for exposing configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This is *not* conventional, but it helps us set variables based on command-line flags and development environments ("dev", "prod", "test").
+  - Conventionally, this folder would simply include `.env` files and stuff. However in this project we define it as an actual Go package that's responsible for wrapping configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This also allows us to set environment variables based on the runtime mode (development, production, or test).
+  - We expect environment variables to be set outside of the application (e.g., by a Docker configuration or in the command line).
 
 For more info about these directory naming standards, refer to [this document](https://github.com/golang-standards/project-layout). This is not an "official" project setup, but it is a popular one.
+
+## Dependencies
+
+The following is a list of dependencies. You can also refer to the [go.mod](./go.mod) file.
+- [OpenCV](https://opencv.org/) is used for computer vision stuff.
+- [GoCV](gocv.io/x/gocv) provides Go bindings for OpenCV.
+- [pgx](https://pkg.go.dev/github.com/jackc/pgx/v5) is the Postgres driver we use. It's used in the [database](./internal/database/) layer.
+- [rs/cors](https://pkg.go.dev/github.com/rs/cors) is used to configure CORS. It's thinly wrapped in [cors.go](./internal/httpserver/middleware/cors.go). 
+- [Cobra](https://cobra.dev/) is used to set up the command-line interface. It's only used in the [cmd](./cmd) package.
+- [sqlc](https://sqlc.dev/) is used to generate Go functions from SQL queries (read more [here](./internal/database/sqlc/README.md)). sqlc is strictly for code generation; it is not a runtime dependency.

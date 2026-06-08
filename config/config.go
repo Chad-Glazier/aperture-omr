@@ -120,3 +120,16 @@ func getenv(key string, fallback string) string {
 func TestMode() bool {
 	return MODE == Test
 }
+
+// Logs a message indicating the runtime mode (development, production, or 
+// test).
+func LogMode() {
+	switch MODE {
+	case Test:
+		slog.Info("starting in test mode")
+	case Development:
+		slog.Info("starting in development mode")
+	case Production:
+		slog.Info("starting in production mode")
+	}
+}
