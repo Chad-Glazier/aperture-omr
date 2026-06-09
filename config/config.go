@@ -121,7 +121,7 @@ func TestMode() bool {
 	return MODE == Test
 }
 
-// Logs a message indicating the runtime mode (development, production, or 
+// Logs a message indicating the runtime mode (development, production, or
 // test).
 func LogMode() {
 	switch MODE {

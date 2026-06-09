@@ -29,7 +29,7 @@ docker run --rm -e OMR_MODE=DEVELOPMENT -p 3000:3000 omr_server
 docker run --rm -e OMR_MODE=PRODUCTION -p 3000:3000 omr_server
 ```
 
-- In test mode, all external services are mocked. This means that the program will run without a real database or file storage system but will still pretend that it does by using volatile memory to store data.
+- In test mode, all external services are mocked. This means that the program will run without a real database or file storage system.
 - In development mode, external services are used and the information needed to connect to them must be passed via environment variables. If a variable is omitted, the service will use a default and log a warning.
 - Similarly, production mode requires access to external services. Unlike development mode, the program will refuse to start if a necessary environment variable is missing.
 
