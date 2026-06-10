@@ -6,6 +6,17 @@ import (
 	"gocv.io/x/gocv"
 )
 
+type context struct {
+	err error
+}
+
+func (ctx *context) exec(op func() error) {
+	if ctx.err != nil {
+		return
+	}
+	ctx.err = op()
+}
+
 func Scan(path string) (gocv.Mat, error) {
 	p, err := Resolve(path)
 	if err != nil {
@@ -32,12 +43,17 @@ func Scan(path string) (gocv.Mat, error) {
 	defer cropped.Close()
 
 	normalized := gocv.NewMat()
-	// defer normalized.Close()
 
-	binarize(img, &bin)
-	deskew(img, bin, &deskewedCol, &deskewedBin)
-	crop(deskewedCol, deskewedBin, &cropped)
-	normalize(cropped, &normalized)
+	ctx := &context{}
+
+	ctx.exec(func() error { return binarize(img, &bin) })
+	ctx.exec(func() error { return deskew(img, bin, &deskewedCol, &deskewedBin) })
+	ctx.exec(func() error { return crop(deskewedCol, deskewedBin, &cropped) })
+	ctx.exec(func() error { return normalize(cropped, &normalized) })
+
+	if ctx.err != nil {
+		return gocv.NewMat(), fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
+	}
 
 	return normalized, nil
 }

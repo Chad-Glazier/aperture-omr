@@ -8,12 +8,20 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) {
+func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) error {
+	if src.Empty() {
+		return fmt.Errorf("cannot deskew an empty image")
+	}
+
 	lines := gocv.NewMat()
 	defer lines.Close()
 
 	// Parameters: rho=1, theta=1 degree (in radians), threshold=100, minLineLength=100, maxLineGap=10
 	gocv.HoughLinesPWithParams(bin, &lines, 1, math.Pi/180, 100, 100.0, 10.0)
+
+	if lines.Rows() == 0 {
+		return fmt.Errorf("could not detect skew lines")
+	}
 
 	var totalAngle float64
 	var count int
@@ -35,7 +43,7 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) {
 	if count == 0 {
 		src.CopyTo(dstCol)
 		src.CopyTo(dstBin)
-		return
+		return nil
 	}
 
 	avgAngle := totalAngle / float64(count)
@@ -43,7 +51,7 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) {
 	if math.Abs(avgAngle) < 0.2 {
 		src.CopyTo(dstCol)
 		bin.CopyTo(dstBin)
-		return
+		return nil
 	}
 
 	fmt.Printf("Detected angle: %.2f degrees\n", avgAngle)
@@ -55,4 +63,6 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) {
 	size := image.Pt(src.Cols(), src.Rows())
 	gocv.WarpAffine(src, dstCol, mat, size)
 	gocv.WarpAffine(bin, dstBin, mat, size)
+
+	return nil
 }

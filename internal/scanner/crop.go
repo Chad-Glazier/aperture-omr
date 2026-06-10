@@ -1,14 +1,23 @@
 package scanner
 
 import (
+	"fmt"
 	"image"
 
 	"gocv.io/x/gocv"
 )
 
-func crop(src, bin gocv.Mat, dst *gocv.Mat) {
+func crop(src, bin gocv.Mat, dst *gocv.Mat) error {
+	if src.Empty() || bin.Empty() {
+		return fmt.Errorf("cannot crop an empty image")
+	}
+
 	contours := gocv.FindContours(bin, gocv.RetrievalExternal, gocv.ChainApproxSimple)
 	defer contours.Close()
+
+	if contours.Size() == 0 {
+		return fmt.Errorf("could not detect any contours")
+	}
 
 	x, y := src.Cols(), src.Rows()
 	minX, minY := x, y
@@ -47,4 +56,6 @@ func crop(src, bin gocv.Mat, dst *gocv.Mat) {
 
 	rect := image.Rect(minX, minY, maxX, maxY)
 	*dst = src.Region(rect)
+
+	return nil
 }
