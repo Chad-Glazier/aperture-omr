@@ -8,12 +8,12 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func deskew(src, preprocessed gocv.Mat, dst *gocv.Mat) {
+func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) {
 	lines := gocv.NewMat()
 	defer lines.Close()
 
 	// Parameters: rho=1, theta=1 degree (in radians), threshold=100, minLineLength=100, maxLineGap=10
-	gocv.HoughLinesPWithParams(preprocessed, &lines, 1, math.Pi/180, 100, 100.0, 10.0)
+	gocv.HoughLinesPWithParams(bin, &lines, 1, math.Pi/180, 100, 100.0, 10.0)
 
 	var totalAngle float64
 	var count int
@@ -33,14 +33,16 @@ func deskew(src, preprocessed gocv.Mat, dst *gocv.Mat) {
 	}
 
 	if count == 0 {
-		*dst = src.Clone()
+		src.CopyTo(dstCol)
+		src.CopyTo(dstBin)
 		return
 	}
 
 	avgAngle := totalAngle / float64(count)
 
 	if math.Abs(avgAngle) < 0.2 {
-		*dst = src.Clone()
+		src.CopyTo(dstCol)
+		bin.CopyTo(dstBin)
 		return
 	}
 
@@ -50,5 +52,7 @@ func deskew(src, preprocessed gocv.Mat, dst *gocv.Mat) {
 	mat := gocv.GetRotationMatrix2D(center, avgAngle, 1.0)
 	defer mat.Close()
 
-	gocv.WarpAffine(src, dst, mat, image.Pt(src.Cols(), src.Rows()))
+	size := image.Pt(src.Cols(), src.Rows())
+	gocv.WarpAffine(src, dstCol, mat, size)
+	gocv.WarpAffine(bin, dstBin, mat, size)
 }

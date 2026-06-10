@@ -19,18 +19,25 @@ func Scan(path string) (gocv.Mat, error) {
 	}
 	defer img.Close()
 
-	preprocessed := gocv.NewMat()
-	defer preprocessed.Close()
+	bin := gocv.NewMat()
+	defer bin.Close()
 
-	deskewed := gocv.NewMat()
-	defer deskewed.Close()
+	deskewedCol := gocv.NewMat()
+	defer deskewedCol.Close()
+
+	deskewedBin := gocv.NewMat()
+	defer deskewedBin.Close()
+
+	cropped := gocv.NewMat()
+	defer cropped.Close()
 
 	normalized := gocv.NewMat()
 	// defer normalized.Close()
 
-	preprocess(img, &preprocessed)
-	deskew(img, preprocessed, &deskewed)
-	normalize(deskewed, &normalized)
+	binarize(img, &bin)
+	deskew(img, bin, &deskewedCol, &deskewedBin)
+	crop(deskewedCol, deskewedBin, &cropped)
+	normalize(cropped, &normalized)
 
 	return normalized, nil
 }

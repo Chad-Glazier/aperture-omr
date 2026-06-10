@@ -6,7 +6,7 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func preprocess(src gocv.Mat, dst *gocv.Mat) {
+func binarize(src gocv.Mat, dst *gocv.Mat) {
 	gray := gocv.NewMat()
 	defer gray.Close()
 
