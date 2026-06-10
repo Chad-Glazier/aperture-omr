@@ -48,6 +48,8 @@ func crop(src, bin gocv.Mat, dst *gocv.Mat) error {
 		}
 	}
 
+	// Applies 20px of padding to the bounding box to ensure
+	// nothing near the boundaries get's clipped off.
 	padding := 20
 	minX = max(0, minX-padding)
 	minY = max(0, minY-padding)

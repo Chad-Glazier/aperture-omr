@@ -70,6 +70,8 @@ func TestDeskew(t *testing.T) {
 	validSrc := gocv.NewMatWithSizeFromScalar(white, 500, 500, gocv.MatTypeCV8UC3)
 	defer validSrc.Close()
 
+	// Create a 500x500 black image and draw a perfectly horizontal white line
+	// across the middle to simulate a deskewed structural line on an exam.
 	validBin := gocv.NewMatWithSizeFromScalar(black, 500, 500, gocv.MatTypeCV8UC1)
 	defer validBin.Close()
 	gocv.Line(&validBin, image.Pt(50, 250), image.Pt(450, 250), color.RGBA{255, 255, 255, 255}, 2)

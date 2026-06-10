@@ -17,6 +17,7 @@ func (ctx *context) exec(op func() error) {
 	ctx.err = op()
 }
 
+// Reads an image from the provided file path, runs it through the OMR preprocessing pipeline, and returns the prepared image.
 func Scan(path string) (gocv.Mat, error) {
 	p, err := Resolve(path)
 	if err != nil {
@@ -44,8 +45,8 @@ func Scan(path string) (gocv.Mat, error) {
 
 	normalized := gocv.NewMat()
 
+	// The context captures any errors that occur during the pipeline and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
-
 	ctx.exec(func() error { return binarize(img, &bin) })
 	ctx.exec(func() error { return deskew(img, bin, &deskewedCol, &deskewedBin) })
 	ctx.exec(func() error { return crop(deskewedCol, deskewedBin, &cropped) })

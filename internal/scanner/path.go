@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Expands a relative or home directory path into an OS-specific absolute file path.
 func Resolve(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")

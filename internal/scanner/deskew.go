@@ -34,6 +34,7 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) error {
 
 		// Filter for lines that are roughly horizontal.
 		// Printer feed errors rarely exceed +/- 5 degrees.
+		// Anything steeper than this is likely a vertical edge.
 		if angle > -10 && angle < 10 {
 			totalAngle += angle
 			count++
