@@ -22,12 +22,15 @@ func Scan(path string) (gocv.Mat, error) {
 	preprocessed := gocv.NewMat()
 	defer preprocessed.Close()
 
+	deskewed := gocv.NewMat()
+	defer deskewed.Close()
+
+	normalized := gocv.NewMat()
+	// defer normalized.Close()
+
 	preprocess(img, &preprocessed)
+	deskew(img, preprocessed, &deskewed)
+	normalize(deskewed, &normalized)
 
-	deskewed, err := deskew(img, preprocessed)
-	if err != nil {
-		return gocv.NewMat(), fmt.Errorf("deskew image: %w", err)
-	}
-
-	return deskewed, nil
+	return normalized, nil
 }

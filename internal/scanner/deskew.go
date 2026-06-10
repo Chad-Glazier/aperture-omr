@@ -8,7 +8,7 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func deskew(src, preprocessed gocv.Mat) (gocv.Mat, error) {
+func deskew(src, preprocessed gocv.Mat, dst *gocv.Mat) {
 	lines := gocv.NewMat()
 	defer lines.Close()
 
@@ -33,13 +33,13 @@ func deskew(src, preprocessed gocv.Mat) (gocv.Mat, error) {
 	}
 
 	if count == 0 {
-		return src.Clone(), nil
+		*dst = src.Clone()
 	}
 
 	avgAngle := totalAngle / float64(count)
 
 	if math.Abs(avgAngle) < 0.2 {
-		return src.Clone(), nil
+		*dst = src.Clone()
 	}
 
 	fmt.Printf("Detected angle: %.2f degrees\n", avgAngle)
@@ -48,8 +48,5 @@ func deskew(src, preprocessed gocv.Mat) (gocv.Mat, error) {
 	mat := gocv.GetRotationMatrix2D(center, avgAngle, 1.0)
 	defer mat.Close()
 
-	deskewed := gocv.NewMat()
-	gocv.WarpAffine(src, &deskewed, mat, image.Pt(src.Cols(), src.Rows()))
-
-	return deskewed, nil
+	gocv.WarpAffine(src, dst, mat, image.Pt(src.Cols(), src.Rows()))
 }
