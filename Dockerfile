@@ -8,4 +8,5 @@ COPY . /go/src/ubco-team15/omr
 WORKDIR /go/src/ubco-team15/omr
 RUN go build -o /build/omr .
 
-CMD ["/build/omr", "serve"]
+ENTRYPOINT ["/build/omr"]
+CMD ["serve"]
