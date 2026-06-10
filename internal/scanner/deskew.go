@@ -34,12 +34,14 @@ func deskew(src, preprocessed gocv.Mat, dst *gocv.Mat) {
 
 	if count == 0 {
 		*dst = src.Clone()
+		return
 	}
 
 	avgAngle := totalAngle / float64(count)
 
 	if math.Abs(avgAngle) < 0.2 {
 		*dst = src.Clone()
+		return
 	}
 
 	fmt.Printf("Detected angle: %.2f degrees\n", avgAngle)
