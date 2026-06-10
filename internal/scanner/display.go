@@ -13,7 +13,7 @@ func Display(img gocv.Mat, title string) {
 	window.ResizeWindow(1000, 1414)
 	window.IMShow(img)
 
-	fmt.Printf("Press [Esc] to continue...")
+	fmt.Printf("Press [Esc] to continue...\n")
 
 	for {
 		if window.WaitKey(0)&0xFF == 27 {
