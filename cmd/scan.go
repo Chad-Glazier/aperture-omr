@@ -87,6 +87,17 @@ var scanCmd = &cobra.Command{
 			}
 		}
 
+		// tmp, err := extractor.LoadTemplate(tPath)
+		// if err != nil {
+		// 	log.Fatalf("Template error: %s", err)
+		// }
+
+		// contract, err := extractor.Extract(img, tmp)
+		// if err != nil {
+		// 	log.Fatalf("Extractor error: %s", err)
+		// }
+
+		// fmt.Printf("%+v\n", contract.Answers)
 		return nil
 	},
 }
