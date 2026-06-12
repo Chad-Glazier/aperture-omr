@@ -17,7 +17,7 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		s := "\n"
 		s += "  OMR version           \u001B[96m" +
-			config.VERSION + "\u001B[0m\n"
+			config.Version + "\u001B[0m\n"
 		s += "  ─┬─\n"
 		s += fmt.Sprintf("   ├──runtime           %s\n", runtime.Version())
 		s += fmt.Sprintf("   ├──gocv version      %s\n", gocv.Version())

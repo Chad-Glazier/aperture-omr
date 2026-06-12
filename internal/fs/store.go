@@ -19,7 +19,3 @@ type Store interface {
 	// match the given dimensions.
 	GetImgSnippet(key string, x, y, width, height int) (image.Image, error)
 }
-
-func Connect() Store {
-	return NewLocalStore("./tmp_store")
-}

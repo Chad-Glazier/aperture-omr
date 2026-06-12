@@ -41,11 +41,11 @@ func Start() {
 	//
 
 	server := &http.Server{
-		Addr:    ":" + config.PORT,
+		Addr:    ":" + config.Port,
 		Handler: handler,
 	}
 
-	slog.Info("starting server at http://" + config.HOST + ":" + config.PORT)
+	slog.Info("starting server at http://" + config.Host + ":" + config.Port)
 
 	err = server.ListenAndServe()
 	if err != nil {

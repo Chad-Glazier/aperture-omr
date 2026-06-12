@@ -27,6 +27,11 @@ func imageEqual(a, b image.Image) bool {
 }
 
 func TestLocalStore(t *testing.T) {
+
+	// 
+	// Setup
+	//
+
 	root, err := os.MkdirTemp(".", "omr_test_fs_*")
 	if err != nil {
 		t.Errorf("error creating temporary directory")
@@ -45,7 +50,7 @@ func TestLocalStore(t *testing.T) {
 	}
 
 	//
-	// Testing the methods.
+	// Testing
 	//
 
 	name := "sample.tiff"
