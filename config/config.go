@@ -21,15 +21,20 @@ const (
 )
 
 var (
-	MODE              RuntimeEnvironment // Test, Development, or Production
-	HOST              string             // The hostname for the HTTP server.
-	PORT              string             // The port for the HTTP server.
-	VERSION           string             // The version of the OMR service.
-	DATABASE_HOST     string
-	DATABASE_PORT     string
-	DATABASE_USER     string
-	DATABASE_PASSWORD string
-	DATABASE_NAME     string
+	MODE                     RuntimeEnvironment // Test, Development, or Production
+	HOST                     string             // The hostname for the HTTP server.
+	PORT                     string             // The port for the HTTP server.
+	VERSION                  string             // The version of the OMR service.
+	DATABASE_HOST            string
+	DATABASE_PORT            string
+	DATABASE_USER            string
+	DATABASE_PASSWORD        string
+	DATABASE_NAME            string
+	GARAGE_ACCESS_KEY_ID     string
+	GARAGE_SECRET_ACCESS_KEY string
+	GARAGE_ENDPOINT_URL      string
+	GARAGE_REGION            string
+	GARAGE_BUCKET_NAME       string
 )
 
 func init() {
@@ -76,6 +81,21 @@ func init() {
 		DATABASE_USER = getenv("POSTGRES_USER", "test_user")
 		DATABASE_PASSWORD = getenv("POSTGRES_PASSWORD", "pass")
 		DATABASE_NAME = getenv("POSTGRES_DB", "test_database")
+		GARAGE_ACCESS_KEY_ID = getenv(
+			"GARAGE_ACCESS_KEY_ID",
+			"GK226e804ce6278cc5d0ebc0a6")
+		GARAGE_SECRET_ACCESS_KEY = getenv(
+			"GARAGE_SECRET_ACCESS_KEY",
+			"eeafdc5181ed85548bc2b61da795e86a2d118dc9807b52b56227e15b84abdfb2")
+		GARAGE_ENDPOINT_URL = getenv(
+			"GARAGE_ENDPOINT_URL",
+			"http://garage-store:3900/")
+		GARAGE_REGION = getenv(
+			"GARAGE_REGION",
+			"garage")
+		GARAGE_BUCKET_NAME = getenv(
+			"GARAGE_BUCKET_NAME",
+			"capstone-storage")
 
 	case "PRODUCTION":
 		MODE = Production
@@ -87,6 +107,11 @@ func init() {
 		DATABASE_USER = mustGetenv("POSTGRES_USER")
 		DATABASE_PASSWORD = mustGetenv("POSTGRES_PASSWORD")
 		DATABASE_NAME = mustGetenv("POSTGRES_DB")
+		GARAGE_ACCESS_KEY_ID = mustGetenv("GARAGE_ACCESS_KEY_ID")
+		GARAGE_SECRET_ACCESS_KEY = mustGetenv("GARAGE_SECRET_ACCESS_KEY")
+		GARAGE_ENDPOINT_URL = mustGetenv("GARAGE_ENDPOINT_URL")
+		GARAGE_REGION = mustGetenv("GARAGE_REGION")
+		GARAGE_BUCKET_NAME = mustGetenv("GARAGE_BUCKET_NAME")
 	}
 
 }
