@@ -17,4 +17,4 @@ Then, cd into this directory and run the following command to generate the Go co
 sqlc generate
 ```
 
-You can read more about how to use sqlc [here](https://docs.sqlc.dev/en/latest/tutorials/getting-started-postgresql.html). 
+You don't need to pass any additional command-line arguments; the configuration is strictly handled by the detected configuration file. You can read more about how to use sqlc [here](https://docs.sqlc.dev/en/latest/tutorials/getting-started-postgresql.html). 
