@@ -6,13 +6,16 @@ package fs
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
+	"io"
 	"os"
 	"path/filepath"
 )
 
 type localStore struct {
+	// The root directory of the storage.
 	root string
 }
 
@@ -21,6 +24,11 @@ func NewLocalStore(root string) Store {
 	return &localStore{
 		root: root,
 	}
+}
+
+func (s *localStore) ImgExists(key string) bool {
+	_, err := os.Stat(filepath.Join(s.root, key))
+	return err == nil
 }
 
 func (s *localStore) GetImg(key string) (image.Image, error) {
@@ -39,13 +47,11 @@ func (s *localStore) GetImg(key string) (image.Image, error) {
 }
 
 func (s *localStore) PutImg(key string, img image.Image) error {
-	fullPath := filepath.Join(s.root, key)
-
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+	if err := os.MkdirAll(s.root, 0755); err != nil {
 		return err
 	}
 
-	w, err := os.Create(fullPath)
+	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
 		return err
 	}
@@ -55,11 +61,15 @@ func (s *localStore) PutImg(key string, img image.Image) error {
 	return err
 }
 
-func (s *localStore) GetImgSnippet(
-	path string,
+func (s *localStore) DeleteImg(key string) error {
+	return os.Remove(filepath.Join(s.root, key))
+}
+
+func (s *localStore) ImgSnippet(
+	key string,
 	x, y, width, height int,
 ) (image.Image, error) {
-	img, err := s.GetImg(path)
+	img, err := s.GetImg(key)
 	if err != nil {
 		return nil, err
 	}
@@ -86,4 +96,33 @@ func (s *localStore) GetImgSnippet(
 	)
 
 	return cropped, nil
+}
+
+func (s *localStore) ImgReader(key string) (io.ReadCloser, error) {
+	f, err := os.Open(filepath.Join(s.root, key))
+	if err != nil {
+		return nil, err
+	}
+
+	return f, nil
+}
+
+func (s *localStore) ImgWriter(key string) (io.WriteCloser, error) {
+	if s.ImgExists(key) {
+		return nil, fmt.Errorf(
+			"cannot open writer for an existing image %s",
+			key,
+		)
+	}
+
+	if err := os.MkdirAll(s.root, 0755); err != nil {
+		return nil, err
+	}
+
+	w, err := os.Open(filepath.Join(s.root, key))
+	if err != nil {
+		return nil, err
+	}
+
+	return w, nil
 }

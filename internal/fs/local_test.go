@@ -55,9 +55,17 @@ func TestLocalStore(t *testing.T) {
 
 	name := "sample.tiff"
 
+	if store.ImgExists(name) {
+		t.Error("image already exists in store")
+	}
+
 	err = store.PutImg(name, srcImg)
 	if err != nil {
 		t.Error("error putting image: " + err.Error())
+	}
+
+	if !store.ImgExists(name) {
+		t.Error("image does not exist in store after being put")
 	}
 
 	img, err := store.GetImg(name)
@@ -69,12 +77,31 @@ func TestLocalStore(t *testing.T) {
 		t.Error("expected put image to equal source image")
 	}
 
-	snippet, err := store.GetImgSnippet(name, 20, 20, 100, 100)
-	bounds := snippet.Bounds()
-	if bounds.Dx() != 100 {
-		t.Errorf("expected snippet width of %d, got %d", 100, bounds.Dx())
+	snippetSize := 400
+	snippet, err := store.ImgSnippet(name, 20, 20, snippetSize, snippetSize)
+	if err != nil {
+		t.Error("error creating snippet: " + err.Error())
 	}
-	if bounds.Dy() != 100 {
-		t.Errorf("expected snippet height of %d, got %d", 100, bounds.Dy())
+
+	bounds := snippet.Bounds()
+	if bounds.Dx() != snippetSize {
+		t.Errorf("expected snippet width of %d, got %d", snippetSize, bounds.Dx())
+	}
+	if bounds.Dy() != snippetSize {
+		t.Errorf("expected snippet height of %d, got %d", snippetSize, bounds.Dy())
+	}
+
+	err = store.PutImg("snippet.tiff", snippet)
+	if err != nil {
+		t.Error("error putting snippet: " + err.Error())
+	}
+
+	err = store.DeleteImg(name)
+	if err != nil {
+		t.Error("error deleting image: " + err.Error())
+	}
+
+	if store.ImgExists(name) {
+		t.Error("image exists after deletion")
 	}
 }
