@@ -26,14 +26,19 @@ func binarize(src gocv.Mat, dst *gocv.Mat) error {
 	kernel := gocv.GetStructuringElement(gocv.MorphRect, image.Pt(3, 3))
 	defer kernel.Close()
 
+	closing := gocv.NewMat()
+	defer closing.Close()
+
 	gocv.CvtColor(src, &gray, gocv.ColorBGRToGray)
 	gocv.GaussianBlur(gray, &blur, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
 
-	// Adaptive threshold block size of 11 (pixel neighborhood) and constant C of 2
-	// (subtracted from the mean) effectively isolates bubble/text contrast
-	// against varying paper brightness levels or lighting inconsistencies.
-	gocv.AdaptiveThreshold(blur, &thresh, 255, gocv.AdaptiveThresholdMean, gocv.ThresholdBinaryInv, 11, 2)
-	gocv.MorphologyEx(thresh, dst, gocv.MorphClose, kernel)
+	// Replaces adaptive thresholding because binary threshold better preserves
+	// pencil marks within bubbles
+	gocv.Threshold(blur, &thresh, 0, 255, gocv.ThresholdBinaryInv|gocv.ThresholdOtsu)
+	gocv.MorphologyEx(thresh, &closing, gocv.MorphClose, kernel)
+
+	// Added edge detection which improves line detection during deskewing
+	gocv.Canny(closing, dst, 50, 150)
 
 	return nil
 }

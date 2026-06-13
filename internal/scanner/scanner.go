@@ -49,7 +49,7 @@ func Scan(path string) (gocv.Mat, error) {
 	ctx := &context{}
 	ctx.exec(func() error { return binarize(img, &bin) })
 	ctx.exec(func() error { return deskew(img, bin, &deskewedCol, &deskewedBin) })
-	ctx.exec(func() error { return crop(deskewedCol, deskewedBin, &cropped) })
+	ctx.exec(func() error { return crop(deskewedBin, deskewedBin, &cropped) })
 	ctx.exec(func() error { return normalize(cropped, &normalized) })
 
 	if ctx.err != nil {

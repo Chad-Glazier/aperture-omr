@@ -16,49 +16,56 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) error {
 	lines := gocv.NewMat()
 	defer lines.Close()
 
-	// Parameters: rho=1, theta=1 degree (in radians), threshold=100, minLineLength=100, maxLineGap=10
-	gocv.HoughLinesPWithParams(bin, &lines, 1, math.Pi/180, 100, 100.0, 10.0)
+	// Parameters:
+	// 		rho=1,
+	// 		theta=1 (in radians),
+	// 		threshold=150,
+	// 		minLineLength=150,
+	// 		maxLineGap=10
+	gocv.HoughLinesPWithParams(bin, &lines, 1, math.Pi/180, 150, 150.0, 10.0)
 
 	if lines.Rows() == 0 {
 		return fmt.Errorf("could not detect skew lines")
 	}
 
-	var totalAngle float64
-	var count int
+	var totalWeight float64
+	var weightedSum float64
 
 	for i := 0; i < lines.Rows(); i++ {
 		line := lines.GetVeciAt(i, 0)
-		x1, y1, x2, y2 := float64(line[0]), float64(line[1]), float64(line[2]), float64(line[3])
+		dx := float64(line[2] - line[0])
+		dy := float64(line[3] - line[1])
 
-		angle := math.Atan2(y2-y1, x2-x1) * 180.0 / math.Pi
+		angle := math.Atan2(dy, dx) * 180.0 / math.Pi
+		length := math.Sqrt(dx*dx + dy*dy)
 
-		// Filter for lines that are roughly horizontal.
-		// Printer feed errors rarely exceed +/- 5 degrees.
-		// Anything steeper than this is likely a vertical edge.
-		if angle > -10 && angle < 10 {
-			totalAngle += angle
-			count++
+		abs := math.Abs(angle)
+		if abs < 0.5 || abs > 10.0 {
+			continue
 		}
+
+		weightedSum += (angle * length)
+		totalWeight += length
 	}
 
-	if count == 0 {
-		src.CopyTo(dstCol)
-		src.CopyTo(dstBin)
-		return nil
-	}
-
-	avgAngle := totalAngle / float64(count)
-
-	if math.Abs(avgAngle) < 0.2 {
+	if totalWeight == 0 {
 		src.CopyTo(dstCol)
 		bin.CopyTo(dstBin)
 		return nil
 	}
 
-	fmt.Printf("Detected angle: %.2f degrees\n", avgAngle)
+	angle := weightedSum / totalWeight
+
+	if math.Abs(angle) == 0.0 {
+		src.CopyTo(dstCol)
+		bin.CopyTo(dstBin)
+		return nil
+	}
+
+	fmt.Printf("Detected angle: %.4f degrees\n", angle)
 
 	center := image.Pt(src.Cols()/2, src.Rows()/2)
-	mat := gocv.GetRotationMatrix2D(center, avgAngle, 1.0)
+	mat := gocv.GetRotationMatrix2D(center, angle, 1.0)
 	defer mat.Close()
 
 	size := image.Pt(src.Cols(), src.Rows())
