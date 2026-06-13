@@ -28,7 +28,7 @@ func imageEqual(a, b image.Image) bool {
 
 func TestLocalStore(t *testing.T) {
 
-	// 
+	//
 	// Setup
 	//
 

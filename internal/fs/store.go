@@ -26,7 +26,7 @@ type Store interface {
 	// Opens an image as a byte stream. The encoding matches the type specified
 	// by ImgContentType and can be decoded with Decode.
 	ImgReader(key string) (io.ReadCloser, error)
-	// Opens a writer to create a new image associated with the key. If the key 
+	// Opens a writer to create a new image associated with the key. If the key
 	// is already associated with an image, then an error will be returned.
 	ImgWriter(key string) (io.WriteCloser, error)
 }
