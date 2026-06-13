@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"ubco-team15/omr/internal/scanner"
+	"ubco-team15/omr/internal/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,7 @@ var scanCmd = &cobra.Command{
 		defer img.Close()
 
 		if display {
-			scanner.Display(img, "Scanned Image")
+			utils.Display(img, "Scanned Image")
 		}
 
 		return nil

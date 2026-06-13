@@ -3,6 +3,7 @@ package scanner
 import (
 	"image"
 	"image/color"
+	"strings"
 	"testing"
 
 	"gocv.io/x/gocv"
@@ -10,6 +11,24 @@ import (
 
 var black = gocv.NewScalar(0, 0, 0, 255)
 var white = gocv.NewScalar(255, 255, 255, 255)
+
+func assertError(t *testing.T, err error, expectError bool, errContains string) {
+	t.Helper() // Tells Go test runner to report failures at the caller's line number
+
+	if expectError {
+		if err == nil {
+			t.Fatalf("expected an error containing %q, but got nil", errContains)
+		}
+		if !strings.Contains(err.Error(), errContains) {
+			t.Errorf("expected error to contain %q, but got %q", errContains, err.Error())
+		}
+		return
+	}
+
+	if err != nil {
+		t.Fatalf("did not expect an error, but got: %v", err)
+	}
+}
 
 func TestBinarize(t *testing.T) {
 	empty := gocv.NewMat()
@@ -152,8 +171,8 @@ func TestNormalize(t *testing.T) {
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError {
-				if dst.Cols() != Width || dst.Rows() != Height {
-					t.Errorf("expected dimensions %dx%d, but got %dx%d", Width, Height, dst.Cols(), dst.Rows())
+				if dst.Cols() != TargetWidth || dst.Rows() != TargetHeight {
+					t.Errorf("expected dimensions %dx%d, but got %dx%d", TargetWidth, TargetHeight, dst.Cols(), dst.Rows())
 				}
 			}
 		})
