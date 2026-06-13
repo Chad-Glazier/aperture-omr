@@ -4,8 +4,6 @@ import (
 	"image"
 	"os"
 	"testing"
-
-	"golang.org/x/image/tiff"
 )
 
 func imageEqual(a, b image.Image) bool {
@@ -44,7 +42,7 @@ func TestLocalStore(t *testing.T) {
 	if err != nil {
 		t.Error("error reading test image: " + err.Error())
 	}
-	srcImg, err := tiff.Decode(r)
+	srcImg, err := DecodeImg(r)
 	if err != nil {
 		t.Error("error decoding test image: " + err.Error())
 	}
