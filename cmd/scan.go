@@ -16,15 +16,15 @@ var scanCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		display, _ := cmd.Flags().GetBool("display")
-		img, err := scanner.Scan(args[0])
+		data, err := scanner.Scan(args[0])
 		if err != nil {
 			return err
 		}
 
-		defer img.Close()
+		defer data.Close()
 
 		if display {
-			utils.Display(img, "Scanned Image")
+			utils.Display(data.Color, "Scanned Image")
 		}
 
 		return nil

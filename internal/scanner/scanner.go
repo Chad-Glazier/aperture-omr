@@ -12,6 +12,20 @@ import (
 const TargetWidth = 1200
 const TargetHeight = 1700
 
+type ScanData struct {
+	Color  gocv.Mat
+	Binary gocv.Mat
+}
+
+func (d ScanData) Close() {
+	d.Color.Close()
+	d.Binary.Close()
+}
+
+func (d ScanData) Empty() bool {
+	return d.Color.Empty() || d.Binary.Empty()
+}
+
 type context struct {
 	err error
 }
@@ -23,46 +37,39 @@ func (ctx *context) exec(op func() error) {
 	ctx.err = op()
 }
 
-// Reads an image from the provided file path, runs it through the OMR preprocessing pipeline, and returns the prepared image.
-func Scan(path string) (gocv.Mat, error) {
+// Reads an image from the provided file path, runs it through the
+// OMR preprocessing pipeline, and returns the prepared image.
+func Scan(path string) (ScanData, error) {
 	p, err := utils.Resolve(path)
 	if err != nil {
-		return gocv.NewMat(), fmt.Errorf("resolve path: %w", err)
+		return ScanData{}, fmt.Errorf("resolve path: %w", err)
 	}
 
-	img := gocv.IMRead(p, gocv.IMReadColor)
-	if img.Empty() {
-		img.Close()
-		return gocv.NewMat(), fmt.Errorf("failed to read image from %q", p)
+	data := ScanData{
+		Color:  gocv.NewMat(),
+		Binary: gocv.NewMat(),
 	}
-	defer img.Close()
+	defer data.Close()
 
-	bin := gocv.NewMat()
-	defer bin.Close()
+	data.Color = gocv.IMRead(p, gocv.IMReadColor)
+	if data.Color.Empty() {
+		data.Close()
+		return ScanData{}, fmt.Errorf("failed to read image from %q", p)
+	}
 
-	deskewedCol := gocv.NewMat()
-	defer deskewedCol.Close()
-
-	deskewedBin := gocv.NewMat()
-	defer deskewedBin.Close()
-
-	cropped := gocv.NewMat()
-	defer cropped.Close()
-
-	normalized := gocv.NewMat()
-
-	// The context captures any errors that occur during the pipeline and exits early, instead of propagating down the pipeline further.
+	// The context captures any errors that occur during the pipeline
+	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
-	ctx.exec(func() error { return binarize(img, &bin) })
-	ctx.exec(func() error { return deskew(img, bin, &deskewedCol, &deskewedBin) })
-	ctx.exec(func() error { return crop(deskewedBin, deskewedBin, &cropped) })
-	ctx.exec(func() error { return normalize(cropped, &normalized) })
+	ctx.exec(func() error { return binarize(data.Color, &data.Binary) })
+	ctx.exec(func() error { return deskew(data, &data) })
+	ctx.exec(func() error { return crop(data, &data) })
+	ctx.exec(func() error { return normalize(data, &data) })
 
 	if ctx.err != nil {
-		return gocv.NewMat(), fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
+		return ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
 	}
 
-	return normalized, nil
+	return data, nil
 }
 
 func binarize(src gocv.Mat, dst *gocv.Mat) error {
@@ -101,7 +108,7 @@ func binarize(src gocv.Mat, dst *gocv.Mat) error {
 	return nil
 }
 
-func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) error {
+func deskew(src ScanData, dst *ScanData) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot deskew an empty image")
 	}
@@ -115,7 +122,7 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) error {
 	// 		threshold=150,
 	// 		minLineLength=150,
 	// 		maxLineGap=10
-	gocv.HoughLinesPWithParams(bin, &lines, 1, math.Pi/180, 150, 150.0, 10.0)
+	gocv.HoughLinesPWithParams(src.Binary, &lines, 1, math.Pi/180, 150, 150.0, 10.0)
 
 	if lines.Rows() == 0 {
 		return fmt.Errorf("could not detect skew lines")
@@ -142,45 +149,45 @@ func deskew(src, bin gocv.Mat, dstCol, dstBin *gocv.Mat) error {
 	}
 
 	if totalWeight == 0 {
-		src.CopyTo(dstCol)
-		bin.CopyTo(dstBin)
+		src.Color.CopyTo(&dst.Color)
+		src.Binary.CopyTo(&dst.Binary)
 		return nil
 	}
 
 	angle := weightedSum / totalWeight
 
 	if math.Abs(angle) == 0.0 {
-		src.CopyTo(dstCol)
-		bin.CopyTo(dstBin)
+		src.Color.CopyTo(&dst.Color)
+		src.Binary.CopyTo(&dst.Binary)
 		return nil
 	}
 
 	fmt.Printf("Detected angle: %.4f degrees\n", angle)
 
-	center := image.Pt(src.Cols()/2, src.Rows()/2)
+	center := image.Pt(src.Color.Cols()/2, src.Color.Rows()/2)
 	mat := gocv.GetRotationMatrix2D(center, angle, 1.0)
 	defer mat.Close()
 
-	size := image.Pt(src.Cols(), src.Rows())
-	gocv.WarpAffine(src, dstCol, mat, size)
-	gocv.WarpAffine(bin, dstBin, mat, size)
+	size := image.Pt(src.Color.Cols(), src.Color.Rows())
+	gocv.WarpAffine(src.Color, &dst.Color, mat, size)
+	gocv.WarpAffine(src.Binary, &dst.Binary, mat, size)
 
 	return nil
 }
 
-func crop(src, bin gocv.Mat, dst *gocv.Mat) error {
-	if src.Empty() || bin.Empty() {
+func crop(src ScanData, dst *ScanData) error {
+	if src.Empty() {
 		return fmt.Errorf("cannot crop an empty image")
 	}
 
-	contours := gocv.FindContours(bin, gocv.RetrievalExternal, gocv.ChainApproxSimple)
+	contours := gocv.FindContours(src.Binary, gocv.RetrievalExternal, gocv.ChainApproxSimple)
 	defer contours.Close()
 
 	if contours.Size() == 0 {
 		return fmt.Errorf("could not detect any contours")
 	}
 
-	x, y := src.Cols(), src.Rows()
+	x, y := src.Color.Cols(), src.Color.Rows()
 	minX, minY := x, y
 	maxX, maxY := 0, 0
 
@@ -218,16 +225,18 @@ func crop(src, bin gocv.Mat, dst *gocv.Mat) error {
 	maxY = min(y, maxY+padding)
 
 	rect := image.Rect(minX, minY, maxX, maxY)
-	*dst = src.Region(rect)
+	dst.Color = src.Color.Region(rect)
+	dst.Binary = src.Binary.Region(rect)
 
 	return nil
 }
 
-func normalize(src gocv.Mat, dst *gocv.Mat) error {
+func normalize(src ScanData, dst *ScanData) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot normalize an empty image")
 	}
-	gocv.Resize(src, dst, image.Pt(TargetWidth, TargetHeight), 0, 0, gocv.InterpolationArea)
+	gocv.Resize(src.Color, &dst.Color, image.Pt(TargetWidth, TargetHeight), 0, 0, gocv.InterpolationArea)
+	gocv.Resize(src.Binary, &dst.Binary, image.Pt(TargetWidth, TargetHeight), 0, 0, gocv.InterpolationArea)
 
 	return nil
 }
