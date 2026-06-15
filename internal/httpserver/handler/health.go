@@ -13,6 +13,7 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("error connecting to database", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
