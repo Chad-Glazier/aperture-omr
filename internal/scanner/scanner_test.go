@@ -69,7 +69,7 @@ func TestBinarize(t *testing.T) {
 			dst := gocv.NewMat()
 			defer dst.Close()
 
-			err := binarize(tc.src, &dst)
+			err := binarize(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError && dst.Channels() != 1 {
@@ -136,7 +136,7 @@ func TestDeskew(t *testing.T) {
 				Binary: gocv.NewMat(),
 			}
 
-			err := deskew(tc.src, &dst)
+			err := deskew(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 		})
 	}
@@ -185,7 +185,7 @@ func TestNormalize(t *testing.T) {
 				Binary: gocv.NewMat(),
 			}
 
-			err := normalize(tc.src, &dst)
+			err := normalize(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError {
@@ -262,7 +262,7 @@ func TestCrop(t *testing.T) {
 			}
 			defer dst.Close()
 
-			err := crop(tc.src, &dst)
+			err := crop(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			// Asserting our output for successful case

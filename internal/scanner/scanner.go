@@ -59,10 +59,10 @@ func Scan(path string) (*ScanData, error) {
 	// The context captures any errors that occur during the pipeline
 	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
-	ctx.exec(func() error { return binarize(data.Color, &data.Binary) })
-	ctx.exec(func() error { return deskew(*data, data) })
-	ctx.exec(func() error { return crop(*data, data) })
-	ctx.exec(func() error { return normalize(*data, data) })
+	ctx.exec(func() error { return binarize(&data.Color, &data.Binary) })
+	ctx.exec(func() error { return deskew(data, data) })
+	ctx.exec(func() error { return crop(data, data) })
+	ctx.exec(func() error { return normalize(data, data) })
 
 	if ctx.err != nil {
 		return &ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
@@ -71,7 +71,7 @@ func Scan(path string) (*ScanData, error) {
 	return data, nil
 }
 
-func binarize(src gocv.Mat, dst *gocv.Mat) error {
+func binarize(src *gocv.Mat, dst *gocv.Mat) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot binarize an empty image")
 	} else if src.Cols() <= 100 || src.Rows() <= 100 {
@@ -90,7 +90,7 @@ func binarize(src gocv.Mat, dst *gocv.Mat) error {
 	kernel := gocv.GetStructuringElement(gocv.MorphRect, image.Pt(3, 3))
 	defer kernel.Close()
 
-	gocv.CvtColor(src, &gray, gocv.ColorBGRToGray)
+	gocv.CvtColor(*src, &gray, gocv.ColorBGRToGray)
 	gocv.GaussianBlur(gray, &blur, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
 
 	// Replaces adaptive thresholding because binary threshold better preserves
@@ -101,7 +101,7 @@ func binarize(src gocv.Mat, dst *gocv.Mat) error {
 	return nil
 }
 
-func deskew(src ScanData, dst *ScanData) error {
+func deskew(src *ScanData, dst *ScanData) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot deskew an empty image")
 	}
@@ -168,7 +168,7 @@ func deskew(src ScanData, dst *ScanData) error {
 	return nil
 }
 
-func crop(src ScanData, dst *ScanData) error {
+func crop(src *ScanData, dst *ScanData) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot crop an empty image")
 	}
@@ -224,7 +224,7 @@ func crop(src ScanData, dst *ScanData) error {
 	return nil
 }
 
-func normalize(src ScanData, dst *ScanData) error {
+func normalize(src *ScanData, dst *ScanData) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot normalize an empty image")
 	}
