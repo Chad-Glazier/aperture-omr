@@ -17,12 +17,12 @@ type ScanData struct {
 	Binary gocv.Mat
 }
 
-func (d ScanData) Close() {
+func (d *ScanData) Close() {
 	d.Color.Close()
 	d.Binary.Close()
 }
 
-func (d ScanData) Empty() bool {
+func (d *ScanData) Empty() bool {
 	return d.Color.Empty() || d.Binary.Empty()
 }
 
@@ -39,34 +39,33 @@ func (ctx *context) exec(op func() error) {
 
 // Reads an image from the provided file path, runs it through the
 // OMR preprocessing pipeline, and returns the prepared image.
-func Scan(path string) (ScanData, error) {
+func Scan(path string) (*ScanData, error) {
 	p, err := utils.Resolve(path)
 	if err != nil {
-		return ScanData{}, fmt.Errorf("resolve path: %w", err)
+		return &ScanData{}, fmt.Errorf("resolve path: %w", err)
 	}
 
-	data := ScanData{
+	data := &ScanData{
 		Color:  gocv.NewMat(),
 		Binary: gocv.NewMat(),
 	}
-	defer data.Close()
 
 	data.Color = gocv.IMRead(p, gocv.IMReadColor)
 	if data.Color.Empty() {
 		data.Close()
-		return ScanData{}, fmt.Errorf("failed to read image from %q", p)
+		return &ScanData{}, fmt.Errorf("failed to read image from %q", p)
 	}
 
 	// The context captures any errors that occur during the pipeline
 	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
 	ctx.exec(func() error { return binarize(data.Color, &data.Binary) })
-	ctx.exec(func() error { return deskew(data, &data) })
-	ctx.exec(func() error { return crop(data, &data) })
-	ctx.exec(func() error { return normalize(data, &data) })
+	ctx.exec(func() error { return deskew(*data, data) })
+	ctx.exec(func() error { return crop(*data, data) })
+	ctx.exec(func() error { return normalize(*data, data) })
 
 	if ctx.err != nil {
-		return ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
+		return &ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
 	}
 
 	return data, nil
