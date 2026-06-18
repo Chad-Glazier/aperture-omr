@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"ubco-team15/omr/internal/utils"
 
 	"gocv.io/x/gocv"
 )
@@ -40,20 +39,15 @@ func (ctx *context) exec(op func() error) {
 // Reads an image from the provided file path, runs it through the
 // OMR preprocessing pipeline, and returns the prepared image.
 func Scan(path string) (*ScanData, error) {
-	p, err := utils.Resolve(path)
-	if err != nil {
-		return &ScanData{}, fmt.Errorf("resolve path: %w", err)
-	}
-
 	data := &ScanData{
 		Color:  gocv.NewMat(),
 		Binary: gocv.NewMat(),
 	}
 
-	data.Color = gocv.IMRead(p, gocv.IMReadColor)
+	data.Color = gocv.IMRead(path, gocv.IMReadColor)
 	if data.Color.Empty() {
 		data.Close()
-		return &ScanData{}, fmt.Errorf("failed to read image from %q", p)
+		return nil, fmt.Errorf("failed to read image from %q", p)
 	}
 
 	// The context captures any errors that occur during the pipeline
@@ -65,7 +59,7 @@ func Scan(path string) (*ScanData, error) {
 	ctx.exec(func() error { return normalize(data, data) })
 
 	if ctx.err != nil {
-		return &ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
 	}
 
 	return data, nil
