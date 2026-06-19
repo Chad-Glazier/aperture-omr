@@ -78,8 +78,8 @@ func init() {
 		DatabaseHost = getenv("POSTGRES_HOST", "localhost")
 		DatabasePort = getenv("POSTGRES_PORT", "5432")
 		DatabaseUser = getenv("POSTGRES_USER", "test_user")
-		DatabasePassword = getenv("POSTGRES_PASSWORD", "pass")
-		DatabaseName = getenv("POSTGRES_DB", "test_database")
+		DatabasePassword = getenv("POSTGRES_PASSWORD", "test_password")
+		DatabaseName = getenv("POSTGRES_DB", "test_db")
 		GarageAccessKeyId = getenv(
 			"GARAGE_ACCESS_KEY_ID",
 			"GK226e804ce6278cc5d0ebc0a6")
@@ -94,7 +94,7 @@ func init() {
 			"garage")
 		GarageBucketName = getenv(
 			"GARAGE_BUCKET_NAME",
-			"capstone-storage")
+			"test_bucket")
 
 	case "PRODUCTION":
 		Mode = Production

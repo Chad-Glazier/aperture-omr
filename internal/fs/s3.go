@@ -20,11 +20,6 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-
-	// The "transport" aliasing of this package is redundant; it's already
-	// named "transport." I just wanted to make it explicit because a 2
-	// trillion dollar company can't follow basic naming practices for some
-	// reason.
 	transport "github.com/aws/smithy-go/endpoints"
 )
 
