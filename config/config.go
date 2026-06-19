@@ -51,14 +51,14 @@ func init() {
 			case "--test":
 				runtimeEnv = "TEST"
 			default:
-				// If the mode is not specified by the environment or the 
-				// command-line flags, then we default to test mode and log a 
+				// If the mode is not specified by the environment or the
+				// command-line flags, then we default to test mode and log a
 				// warning.
 				slog.Warn(
 					"environment variable OMR_MODE not found; " +
 						"defaulting to test mode",
 				)
-				runtimeEnv = "TEST"				
+				runtimeEnv = "TEST"
 			}
 		}
 	}

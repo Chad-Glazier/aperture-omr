@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"os"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"ubco-team15/omr/config"
 
@@ -11,8 +11,8 @@ import (
 )
 
 var healthcheckCmd = &cobra.Command{
-	Use:    "health",
-	Short:  "Checks whether the OMR HTTP service is healthy",
+	Use:   "health",
+	Short: "Checks whether the OMR HTTP service is healthy",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		resp, err := http.Get("http://localhost:" + config.Port + "/health")

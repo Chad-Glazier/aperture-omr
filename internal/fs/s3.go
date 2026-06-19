@@ -10,10 +10,10 @@ package fs
 // However, Garage uses the old style of bucket-naming where buckets are
 // specified as a path parameter (i.e., ".../bucket-name/item-key") instead of
 // the more recent convention of specifying buckets as a subdomain. AWS's S3
-// client does have an option to use this older convention, but it isn't 
-// actually supported; setting the option does not do anything. This leads to 
-// the odd pattern you'll see in the code below where we specify a bucket name 
-// in the input to an S3 call, but then *also* include the bucket in the item 
+// client does have an option to use this older convention, but it isn't
+// actually supported; setting the option does not do anything. This leads to
+// the odd pattern you'll see in the code below where we specify a bucket name
+// in the input to an S3 call, but then *also* include the bucket in the item
 // key so that Garage actually understands which bucket we're talking about.
 // I really don't understand why Garage doesn't have it's own SDK and why AWS
 // has an incomplete one, but such is life.

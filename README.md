@@ -49,6 +49,26 @@ This should print a help message that describes the subcommands for the program.
 
 If you get an error that mentions missing C/C++ objects, it's likely that GoCV isn't seeing your OpenCV installation. Refer to [their documentation](https://gocv.io/getting-started/) to correct this.
 
+### Service Dependencies for Development Mode
+
+In testing mode, the OMR service mocks all external dependencies--namely, the database and file storage services. In development mode, we want to run actual containers for these services so that we can test the app end-to-end. At the time of writing, we have set up a small docker compose file to start a development Garage container for this purpose:
+
+```sh
+docker compose -f ./scripts/docker-compose.dev.yml up
+```
+
+The configuration for this container can be found in `./scripts/config`. You'll notice that the keys in the container configuration are identical to the default keys used when the OMR service is run in development mode (specified [here](./config/config.go)). So, you should be able to set the `OMR_MODE` to `DEVELOPMENT` and then run the development tests without any additional setup.
+
+```sh
+export OMR_MODE="DEVELOPMENT" # Bash
+$env:OMR_MODE="DEVELOPMENT"   # Powershell (Windows)
+
+# Then, to run the tests,
+go test .\...
+```
+
+In the future, we will also make a similar `docker-compose` file to start up a development database that works in a similar way.
+
 ## File Structure
 
 In keeping with Go conventions, the top-level directories are as follows:
