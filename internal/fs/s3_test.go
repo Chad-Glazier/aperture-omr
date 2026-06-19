@@ -18,7 +18,6 @@ func TestS3Store(t *testing.T) {
 	// Setup
 	//
 
-
 	store, err := NewS3Store(config.GarageBucketName)
 	if err != nil {
 		t.Error("error creating store: " + err.Error())
@@ -86,6 +85,15 @@ func TestS3Store(t *testing.T) {
 	}
 
 	if store.ImgExists(name) {
+		t.Error("image exists after deletion")
+	}
+
+	err = store.DeleteImg("snippet.tiff")
+	if err != nil {
+		t.Error("error deleting image: " + err.Error())
+	}
+
+	if store.ImgExists("snippet.tiff") {
 		t.Error("image exists after deletion")
 	}
 }

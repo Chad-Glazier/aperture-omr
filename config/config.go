@@ -82,19 +82,19 @@ func init() {
 		DatabaseName = getenv("POSTGRES_DB", "test_db")
 		GarageAccessKeyId = getenv(
 			"GARAGE_ACCESS_KEY_ID",
-			"GK226e804ce6278cc5d0ebc0a6")
+			"GK22c374ae806981ff22c374ae806981ff")
 		GarageSecretAccessKey = getenv(
 			"GARAGE_SECRET_ACCESS_KEY",
-			"eeafdc5181ed85548bc2b61da795e86a2d118dc9807b52b56227e15b84abdfb2")
+			"0b71da53f3e7041b12bdab08130264790b71da53f3e7041b12bdab0813026479")
 		GarageEndpointUrl = getenv(
 			"GARAGE_ENDPOINT_URL",
-			"http://garage-store:3900/")
+			"http://127.0.0.1:3900")
 		GarageRegion = getenv(
 			"GARAGE_REGION",
 			"garage")
 		GarageBucketName = getenv(
 			"GARAGE_BUCKET_NAME",
-			"test_bucket")
+			"test-bucket")
 
 	case "PRODUCTION":
 		Mode = Production

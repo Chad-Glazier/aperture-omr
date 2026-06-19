@@ -12,7 +12,7 @@ import (
 )
 
 // Starts the HTTP server and shuts it down cleanly on SIGINT or SIGTERM.
-func Start() {
+func Start() error {
 	if err := database.CheckConnection(); err != nil {
 		slog.Error("error connecting to database", "error", err)
 		os.Exit(1)
@@ -32,5 +32,5 @@ func Start() {
 	}
 
 	slog.Info("starting server at http://" + config.Host + ":" + config.Port)
-	server.ListenAndServe()
+	return server.ListenAndServe()
 }
