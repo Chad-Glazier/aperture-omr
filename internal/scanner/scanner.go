@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 	"image"
+	"ubco-team15/omr/internal/utils"
 
 	"gocv.io/x/gocv"
 )
@@ -45,6 +46,13 @@ func (a *Anchor) Close() {
 	a.Template.Close()
 }
 
+// Placeholder for the time being
+var anchors = []Anchor{
+	{},
+	{},
+	{},
+}
+
 // Reads an image from the provided file path, runs it through the
 // OMR preprocessing pipeline, and returns the prepared image.
 func Scan(path string) (*ScanData, error) {
@@ -58,11 +66,16 @@ func Scan(path string) (*ScanData, error) {
 		data.Close()
 		return nil, fmt.Errorf("failed to read image from %q", path)
 	}
+	if data.Color.Cols() <= 100 || data.Color.Rows() <= 100 {
+		data.Close()
+		return nil, fmt.Errorf("image dimensions too small: %dx%d", data.Color.Cols(), data.Color.Rows())
+	}
 
 	// The context captures any errors that occur during the pipeline
 	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
 	ctx.exec(func() error { return binarize(&data.Color, &data.Binary) })
+	ctx.exec(func() error { return warpToReference(data, data, anchors) })
 
 	if ctx.err != nil {
 		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
@@ -71,11 +84,9 @@ func Scan(path string) (*ScanData, error) {
 	return data, nil
 }
 
-func binarize(src *gocv.Mat, dst *gocv.Mat) error {
+func binarize(src, dst *gocv.Mat) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot binarize an empty image")
-	} else if src.Cols() <= 100 || src.Rows() <= 100 {
-		return fmt.Errorf("image dimensions too small")
 	}
 
 	gray := gocv.NewMat()
@@ -99,4 +110,24 @@ func binarize(src *gocv.Mat, dst *gocv.Mat) error {
 	gocv.MorphologyEx(thresh, dst, gocv.MorphClose, kernel)
 
 	return nil
+}
+
+func warpToReference(src, dst *ScanData, anchors []Anchor) error {
+	if src.Empty() {
+		return fmt.Errorf("cannot warp an empty image")
+	}
+	if len(anchors) != 3 {
+		return fmt.Errorf("warping requires exactly 3 anchors, provided %d", len(anchors))
+	}
+
+	// todo
+
+	return nil
+}
+
+func newTemplate(path string) gocv.Mat {
+	path, _ = utils.Resolve(path)
+	template := gocv.IMRead(path, gocv.IMReadColor)
+	binarize(&template, &template)
+	return template
 }
