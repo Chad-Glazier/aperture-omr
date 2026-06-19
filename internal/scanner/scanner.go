@@ -50,9 +50,21 @@ const MinAnchorConfidence = 0.5
 
 // Placeholder for the time being
 var anchors = []Anchor{
-	{},
-	{},
-	{},
+	{
+		Template: newTemplate("~/Downloads/new_template_footer.jpg"),
+		Center:   image.Pt(596, 1592),
+		ROI:      image.Rect(76, 1453, 1124, 1700),
+	},
+	{
+		Template: newTemplate("~/Downloads/new_template_logo.jpg"),
+		Center:   image.Pt(938, 161),
+		ROI:      image.Rect(759, 0, 1200, 415),
+	},
+	{
+		Template: newTemplate("~/Downloads/new_template_info.jpg"),
+		Center:   image.Pt(161, 214),
+		ROI:      image.Rect(0, 125, 341, 374),
+	},
 }
 
 // Reads an image from the provided file path, runs it through the
@@ -122,7 +134,36 @@ func warp(src, dst *ScanData, anchors []Anchor) error {
 		return fmt.Errorf("warping requires exactly 3 anchors, provided %d", len(anchors))
 	}
 
-	// todo
+	srcPts := make([]image.Point, 3)
+	dstPts := make([]image.Point, 3)
+
+	srcSize := image.Pt(src.Binary.Cols(), src.Binary.Rows())
+	targetSize := image.Pt(TargetWidth, TargetHeight)
+
+	for i := range 3 {
+		anchor := anchors[i]
+		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
+
+		pt, err := findAnchorCenter(src.Binary, anchor)
+		if err != nil {
+			return fmt.Errorf("anchor %d: %w", i, err)
+		}
+
+		srcPts[i] = pt
+		dstPts[i] = anchors[i].Center
+	}
+
+	srcVec := gocv.NewPointVectorFromPoints(srcPts)
+	defer srcVec.Close()
+	dstVec := gocv.NewPointVectorFromPoints(dstPts)
+	defer dstVec.Close()
+
+	transform := gocv.GetAffineTransform(srcVec, dstVec)
+	defer transform.Close()
+
+	size := image.Pt(TargetWidth, TargetHeight)
+	gocv.WarpAffine(src.Color, &dst.Color, transform, size)
+	gocv.WarpAffine(src.Binary, &dst.Binary, transform, size)
 
 	return nil
 }
@@ -140,7 +181,7 @@ func findAnchorCenter(binary gocv.Mat, anchor Anchor) (image.Point, error) {
 	var bestLocation image.Point
 	center := image.Pt(size.X/2, size.Y/2)
 
-	for angle := -5.0; angle >= 5.0; angle += 0.5 {
+	for angle := -5.0; angle <= 5.0; angle += 0.5 {
 		matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
 		rotated := gocv.NewMat()
 
