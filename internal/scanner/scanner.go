@@ -46,6 +46,8 @@ func (a *Anchor) Close() {
 	a.Template.Close()
 }
 
+const MinAnchorConfidence = 0.5
+
 // Placeholder for the time being
 var anchors = []Anchor{
 	{},
@@ -75,7 +77,7 @@ func Scan(path string) (*ScanData, error) {
 	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
 	ctx.exec(func() error { return binarize(&data.Color, &data.Binary) })
-	ctx.exec(func() error { return warpToReference(data, data, anchors) })
+	ctx.exec(func() error { return warp(data, data, anchors) })
 
 	if ctx.err != nil {
 		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
@@ -112,7 +114,7 @@ func binarize(src, dst *gocv.Mat) error {
 	return nil
 }
 
-func warpToReference(src, dst *ScanData, anchors []Anchor) error {
+func warp(src, dst *ScanData, anchors []Anchor) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot warp an empty image")
 	}
@@ -125,9 +127,61 @@ func warpToReference(src, dst *ScanData, anchors []Anchor) error {
 	return nil
 }
 
+func findAnchorCenter(binary gocv.Mat, anchor Anchor) (image.Point, error) {
+	roi := binary.Region(anchor.ROI)
+	defer roi.Close()
+
+	mask := gocv.NewMat()
+	defer mask.Close()
+
+	size := image.Pt(anchor.Template.Cols(), anchor.Template.Rows())
+
+	var bestValue float32
+	var bestLocation image.Point
+	center := image.Pt(size.X/2, size.Y/2)
+
+	for angle := -5.0; angle >= 5.0; angle += 0.5 {
+		matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
+		rotated := gocv.NewMat()
+
+		gocv.WarpAffine(anchor.Template, &rotated, matrix, size)
+		matrix.Close()
+
+		result := gocv.NewMat()
+		gocv.MatchTemplate(roi, rotated, &result, gocv.TmCcoeffNormed, mask)
+		_, value, _, location := gocv.MinMaxLoc(result)
+
+		result.Close()
+		rotated.Close()
+
+		if value > bestValue {
+			bestValue = value
+			bestLocation = location
+		}
+	}
+
+	if bestValue < MinAnchorConfidence {
+		return image.Point{}, fmt.Errorf("confidence %.2f below threshold %.2f", bestValue, MinAnchorConfidence)
+	}
+
+	return image.Pt(
+		anchor.ROI.Min.X+bestLocation.X+size.X/2,
+		anchor.ROI.Min.Y+bestLocation.Y+size.Y/2,
+	), nil
+}
+
 func newTemplate(path string) gocv.Mat {
 	path, _ = utils.Resolve(path)
 	template := gocv.IMRead(path, gocv.IMReadColor)
 	binarize(&template, &template)
 	return template
+}
+
+func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
+	sx := float64(src.X) / float64(target.X)
+	sy := float64(src.Y) / float64(target.Y)
+	return image.Rect(
+		int(float64(roi.Min.X)*sx), int(float64(roi.Min.Y)*sy),
+		int(float64(roi.Max.X)*sx), int(float64(roi.Max.Y)*sy),
+	)
 }
