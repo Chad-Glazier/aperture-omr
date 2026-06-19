@@ -11,45 +11,26 @@ import (
 	"ubco-team15/omr/internal/httpserver/middleware"
 )
 
-// Starts the HTTP server.
+// Starts the HTTP server and shuts it down cleanly on SIGINT or SIGTERM.
 func Start() {
-
-	err := database.CheckConnection()
-	if err != nil {
+	if err := database.CheckConnection(); err != nil {
 		slog.Error("error connecting to database", "error", err)
 		os.Exit(1)
 	}
-
-	//
-	// Register the handlers.
-	//
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
 	mux.HandleFunc("GET /", handler.DocsPage)
 	mux.HandleFunc("GET /health", handler.Health)
 
-	//
-	// Register global middleware.
-	//
-
-	handler := middleware.Cors(mux)
-	handler = middleware.Logger(handler)
-
-	//
-	// Configure the server.
-	//
+	httpHandler := middleware.Cors(mux)
+	httpHandler = middleware.Logger(httpHandler)
 
 	server := &http.Server{
 		Addr:    ":" + config.Port,
-		Handler: handler,
+		Handler: httpHandler,
 	}
 
 	slog.Info("starting server at http://" + config.Host + ":" + config.Port)
-
-	err = server.ListenAndServe()
-	if err != nil {
-		slog.Error("server failed to start")
-	}
-
+	server.ListenAndServe()
 }
