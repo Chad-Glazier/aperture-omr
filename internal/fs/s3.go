@@ -79,7 +79,7 @@ func (s *s3Store) ctx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), s.timeout)
 }
 
-func NewS3Store(bucket string) (Store, error) {
+func NewS3Store() (Store, error) {
 
 	cfg, err := awsConfig.LoadDefaultConfig(
 		context.TODO(),
@@ -97,7 +97,7 @@ func NewS3Store(bucket string) (Store, error) {
 
 	return &s3Store{
 		client:  client,
-		bucket:  bucket,
+		bucket:  config.GarageBucketName,
 		timeout: time.Second * 5,
 	}, nil
 }

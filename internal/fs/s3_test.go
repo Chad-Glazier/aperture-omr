@@ -18,7 +18,7 @@ func TestS3Store(t *testing.T) {
 	// Setup
 	//
 
-	store, err := NewS3Store(config.GarageBucketName)
+	store, err := NewS3Store()
 	if err != nil {
 		t.Error("error creating store: " + err.Error())
 	}
