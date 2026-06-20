@@ -17,10 +17,12 @@ var scanCmd = &cobra.Command{
 	Long: `Scans an image and sends it to the grading service for processing.
 	The img argument specifies the path to the image to be scanned. 
 	The template argument specifies the path to the JSON template to use.
-	The --display flag can be used to display the scanned image in a window.`,
+	The --display flag can be used to display the scanned image in a window.
+	The --output flag can be used to write the scanned image to a file.`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		displayOutput, _ := cmd.Flags().GetBool("display")
+		display, _ := cmd.Flags().GetBool("display")
+		output, _ := cmd.Flags().GetString("output")
 
 		path, err := utils.Resolve(args[0])
 		if err != nil {
@@ -49,8 +51,18 @@ var scanCmd = &cobra.Command{
 
 		defer data.Close()
 
-		if displayOutput {
-			display(data.Color, "Scanned Image")
+		if display {
+			Display(data.Color, "Scanned Image")
+		}
+
+		if output != "" {
+			outPath, err := utils.Resolve(output)
+			if err != nil {
+				return fmt.Errorf("resolve output path: %w", err)
+			}
+			if ok := gocv.IMWrite(outPath, data.Color); !ok {
+				return fmt.Errorf("failed to write output image to %q", outPath)
+			}
 		}
 
 		return nil
@@ -59,12 +71,13 @@ var scanCmd = &cobra.Command{
 
 func init() {
 	scanCmd.Flags().BoolP("display", "d", false, "Display the scanned image in a window.")
+	scanCmd.Flags().StringP("output", "o", "", "Write the scanned image to a file at the given path.")
 	rootCmd.AddCommand(scanCmd)
 }
 
 // Provides a display window to see img output,
 // although it does NOT work in docker containers :'(
-func display(img gocv.Mat, title string) {
+func Display(img gocv.Mat, title string) {
 	window := gocv.NewWindow(title)
 	defer window.Close()
 
