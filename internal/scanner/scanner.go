@@ -50,13 +50,13 @@ type Template struct {
 	Height  int      `json:"height"`
 	Anchors []Anchor `json:"anchors"`
 	Config  Config   `json:"config"`
-	Dir     string   `json:"-"`
+	// Dir resolved at load time, anchors paths are relative to this directory
+	Dir string `json:"-"`
 }
 
 type Config struct {
 	BlurSize            int     `json:"blurSize"`
 	MorphCloseSize      int     `json:"morphCloseSize"`
-	BinaryThreshold     float32 `json:"binaryThreshold"`
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
 }
 
@@ -108,7 +108,7 @@ func binarize(src, dst *gocv.Mat, conf *Config) error {
 
 	// Replaces adaptive thresholding because binary threshold better preserves
 	// pencil marks within bubbles
-	gocv.Threshold(blur, &thresh, conf.BinaryThreshold, 255, gocv.ThresholdBinaryInv|gocv.ThresholdOtsu)
+	gocv.Threshold(blur, &thresh, 0, 255, gocv.ThresholdBinaryInv|gocv.ThresholdOtsu)
 	gocv.MorphologyEx(thresh, dst, gocv.MorphClose, kernel)
 
 	return nil
@@ -209,6 +209,9 @@ func findAnchorCenter(binary gocv.Mat, anchor Anchor, minConfidence float32) (im
 	), nil
 }
 
+// ROI coordinates are defined relative to the target image so that they
+// can remain resolution independent. This scales their dimensions relative
+// to the source image's dimensions before searching.
 func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 	sx := float64(src.X) / float64(target.X)
 	sy := float64(src.Y) / float64(target.Y)
