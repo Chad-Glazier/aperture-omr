@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 	"image"
+	"path/filepath"
 	"ubco-team15/omr/internal/utils"
 
 	"gocv.io/x/gocv"
@@ -49,6 +50,7 @@ type Template struct {
 	Height  int      `json:"height"`
 	Anchors []Anchor `json:"anchors"`
 	Config  Config   `json:"config"`
+	Dir     string   `json:"-"`
 }
 
 type Config struct {
@@ -58,22 +60,12 @@ type Config struct {
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
 }
 
-// Reads an image from the provided file path, runs it through the
-// OMR preprocessing pipeline, and returns the prepared image.
-func Scan(path string, tmpl *Template) (*ScanData, error) {
+// Runs an image through the OMR preprocessing pipeline,
+// and returns the prepared image.
+func Scan(img *gocv.Mat, tmpl *Template) (*ScanData, error) {
 	data := &ScanData{
-		Color:  gocv.NewMat(),
+		Color:  img.Clone(),
 		Binary: gocv.NewMat(),
-	}
-
-	data.Color = gocv.IMRead(path, gocv.IMReadColor)
-	if data.Color.Empty() {
-		data.Close()
-		return nil, fmt.Errorf("failed to read image from %q", path)
-	}
-	if data.Color.Cols() <= 100 || data.Color.Rows() <= 100 {
-		data.Close()
-		return nil, fmt.Errorf("image dimensions too small: %dx%d", data.Color.Cols(), data.Color.Rows())
 	}
 
 	// The context captures any errors that occur during the pipeline
@@ -227,11 +219,17 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 }
 
 func loadAnchorImage(path string, tmpl *Template) (gocv.Mat, error) {
+	if tmpl.Dir != "" && !filepath.IsAbs(path) {
+		path = filepath.Join(tmpl.Dir, path)
+	}
 	path, err := utils.Resolve(path)
 	if err != nil {
 		return gocv.Mat{}, err
 	}
 	anchor := gocv.IMRead(path, gocv.IMReadColor)
+	if anchor.Empty() {
+		return gocv.Mat{}, fmt.Errorf("failed to read image from %q", path)
+	}
 
 	if err := binarize(&anchor, &anchor, &tmpl.Config); err != nil {
 		anchor.Close()

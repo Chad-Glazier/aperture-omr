@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"ubco-team15/omr/internal/scanner"
 	"ubco-team15/omr/internal/utils"
 
@@ -43,8 +44,18 @@ var scanCmd = &cobra.Command{
 		if err := json.Unmarshal(tmplData, &template); err != nil {
 			return fmt.Errorf("parse template: %w", err)
 		}
+		template.Dir = filepath.Dir(tmpl)
 
-		data, err := scanner.Scan(path, &template)
+		img := gocv.IMRead(path, gocv.IMReadColor)
+		defer img.Close()
+		if img.Empty() {
+			return fmt.Errorf("failed to read image from %q", path)
+		}
+		if img.Cols() <= 100 || img.Rows() <= 100 {
+			return fmt.Errorf("image dimensions too small: %dx%d", img.Cols(), img.Rows())
+		}
+
+		data, err := scanner.Scan(&img, &template)
 		if err != nil {
 			return fmt.Errorf("scanner: %w", err)
 		}
@@ -62,6 +73,8 @@ var scanCmd = &cobra.Command{
 			}
 			if ok := gocv.IMWrite(outPath, data.Color); !ok {
 				return fmt.Errorf("failed to write output image to %q", outPath)
+			} else {
+				fmt.Printf("successfully wrote output to: %q\n", outPath)
 			}
 		}
 
