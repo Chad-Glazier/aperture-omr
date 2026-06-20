@@ -3,6 +3,7 @@ package scanner
 import (
 	"image"
 	"image/color"
+	"strings"
 	"testing"
 
 	"gocv.io/x/gocv"
@@ -10,6 +11,24 @@ import (
 
 var black = gocv.NewScalar(0, 0, 0, 255)
 var white = gocv.NewScalar(255, 255, 255, 255)
+
+func assertError(t *testing.T, err error, expectError bool, errContains string) {
+	t.Helper() // Tells Go test runner to report failures at the caller's line number
+
+	if expectError {
+		if err == nil {
+			t.Fatalf("expected an error containing %q, but got nil", errContains)
+		}
+		if !strings.Contains(err.Error(), errContains) {
+			t.Errorf("expected error to contain %q, but got %q", errContains, err.Error())
+		}
+		return
+	}
+
+	if err != nil {
+		t.Fatalf("did not expect an error, but got: %v", err)
+	}
+}
 
 func TestBinarize(t *testing.T) {
 	empty := gocv.NewMat()
@@ -50,7 +69,7 @@ func TestBinarize(t *testing.T) {
 			dst := gocv.NewMat()
 			defer dst.Close()
 
-			err := binarize(tc.src, &dst)
+			err := binarize(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError && dst.Channels() != 1 {
@@ -67,8 +86,8 @@ func TestDeskew(t *testing.T) {
 	noLinesBin := gocv.NewMatWithSizeFromScalar(black, 500, 500, gocv.MatTypeCV8UC1)
 	defer noLinesBin.Close()
 
-	validSrc := gocv.NewMatWithSizeFromScalar(white, 500, 500, gocv.MatTypeCV8UC3)
-	defer validSrc.Close()
+	validCol := gocv.NewMatWithSizeFromScalar(white, 500, 500, gocv.MatTypeCV8UC3)
+	defer validCol.Close()
 
 	// Create a 500x500 black image and draw a perfectly horizontal white line
 	// across the middle to simulate a deskewed structural line on an exam.
@@ -78,40 +97,46 @@ func TestDeskew(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		src, bin    gocv.Mat
+		src         ScanData
 		expectError bool
 		errContains string
 	}{
 		{
-			name:        "Fails on empty",
-			src:         empty,
-			bin:         empty,
+			name: "Fails on empty",
+			src: ScanData{
+				Color:  empty,
+				Binary: empty,
+			},
 			expectError: true,
 			errContains: "empty image",
 		},
 		{
-			name:        "Failds on no lines",
-			src:         validSrc,
-			bin:         noLinesBin,
+			name: "Failds on no lines",
+			src: ScanData{
+				Color:  validCol,
+				Binary: noLinesBin,
+			},
 			expectError: true,
 			errContains: "could not detect skew lines",
 		},
 		{
-			name:        "Succeeds on valid line",
-			src:         validSrc,
-			bin:         validBin,
+			name: "Succeeds on valid line",
+			src: ScanData{
+				Color:  validCol,
+				Binary: validBin,
+			},
 			expectError: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dstCol := gocv.NewMat()
-			dstBin := gocv.NewMat()
-			defer dstCol.Close()
-			defer dstBin.Close()
+			dst := ScanData{
+				Color:  gocv.NewMat(),
+				Binary: gocv.NewMat(),
+			}
 
-			err := deskew(tc.src, tc.bin, &dstCol, &dstBin)
+			err := deskew(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 		})
 	}
@@ -124,36 +149,48 @@ func TestNormalize(t *testing.T) {
 	crop := gocv.NewMatWithSizeFromScalar(white, 412, 987, gocv.MatTypeCV8UC3)
 	defer crop.Close()
 
+	cropBin := gocv.NewMat()
+	gocv.CvtColor(crop, &cropBin, gocv.ColorBGRToGray)
+	defer cropBin.Close()
+
 	tests := []struct {
 		name        string
-		src         gocv.Mat
+		src         ScanData
 		expectError bool
 		errContains string
 	}{
 		{
-			name:        "Fails on empty",
-			src:         empty,
+			name: "Fails on empty",
+			src: ScanData{
+				Color:  empty,
+				Binary: empty,
+			},
 			expectError: true,
 			errContains: "empty image",
 		},
 		{
-			name:        "Succeeds and Resizes",
-			src:         crop,
+			name: "Succeeds and Resizes",
+			src: ScanData{
+				Color:  crop,
+				Binary: cropBin,
+			},
 			expectError: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dst := gocv.NewMat()
-			defer dst.Close()
+			dst := ScanData{
+				Color:  gocv.NewMat(),
+				Binary: gocv.NewMat(),
+			}
 
-			err := normalize(tc.src, &dst)
+			err := normalize(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError {
-				if dst.Cols() != Width || dst.Rows() != Height {
-					t.Errorf("expected dimensions %dx%d, but got %dx%d", Width, Height, dst.Cols(), dst.Rows())
+				if dst.Color.Cols() != TargetWidth || dst.Color.Rows() != TargetHeight {
+					t.Errorf("expected dimensions %dx%d, but got %dx%d", TargetWidth, TargetHeight, dst.Color.Cols(), dst.Color.Rows())
 				}
 			}
 		})
@@ -162,8 +199,10 @@ func TestNormalize(t *testing.T) {
 
 func TestCrop(t *testing.T) {
 	empty := gocv.NewMat()
+	defer empty.Close()
 
 	black := gocv.NewMatWithSizeFromScalar(black, 100, 100, gocv.MatTypeCV8UC1)
+	defer black.Close()
 
 	validBin := black.Clone()
 	defer validBin.Close()
@@ -174,51 +213,61 @@ func TestCrop(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		src         gocv.Mat
-		bin         gocv.Mat
+		src         ScanData
 		expectError bool
 		errContains string
 	}{
 		{
-			name:        "Fails on empty source",
-			src:         empty,
-			bin:         validBin,
+			name: "Fails on empty source",
+			src: ScanData{
+				Color:  empty,
+				Binary: validBin,
+			},
 			expectError: true,
 			errContains: "cannot crop an empty image",
 		},
 		{
-			name:        "Fails on empty bin",
-			src:         validColor,
-			bin:         empty,
+			name: "Fails on empty bin",
+			src: ScanData{
+				Color:  validColor,
+				Binary: empty,
+			},
 			expectError: true,
 			errContains: "cannot crop an empty image",
 		},
 		{
-			name:        "Fails when no contours exist",
-			src:         validColor,
-			bin:         black, // this img has no contours since it is all black
+			name: "Fails when no contours exist",
+			src: ScanData{
+				Color:  validColor,
+				Binary: black,
+			}, // this img has no contours since it is all black
 			expectError: true,
 			errContains: "could not detect any contours",
 		},
 		{
-			name:        "Succeeds with valid contours",
-			src:         validColor,
-			bin:         validBin,
+			name: "Succeeds with valid contours",
+			src: ScanData{
+				Color:  validColor,
+				Binary: validBin,
+			},
 			expectError: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dst := gocv.NewMatWithSizeFromScalar(white, 100, 100, gocv.MatTypeCV8UC3)
+			dst := ScanData{
+				Color:  gocv.NewMat(),
+				Binary: gocv.NewMat(),
+			}
 			defer dst.Close()
 
-			err := crop(tc.src, tc.bin, &dst)
+			err := crop(&tc.src, &dst)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			// Asserting our output for successful case
 			// Since we placed a white box at (25,25) (75,75) the output should have specific dimensions
-			if dst.Empty() {
+			if !tc.expectError && dst.Empty() {
 				t.Errorf("expected destination matrix to be populated, but it was empty")
 			}
 		})
