@@ -1,15 +1,13 @@
 package scanner
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
-	"math"
+	"io"
 
 	"gocv.io/x/gocv"
 )
-
-const TargetWidth = 1200
-const TargetHeight = 1700
 
 type ScanData struct {
 	Color  gocv.Mat
@@ -36,40 +34,82 @@ func (ctx *context) exec(op func() error) {
 	ctx.err = op()
 }
 
-// Reads an image from the provided file path, runs it through the
-// OMR preprocessing pipeline, and returns the prepared image.
-func Scan(path string) (*ScanData, error) {
-	data := &ScanData{
-		Color:  gocv.NewMat(),
-		Binary: gocv.NewMat(),
+type Anchor struct {
+	Image  gocv.Mat        `json:"-"`
+	Path   string          `json:"path"`
+	ROI    image.Rectangle `json:"roi"`
+	Center image.Point     `json:"center"`
+}
+
+func (a *Anchor) Close() {
+	a.Image.Close()
+}
+
+type Template struct {
+	Width   int      `json:"width"`
+	Height  int      `json:"height"`
+	Anchors []Anchor `json:"anchors"`
+	Config  Config   `json:"config"`
+}
+
+func (t *Template) Close() {
+	for i := range t.Anchors {
+		t.Anchors[i].Image.Close()
+	}
+}
+
+type Config struct {
+	BlurSize            int     `json:"blurSize"`
+	MorphCloseSize      int     `json:"morphCloseSize"`
+	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
+}
+
+// Runs an image through the OMR preprocessing pipeline,
+// and returns the prepared image.
+func Scan(r io.Reader, tmpl *Template) (*ScanData, error) {
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	img, err := gocv.IMDecode(buf, gocv.IMReadColor)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	if img.Empty() {
+		img.Close()
+		return nil, fmt.Errorf("decoded image is empty")
+	}
+	if img.Cols() <= 100 || img.Rows() <= 100 {
+		img.Close()
+		return nil, fmt.Errorf(
+			"image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
-	data.Color = gocv.IMRead(path, gocv.IMReadColor)
-	if data.Color.Empty() {
-		data.Close()
-		return nil, fmt.Errorf("failed to read image from %q", p)
+	data := &ScanData{
+		Color:  img,
+		Binary: gocv.NewMat(),
 	}
 
 	// The context captures any errors that occur during the pipeline
 	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
-	ctx.exec(func() error { return binarize(&data.Color, &data.Binary) })
-	ctx.exec(func() error { return deskew(data, data) })
-	ctx.exec(func() error { return crop(data, data) })
-	ctx.exec(func() error { return normalize(data, data) })
+	ctx.exec(func() error { return binarize(&data.Color, &data.Binary, &tmpl.Config) })
+	ctx.exec(func() error { return warp(data, data, tmpl) })
 
 	if ctx.err != nil {
+		data.Close()
 		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
 	}
 
 	return data, nil
 }
 
-func binarize(src *gocv.Mat, dst *gocv.Mat) error {
+func binarize(src, dst *gocv.Mat, conf *Config) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot binarize an empty image")
-	} else if src.Cols() <= 100 || src.Rows() <= 100 {
-		return fmt.Errorf("image dimensions too small")
+	}
+	if conf.BlurSize%2 == 0 {
+		return fmt.Errorf("blurSize must be odd, got %d", conf.BlurSize)
 	}
 
 	gray := gocv.NewMat()
@@ -81,11 +121,13 @@ func binarize(src *gocv.Mat, dst *gocv.Mat) error {
 	thresh := gocv.NewMat()
 	defer thresh.Close()
 
-	kernel := gocv.GetStructuringElement(gocv.MorphRect, image.Pt(3, 3))
+	kernelSize := image.Pt(conf.MorphCloseSize, conf.MorphCloseSize)
+	kernel := gocv.GetStructuringElement(gocv.MorphRect, kernelSize)
 	defer kernel.Close()
 
 	gocv.CvtColor(*src, &gray, gocv.ColorBGRToGray)
-	gocv.GaussianBlur(gray, &blur, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
+	blurSize := image.Pt(conf.BlurSize, conf.BlurSize)
+	gocv.GaussianBlur(gray, &blur, blurSize, 0, 0, gocv.BorderDefault)
 
 	// Replaces adaptive thresholding because binary threshold better preserves
 	// pencil marks within bubbles
@@ -95,135 +137,154 @@ func binarize(src *gocv.Mat, dst *gocv.Mat) error {
 	return nil
 }
 
-func deskew(src *ScanData, dst *ScanData) error {
+func warp(src, dst *ScanData, tmpl *Template) error {
 	if src.Empty() {
-		return fmt.Errorf("cannot deskew an empty image")
+		return fmt.Errorf("cannot warp an empty image")
 	}
 
-	lines := gocv.NewMat()
-	defer lines.Close()
-
-	// Parameters:
-	// 		rho=1,
-	// 		theta=1 (in radians),
-	// 		threshold=150,
-	// 		minLineLength=150,
-	// 		maxLineGap=10
-	gocv.HoughLinesPWithParams(src.Binary, &lines, 1, math.Pi/180, 150, 150.0, 10.0)
-
-	if lines.Rows() == 0 {
-		return fmt.Errorf("could not detect skew lines")
+	anchors := tmpl.Anchors
+	if len(anchors) != 3 {
+		return fmt.Errorf("warping requires exactly 3 anchors, provided %d", len(anchors))
 	}
 
-	var totalWeight float64
-	var weightedSum float64
+	for i := range anchors {
+		if anchors[i].Image.Empty() {
+			return fmt.Errorf("anchor %d: image not loaded, call LoadTemplate first", i)
+		}
+	}
 
-	for i := 0; i < lines.Rows(); i++ {
-		line := lines.GetVeciAt(i, 0)
-		dx := float64(line[2] - line[0])
-		dy := float64(line[3] - line[1])
+	srcPts := make([]image.Point, 3)
+	dstPts := make([]image.Point, 3)
 
-		angle := math.Atan2(dy, dx) * 180.0 / math.Pi
-		length := math.Sqrt(dx*dx + dy*dy)
+	srcSize := image.Pt(src.Binary.Cols(), src.Binary.Rows())
+	targetSize := image.Pt(tmpl.Width, tmpl.Height)
 
-		abs := math.Abs(angle)
-		if abs < 0.5 || abs > 10.0 {
-			continue
+	for i := range 3 {
+		anchor := anchors[i]
+		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
+
+		pt, err := findAnchorCenter(src.Binary, anchor, tmpl.Config.MinAnchorConfidence)
+		if err != nil {
+			return fmt.Errorf("anchor %d: %w", i, err)
 		}
 
-		weightedSum += (angle * length)
-		totalWeight += length
+		srcPts[i] = pt
+		dstPts[i] = anchors[i].Center
 	}
 
-	if totalWeight == 0 {
-		src.Color.CopyTo(&dst.Color)
-		src.Binary.CopyTo(&dst.Binary)
-		return nil
-	}
+	srcVec := gocv.NewPointVectorFromPoints(srcPts)
+	defer srcVec.Close()
+	dstVec := gocv.NewPointVectorFromPoints(dstPts)
+	defer dstVec.Close()
 
-	angle := weightedSum / totalWeight
+	transform := gocv.GetAffineTransform(srcVec, dstVec)
+	defer transform.Close()
 
-	if math.Abs(angle) == 0.0 {
-		src.Color.CopyTo(&dst.Color)
-		src.Binary.CopyTo(&dst.Binary)
-		return nil
-	}
-
-	fmt.Printf("Detected angle: %.4f degrees\n", angle)
-
-	center := image.Pt(src.Color.Cols()/2, src.Color.Rows()/2)
-	mat := gocv.GetRotationMatrix2D(center, angle, 1.0)
-	defer mat.Close()
-
-	size := image.Pt(src.Color.Cols(), src.Color.Rows())
-	gocv.WarpAffine(src.Color, &dst.Color, mat, size)
-	gocv.WarpAffine(src.Binary, &dst.Binary, mat, size)
+	gocv.WarpAffine(src.Color, &dst.Color, transform, targetSize)
+	gocv.WarpAffine(src.Binary, &dst.Binary, transform, targetSize)
 
 	return nil
 }
 
-func crop(src *ScanData, dst *ScanData) error {
-	if src.Empty() {
-		return fmt.Errorf("cannot crop an empty image")
-	}
+func findAnchorCenter(
+	binary gocv.Mat, anchor Anchor, minConfidence float32,
+) (image.Point, error) {
+	roi := binary.Region(anchor.ROI)
+	defer roi.Close()
 
-	contours := gocv.FindContours(src.Binary, gocv.RetrievalExternal, gocv.ChainApproxSimple)
-	defer contours.Close()
+	mask := gocv.NewMat()
+	defer mask.Close()
 
-	if contours.Size() == 0 {
-		return fmt.Errorf("could not detect any contours")
-	}
+	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())
 
-	x, y := src.Color.Cols(), src.Color.Rows()
-	minX, minY := x, y
-	maxX, maxY := 0, 0
+	var bestValue float32
+	var bestLocation image.Point
+	center := image.Pt(size.X/2, size.Y/2)
 
-	for i := 0; i < contours.Size(); i++ {
-		contour := contours.At(i)
-		area := gocv.ContourArea(contour)
+	for angle := -5.0; angle <= 5.0; angle += 0.5 {
+		matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
+		rotated := gocv.NewMat()
 
-		// Ignore any random scanner noise or dust
-		if area < 50 {
-			continue
-		}
+		gocv.WarpAffine(anchor.Image, &rotated, matrix, size)
+		matrix.Close()
 
-		rect := gocv.BoundingRect(contour)
+		result := gocv.NewMat()
+		gocv.MatchTemplate(roi, rotated, &result, gocv.TmCcoeffNormed, mask)
+		_, value, _, location := gocv.MinMaxLoc(result)
 
-		if rect.Min.X < minX {
-			minX = rect.Min.X
-		}
-		if rect.Min.Y < minY {
-			minY = rect.Min.Y
-		}
-		if rect.Max.X > maxX {
-			maxX = rect.Max.X
-		}
-		if rect.Max.Y > maxY {
-			maxY = rect.Max.Y
+		result.Close()
+		rotated.Close()
+
+		if value > bestValue {
+			bestValue = value
+			bestLocation = location
 		}
 	}
 
-	// Applies 20px of padding to the bounding box to ensure
-	// nothing near the boundaries get's clipped off.
-	padding := 20
-	minX = max(0, minX-padding)
-	minY = max(0, minY-padding)
-	maxX = min(x, maxX+padding)
-	maxY = min(y, maxY+padding)
+	if bestValue < minConfidence {
+		return image.Point{}, fmt.Errorf(
+			"confidence %.2f below threshold %.2f", bestValue, minConfidence)
+	}
 
-	rect := image.Rect(minX, minY, maxX, maxY)
-	dst.Color = src.Color.Region(rect)
-	dst.Binary = src.Binary.Region(rect)
-
-	return nil
+	return image.Pt(
+		anchor.ROI.Min.X+bestLocation.X+size.X/2,
+		anchor.ROI.Min.Y+bestLocation.Y+size.Y/2,
+	), nil
 }
 
-func normalize(src *ScanData, dst *ScanData) error {
-	if src.Empty() {
-		return fmt.Errorf("cannot normalize an empty image")
-	}
-	gocv.Resize(src.Color, &dst.Color, image.Pt(TargetWidth, TargetHeight), 0, 0, gocv.InterpolationArea)
-	gocv.Resize(src.Binary, &dst.Binary, image.Pt(TargetWidth, TargetHeight), 0, 0, gocv.InterpolationArea)
+// ROI coordinates are defined relative to the target image so that they
+// can remain resolution independent. This scales their dimensions relative
+// to the source image's dimensions before searching.
+func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
+	sx := float64(src.X) / float64(target.X)
+	sy := float64(src.Y) / float64(target.Y)
+	return image.Rect(
+		int(float64(roi.Min.X)*sx), int(float64(roi.Min.Y)*sy),
+		int(float64(roi.Max.X)*sx), int(float64(roi.Max.Y)*sy),
+	)
+}
 
-	return nil
+// LoadTemplate parses a template from r and loads anchor images using open.
+// open receives each anchor's path as written in the JSON; the caller is
+// responsible for resolving relative paths and expanding ~ if needed.
+func LoadTemplate(r io.Reader, open func(string) (io.Reader, error)) (*Template, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	var tmpl Template
+	if err := json.Unmarshal(data, &tmpl); err != nil {
+		return nil, fmt.Errorf("parse: %w", err)
+	}
+	for i := range tmpl.Anchors {
+		ar, err := open(tmpl.Anchors[i].Path)
+		if err != nil {
+			return nil, fmt.Errorf("anchor %d: open: %w", i, err)
+		}
+		tmpl.Anchors[i].Image, err = loadAnchorFromReader(ar, &tmpl.Config)
+		if err != nil {
+			tmpl.Close()
+			return nil, fmt.Errorf("anchor %d: %w", i, err)
+		}
+	}
+	return &tmpl, nil
+}
+
+func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return gocv.Mat{}, fmt.Errorf("read: %w", err)
+	}
+	img, err := gocv.IMDecode(data, gocv.IMReadColor)
+	if err != nil {
+		return gocv.Mat{}, fmt.Errorf("decode: %w", err)
+	}
+	if img.Empty() {
+		return gocv.Mat{}, fmt.Errorf("decoded image is empty")
+	}
+	if err := binarize(&img, &img, conf); err != nil {
+		img.Close()
+		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
+	}
+	return img, nil
 }
