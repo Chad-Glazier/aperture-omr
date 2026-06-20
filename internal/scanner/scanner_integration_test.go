@@ -3,11 +3,10 @@
 package scanner
 
 import (
-	"encoding/json"
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
-
-	"gocv.io/x/gocv"
 )
 
 func TestScan(t *testing.T) {
@@ -15,24 +14,27 @@ func TestScan(t *testing.T) {
 		t.Skip("testdata not present, skipping integration test")
 	}
 
-	tmplData, err := os.ReadFile("testdata/template.json")
+	f, err := os.Open("testdata/template.json")
 	if err != nil {
-		t.Fatalf("read template: %v", err)
+		t.Fatalf("open template: %v", err)
 	}
+	defer f.Close()
 
-	var tmpl Template
-	if err := json.Unmarshal(tmplData, &tmpl); err != nil {
-		t.Fatalf("parse template: %v", err)
+	tmpl, err := LoadTemplate(f, func(path string) (io.Reader, error) {
+		return os.Open(filepath.Join("testdata", path))
+	})
+	if err != nil {
+		t.Fatalf("load template: %v", err)
 	}
-	tmpl.Dir = "testdata"
+	defer tmpl.Close()
 
-	img := gocv.IMRead("testdata/input.jpg", gocv.IMReadColor)
-	defer img.Close()
-	if img.Empty() {
-		t.Fatal("failed to read test input image")
+	imgFile, err := os.Open("testdata/input.jpg")
+	if err != nil {
+		t.Fatalf("open image: %v", err)
 	}
+	defer imgFile.Close()
 
-	data, err := Scan(&img, &tmpl)
+	data, err := Scan(imgFile, tmpl)
 	if err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}

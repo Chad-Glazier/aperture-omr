@@ -124,7 +124,8 @@ func TestScaleROI(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := scaleROI(tc.roi, tc.src, tc.target)
 			if got != tc.want {
-				t.Errorf("scaleROI(%v, %v, %v) = %v, want %v", tc.roi, tc.src, tc.target, got, tc.want)
+				t.Errorf("scaleROI(%v, %v, %v) = %v, want %v",
+				tc.roi, tc.src, tc.target, got, tc.want)
 			}
 		})
 	}
@@ -137,15 +138,21 @@ func TestFindAnchorCenter(t *testing.T) {
 		patX, patY   = 100, 100
 	)
 
-	binary := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
+	binary := gocv.NewMatWithSizeFromScalar(
+		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
 	defer binary.Close()
-	gocv.Rectangle(&binary, image.Rect(patX+5, patY+5, patX+tmplW-5, patY+tmplH-5), color.RGBA{R: 255, G: 255, B: 255, A: 255}, -1)
+	gocv.Rectangle(&binary,
+		image.Rect(patX+5, patY+5, patX+tmplW-5, patY+tmplH-5),
+		color.RGBA{R: 255, G: 255, B: 255, A: 255}, -1)
 
 	// The white rectangle is inset by 5px so the template has a black border,
 	// giving TmCcoeffNormed a non-zero standard deviation to divide by.
-	template := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(0, 0, 0, 0), tmplH, tmplW, gocv.MatTypeCV8UC1)
+	template := gocv.NewMatWithSizeFromScalar(
+		gocv.NewScalar(0, 0, 0, 0), tmplH, tmplW, gocv.MatTypeCV8UC1)
 	defer template.Close()
-	gocv.Rectangle(&template, image.Rect(5, 5, tmplW-5, tmplH-5), color.RGBA{R: 255, G: 255, B: 255, A: 255}, -1)
+	gocv.Rectangle(&template,
+		image.Rect(5, 5, tmplW-5, tmplH-5),
+		color.RGBA{R: 255, G: 255, B: 255, A: 255}, -1)
 
 	expectedCenter := image.Pt(patX+tmplW/2, patY+tmplH/2)
 

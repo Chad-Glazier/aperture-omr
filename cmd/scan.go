@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"ubco-team15/omr/internal/scanner"
 	"ubco-team15/omr/internal/utils"
 
@@ -35,27 +36,35 @@ var scanCmd = &cobra.Command{
 			return fmt.Errorf("resolve path: %w", err)
 		}
 
-		tmplData, err := os.ReadFile(tmpl)
+		f, err := os.Open(tmpl)
 		if err != nil {
-			return fmt.Errorf("read template: %w", err)
+			return fmt.Errorf("open template: %w", err)
 		}
+		defer f.Close()
 
-		var template scanner.Template
-		if err := json.Unmarshal(tmplData, &template); err != nil {
-			return fmt.Errorf("parse template: %w", err)
+		tmplDir := filepath.Dir(tmpl)
+		template, err := scanner.LoadTemplate(f, func(anchorPath string) (io.Reader, error) {
+			if !filepath.IsAbs(anchorPath) && !strings.HasPrefix(anchorPath, "~") {
+				anchorPath = filepath.Join(tmplDir, anchorPath)
+			}
+			anchorPath, err := utils.Resolve(anchorPath)
+			if err != nil {
+				return nil, err
+			}
+			return os.Open(anchorPath)
+		})
+		if err != nil {
+			return fmt.Errorf("load template: %w", err)
 		}
-		template.Dir = filepath.Dir(tmpl)
+		defer template.Close()
 
-		img := gocv.IMRead(path, gocv.IMReadColor)
-		defer img.Close()
-		if img.Empty() {
-			return fmt.Errorf("failed to read image from %q", path)
+		imgFile, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open image: %w", err)
 		}
-		if img.Cols() <= 100 || img.Rows() <= 100 {
-			return fmt.Errorf("image dimensions too small: %dx%d", img.Cols(), img.Rows())
-		}
+		defer imgFile.Close()
 
-		data, err := scanner.Scan(&img, &template)
+		data, err := scanner.Scan(imgFile, template)
 		if err != nil {
 			return fmt.Errorf("scanner: %w", err)
 		}
@@ -83,8 +92,10 @@ var scanCmd = &cobra.Command{
 }
 
 func init() {
-	scanCmd.Flags().BoolP("display", "d", false, "Display the scanned image in a window.")
-	scanCmd.Flags().StringP("output", "o", "", "Write the scanned image to a file at the given path.")
+	scanCmd.Flags().BoolP(
+		"display", "d", false, "Display the scanned image in a window.")
+	scanCmd.Flags().StringP(
+		"output", "o", "", "Write the scanned image to a file at the given path.")
 	rootCmd.AddCommand(scanCmd)
 }
 

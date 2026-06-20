@@ -1,11 +1,10 @@
 package scanner
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
-	"path/filepath"
-	"strings"
-	"ubco-team15/omr/internal/utils"
+	"io"
 
 	"gocv.io/x/gocv"
 )
@@ -51,8 +50,12 @@ type Template struct {
 	Height  int      `json:"height"`
 	Anchors []Anchor `json:"anchors"`
 	Config  Config   `json:"config"`
-	// Dir resolved at load time, anchors paths are relative to this directory
-	Dir string `json:"-"`
+}
+
+func (t *Template) Close() {
+	for i := range t.Anchors {
+		t.Anchors[i].Image.Close()
+	}
 }
 
 type Config struct {
@@ -63,9 +66,27 @@ type Config struct {
 
 // Runs an image through the OMR preprocessing pipeline,
 // and returns the prepared image.
-func Scan(img *gocv.Mat, tmpl *Template) (*ScanData, error) {
+func Scan(r io.Reader, tmpl *Template) (*ScanData, error) {
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	img, err := gocv.IMDecode(buf, gocv.IMReadColor)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	if img.Empty() {
+		img.Close()
+		return nil, fmt.Errorf("decoded image is empty")
+	}
+	if img.Cols() <= 100 || img.Rows() <= 100 {
+		img.Close()
+		return nil, fmt.Errorf(
+			"image dimensions too small: %dx%d", img.Cols(), img.Rows())
+	}
+
 	data := &ScanData{
-		Color:  img.Clone(),
+		Color:  img,
 		Binary: gocv.NewMat(),
 	}
 
@@ -76,6 +97,7 @@ func Scan(img *gocv.Mat, tmpl *Template) (*ScanData, error) {
 	ctx.exec(func() error { return warp(data, data, tmpl) })
 
 	if ctx.err != nil {
+		data.Close()
 		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
 	}
 
@@ -126,12 +148,9 @@ func warp(src, dst *ScanData, tmpl *Template) error {
 	}
 
 	for i := range anchors {
-		var err error
-		anchors[i].Image, err = loadAnchorImage(anchors[i].Path, tmpl)
-		if err != nil {
-			return fmt.Errorf("anchor %d: load image: %w", i, err)
+		if anchors[i].Image.Empty() {
+			return fmt.Errorf("anchor %d: image not loaded, call LoadTemplate first", i)
 		}
-		defer anchors[i].Image.Close()
 	}
 
 	srcPts := make([]image.Point, 3)
@@ -167,7 +186,9 @@ func warp(src, dst *ScanData, tmpl *Template) error {
 	return nil
 }
 
-func findAnchorCenter(binary gocv.Mat, anchor Anchor, minConfidence float32) (image.Point, error) {
+func findAnchorCenter(
+	binary gocv.Mat, anchor Anchor, minConfidence float32,
+) (image.Point, error) {
 	roi := binary.Region(anchor.ROI)
 	defer roi.Close()
 
@@ -201,7 +222,8 @@ func findAnchorCenter(binary gocv.Mat, anchor Anchor, minConfidence float32) (im
 	}
 
 	if bestValue < minConfidence {
-		return image.Point{}, fmt.Errorf("confidence %.2f below threshold %.2f", bestValue, minConfidence)
+		return image.Point{}, fmt.Errorf(
+			"confidence %.2f below threshold %.2f", bestValue, minConfidence)
 	}
 
 	return image.Pt(
@@ -222,23 +244,47 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 	)
 }
 
-func loadAnchorImage(path string, tmpl *Template) (gocv.Mat, error) {
-	if tmpl.Dir != "" && !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
-		path = filepath.Join(tmpl.Dir, path)
-	}
-	path, err := utils.Resolve(path)
+// LoadTemplate parses a template from r and loads anchor images using open.
+// open receives each anchor's path as written in the JSON; the caller is
+// responsible for resolving relative paths and expanding ~ if needed.
+func LoadTemplate(r io.Reader, open func(string) (io.Reader, error)) (*Template, error) {
+	data, err := io.ReadAll(r)
 	if err != nil {
-		return gocv.Mat{}, err
+		return nil, fmt.Errorf("read: %w", err)
 	}
-	anchor := gocv.IMRead(path, gocv.IMReadColor)
-	if anchor.Empty() {
-		return gocv.Mat{}, fmt.Errorf("failed to read image from %q", path)
+	var tmpl Template
+	if err := json.Unmarshal(data, &tmpl); err != nil {
+		return nil, fmt.Errorf("parse: %w", err)
 	}
+	for i := range tmpl.Anchors {
+		ar, err := open(tmpl.Anchors[i].Path)
+		if err != nil {
+			return nil, fmt.Errorf("anchor %d: open: %w", i, err)
+		}
+		tmpl.Anchors[i].Image, err = loadAnchorFromReader(ar, &tmpl.Config)
+		if err != nil {
+			tmpl.Close()
+			return nil, fmt.Errorf("anchor %d: %w", i, err)
+		}
+	}
+	return &tmpl, nil
+}
 
-	if err := binarize(&anchor, &anchor, &tmpl.Config); err != nil {
-		anchor.Close()
+func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return gocv.Mat{}, fmt.Errorf("read: %w", err)
+	}
+	img, err := gocv.IMDecode(data, gocv.IMReadColor)
+	if err != nil {
+		return gocv.Mat{}, fmt.Errorf("decode: %w", err)
+	}
+	if img.Empty() {
+		return gocv.Mat{}, fmt.Errorf("decoded image is empty")
+	}
+	if err := binarize(&img, &img, conf); err != nil {
+		img.Close()
 		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
 	}
-
-	return anchor, nil
+	return img, nil
 }
