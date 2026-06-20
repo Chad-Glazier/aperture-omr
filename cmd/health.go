@@ -1,0 +1,36 @@
+package cmd
+
+import (
+	"log/slog"
+	"net/http"
+	"os"
+
+	"ubco-team15/omr/config"
+
+	"github.com/spf13/cobra"
+)
+
+var healthcheckCmd = &cobra.Command{
+	Use:   "health",
+	Short: "Checks whether the OMR HTTP service is healthy",
+	Run: func(cmd *cobra.Command, args []string) {
+
+		resp, err := http.Get("http://localhost:" + config.Port + "/health")
+		if err != nil {
+			slog.Error("health check error", "error", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("health check failed", "response status", resp.Status)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(healthcheckCmd)
+}

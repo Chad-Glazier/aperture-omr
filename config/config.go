@@ -21,15 +21,20 @@ const (
 )
 
 var (
-	MODE              RuntimeEnvironment // Test, Development, or Production
-	HOST              string             // The hostname for the HTTP server.
-	PORT              string             // The port for the HTTP server.
-	VERSION           string             // The version of the OMR service.
-	DATABASE_HOST     string
-	DATABASE_PORT     string
-	DATABASE_USER     string
-	DATABASE_PASSWORD string
-	DATABASE_NAME     string
+	Mode                  RuntimeEnvironment // Test, Development, or Production
+	Host                  string             // The hostname for the HTTP server.
+	Port                  string             // The port for the HTTP server.
+	Version               string             // The version of the OMR service.
+	DatabaseHost          string
+	DatabasePort          string
+	DatabaseUser          string
+	DatabasePassword      string
+	DatabaseName          string
+	GarageAccessKeyId     string
+	GarageSecretAccessKey string
+	GarageEndpointUrl     string
+	GarageRegion          string
+	GarageBucketName      string
 )
 
 func init() {
@@ -45,48 +50,67 @@ func init() {
 				runtimeEnv = "DEVELOPMENT"
 			case "--test":
 				runtimeEnv = "TEST"
+			default:
+				// If the mode is not specified by the environment or the
+				// command-line flags, then we default to test mode and log a
+				// warning.
+				slog.Warn(
+					"environment variable OMR_MODE not found; " +
+						"defaulting to test mode",
+				)
+				runtimeEnv = "TEST"
 			}
 		}
 	}
 
-	// If the mode is not specified by the environment or the command-line
-	// flags, then we default to test mode and log a warning.
-	if runtimeEnv == "" {
-		slog.Warn(
-			"environment variable OMR_MODE not found; " +
-				"defaulting to test mode",
-		)
-		runtimeEnv = "TEST"
-	}
-
 	switch runtimeEnv {
 	case "TEST":
-		MODE = Test
-		HOST = "localhost"
-		PORT = "3000"
-		VERSION = "test"
+		Mode = Test
+		Host = "localhost"
+		Port = "3000"
+		Version = "test"
 
 	case "DEVELOPMENT":
-		MODE = Development
-		HOST = "localhost"
-		PORT = getenv("OMR_PORT", "3000")
-		VERSION = getenv("OMR_VERSION", "0.0.1")
-		DATABASE_HOST = getenv("POSTGRES_HOST", "localhost")
-		DATABASE_PORT = getenv("POSTGRES_PORT", "5432")
-		DATABASE_USER = getenv("POSTGRES_USER", "test_user")
-		DATABASE_PASSWORD = getenv("POSTGRES_PASSWORD", "pass")
-		DATABASE_NAME = getenv("POSTGRES_DB", "test_database")
+		Mode = Development
+		Host = "localhost"
+		Port = getenv("OMR_PORT", "3000")
+		Version = getenv("OMR_VERSION", "0.0.1")
+		DatabaseHost = getenv("POSTGRES_HOST", "localhost")
+		DatabasePort = getenv("POSTGRES_PORT", "5432")
+		DatabaseUser = getenv("POSTGRES_USER", "test_user")
+		DatabasePassword = getenv("POSTGRES_PASSWORD", "test_password")
+		DatabaseName = getenv("POSTGRES_DB", "test_db")
+		GarageAccessKeyId = getenv(
+			"GARAGE_ACCESS_KEY_ID",
+			"GK22c374ae806981ff22c374ae806981ff")
+		GarageSecretAccessKey = getenv(
+			"GARAGE_SECRET_ACCESS_KEY",
+			"0b71da53f3e7041b12bdab08130264790b71da53f3e7041b12bdab0813026479")
+		GarageEndpointUrl = getenv(
+			"GARAGE_ENDPOINT_URL",
+			"http://127.0.0.1:3900")
+		GarageRegion = getenv(
+			"GARAGE_REGION",
+			"garage")
+		GarageBucketName = getenv(
+			"GARAGE_BUCKET_NAME",
+			"test-bucket")
 
 	case "PRODUCTION":
-		MODE = Production
-		HOST = "localhost"
-		PORT = mustGetenv("OMR_PORT")
-		VERSION = getenv("OMR_VERSION", "0.0.1")
-		DATABASE_HOST = mustGetenv("POSTGRES_HOST")
-		DATABASE_PORT = mustGetenv("POSTGRES_PORT")
-		DATABASE_USER = mustGetenv("POSTGRES_USER")
-		DATABASE_PASSWORD = mustGetenv("POSTGRES_PASSWORD")
-		DATABASE_NAME = mustGetenv("POSTGRES_DB")
+		Mode = Production
+		Host = "localhost"
+		Port = mustGetenv("OMR_PORT")
+		Version = getenv("OMR_VERSION", "0.0.1")
+		DatabaseHost = mustGetenv("POSTGRES_HOST")
+		DatabasePort = mustGetenv("POSTGRES_PORT")
+		DatabaseUser = mustGetenv("POSTGRES_USER")
+		DatabasePassword = mustGetenv("POSTGRES_PASSWORD")
+		DatabaseName = mustGetenv("POSTGRES_DB")
+		GarageAccessKeyId = mustGetenv("GARAGE_ACCESS_KEY_ID")
+		GarageSecretAccessKey = mustGetenv("GARAGE_SECRET_ACCESS_KEY")
+		GarageEndpointUrl = mustGetenv("GARAGE_ENDPOINT_URL")
+		GarageRegion = mustGetenv("GARAGE_REGION")
+		GarageBucketName = mustGetenv("GARAGE_BUCKET_NAME")
 	}
 
 }
@@ -118,13 +142,13 @@ func getenv(key string, fallback string) string {
 
 // Returns true if and only if the runtime is in testing mode.
 func TestMode() bool {
-	return MODE == Test
+	return Mode == Test
 }
 
 // Logs a message indicating the runtime mode (development, production, or
 // test).
 func LogMode() {
-	switch MODE {
+	switch Mode {
 	case Test:
 		slog.Info("starting in test mode")
 	case Development:

@@ -38,11 +38,11 @@ func Open() (*DB, error) {
 
 	conn, err := pgx.Connect(ctx, fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s",
-		config.DATABASE_USER,
-		config.DATABASE_PASSWORD,
-		config.DATABASE_HOST,
-		config.DATABASE_PORT,
-		config.DATABASE_NAME,
+		config.DatabaseUser,
+		config.DatabasePassword,
+		config.DatabaseHost,
+		config.DatabasePort,
+		config.DatabaseName,
 	))
 	if err != nil {
 		return nil, err

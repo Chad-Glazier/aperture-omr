@@ -1,14 +1,9 @@
 package httpserver
 
 import (
-	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"ubco-team15/omr/config"
 	"ubco-team15/omr/internal/database"
@@ -17,7 +12,7 @@ import (
 )
 
 // Starts the HTTP server and shuts it down cleanly on SIGINT or SIGTERM.
-func Start() {
+func Start() error {
 	if err := database.CheckConnection(); err != nil {
 		slog.Error("error connecting to database", "error", err)
 		os.Exit(1)
@@ -32,41 +27,10 @@ func Start() {
 	httpHandler = middleware.Logger(httpHandler)
 
 	server := &http.Server{
-		Addr:              ":" + config.PORT,
-		Handler:           httpHandler,
-		ReadHeaderTimeout: 5 * time.Second,
+		Addr:    ":" + config.Port,
+		Handler: httpHandler,
 	}
 
-	shutdownSignal, stop := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
-	defer stop()
-
-	serverError := make(chan error, 1)
-	go func() {
-		slog.Info("starting server at http://" + config.HOST + ":" + config.PORT)
-		serverError <- server.ListenAndServe()
-	}()
-
-	select {
-	case err := <-serverError:
-		if !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("server failed", "error", err)
-		}
-		return
-	case <-shutdownSignal.Done():
-		slog.Info("shutting down server")
-	}
-
-	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(shutdownContext); err != nil {
-		slog.Error("server shutdown failed", "error", err)
-		return
-	}
-
-	slog.Info("server stopped")
+	slog.Info("starting server at http://" + config.Host + ":" + config.Port)
+	return server.ListenAndServe()
 }
