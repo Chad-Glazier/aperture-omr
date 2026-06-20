@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"path/filepath"
+	"strings"
 	"ubco-team15/omr/internal/utils"
 
 	"gocv.io/x/gocv"
@@ -222,7 +223,7 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 }
 
 func loadAnchorImage(path string, tmpl *Template) (gocv.Mat, error) {
-	if tmpl.Dir != "" && !filepath.IsAbs(path) {
+	if tmpl.Dir != "" && !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
 		path = filepath.Join(tmpl.Dir, path)
 	}
 	path, err := utils.Resolve(path)
