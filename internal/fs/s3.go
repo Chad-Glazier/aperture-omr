@@ -142,7 +142,7 @@ func (s *s3Store) PutImg(key string, img image.Image) error {
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(s.bucket + "/" + key),
 		Body:        bytes.NewReader(buf.Bytes()),
-		ContentType: aws.String("image/png"),
+		ContentType: aws.String(ImgContentType),
 		ACL:         types.ObjectCannedACLPrivate,
 	})
 	return err

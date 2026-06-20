@@ -6,10 +6,8 @@ package fs
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"image/draw"
-	"io"
 	"os"
 	"path/filepath"
 )
@@ -96,33 +94,4 @@ func (s *localStore) ImgSnippet(
 	)
 
 	return cropped, nil
-}
-
-func (s *localStore) ImgReader(key string) (io.ReadCloser, error) {
-	f, err := os.Open(filepath.Join(s.root, key))
-	if err != nil {
-		return nil, err
-	}
-
-	return f, nil
-}
-
-func (s *localStore) ImgWriter(key string) (io.WriteCloser, error) {
-	if s.ImgExists(key) {
-		return nil, fmt.Errorf(
-			"cannot open writer for an existing image %s",
-			key,
-		)
-	}
-
-	if err := os.MkdirAll(s.root, 0755); err != nil {
-		return nil, err
-	}
-
-	w, err := os.Open(filepath.Join(s.root, key))
-	if err != nil {
-		return nil, err
-	}
-
-	return w, nil
 }
