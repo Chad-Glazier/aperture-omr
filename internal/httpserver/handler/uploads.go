@@ -119,11 +119,7 @@ func DeleteUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := store.DeleteImg(id); err != nil {
-		slog.Error("error deleting image", "key", id, "err", err.Error())
-		http.Error(w, "image deletion failed", http.StatusInternalServerError)
-		return
-	}
+	store.DeleteImg(id)
 
 	w.WriteHeader(http.StatusOK)
 }
