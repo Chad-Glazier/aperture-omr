@@ -6,6 +6,7 @@ require gocv.io/x/gocv v0.43.0
 
 require (
 	github.com/aws/smithy-go v1.27.2
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.10.2

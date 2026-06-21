@@ -1,9 +1,10 @@
-openapi: "3.0.3"
+openapi: 3.0.3
+
 info:
   title: OMR Service
   version: "0.0.1"
   description: |
-    A service to perform Optical Mark Recognition (OMR) on PDFs scans of bubblesheets.
+    A service to perform Optical Mark Recognition (OMR) on scans of bubblesheets.
 
 servers:
   - url: http://localhost:3000/
@@ -11,13 +12,15 @@ servers:
 tags:
   - name: Health
     description: Service health and availability
+  - name: Scan
+    description: Image scans of exams
 
 paths:
   /health:
     get:
       tags:
         - Health
-      summary: Ping the service
+      summary: Ping the Service
       description: |
         Simple health-check endpoint. Confirms that the service is running and has a database connection.
       responses:
@@ -25,3 +28,106 @@ paths:
           description: The service is functional.
         "500":
           description: The service failed to connect to the database. Check the server logs.
+  /upload:
+    post:
+      tags:
+        - Scan
+      summary: Upload a Scan
+      description: |
+        Simple upload endpoint. Accepts a `multipart/form-data` body that has an `image` field set to an `image/tiff` file. The uploaded image will be stored with a unique key which is specified in the response body.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: TIFF image file
+            encoding:
+              image:
+                contentType: image/tiff
+      responses:
+        "200":
+          description: The image was successfully uploaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - imageId
+                properties:
+                  imageId:
+                    type: string
+                    description: The new UUID for the image.
+        "500":
+          description: There was an error storing the image.
+          content: 
+            text/plain:
+              schema:
+                type: string
+        "400":
+          description: The request body was malformed. See the response body for details.
+          content:
+            text/plain:
+              schema:
+                type: string
+    get:
+      tags:
+        - Scan
+      summary: Retrieve a Scan
+      description: |
+        Retrieves an uploaded scan by its unique key.
+      parameters:
+        - name: imageId
+          in: query
+          required: true
+          description: UUID of the uploaded scan.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The image was successfully retrieved.
+          content:
+            image/tiff:
+              schema:
+                type: string
+                format: binary
+        "500":
+          description: There was an error connecting to the file storage.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "404":
+          description: No image with the specified key was found.
+          content:
+            text/plain:
+              schema:
+                type: string
+    delete:
+      tags:
+        - Scan
+      summary: Delete a Scan
+      description: |
+        Deletes an uploaded scan by its unique key. If the image isn't found, the request is still considered successful.
+      parameters:
+        - name: imageId
+          in: query
+          required: true
+          description: Unique key of the uploaded scan.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The image is deleted.
+        "500":
+          description: There was an error connecting to the file storage.
+          content:
+            text/plain:
+              schema:
+                type: string
