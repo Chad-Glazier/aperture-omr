@@ -12,7 +12,10 @@ func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("incoming", "endpoint", r.Method+" "+r.URL.Path)
 		start := time.Now()
-		wrappedWriter := &loggedResponseWriter{ resp: w }
+		wrappedWriter := &loggedResponseWriter{
+			resp: w, 
+			statusCode: http.StatusOK,
+		}
 		next.ServeHTTP(wrappedWriter, r)
 		if wrappedWriter.plainTextContent != "" {
 			slog.Info(
@@ -28,20 +31,20 @@ func Logger(next http.Handler) http.Handler {
 				"endpoint", r.Method+" "+r.URL.Path,
 				"status", wrappedWriter.statusCode,
 				"time_ms", time.Since(start).Milliseconds(),
-			)			
+			)
 		}
 	})
 }
 
 //
 // Below, we implement a wrapper for the response writer. It delegates all
-// method calls to the true response writer, but also collects the information
-// about the response relevant for logging.
+// method calls to the true response writer while also collecting information
+// relevant for logging.
 //
 
 type loggedResponseWriter struct {
-	resp http.ResponseWriter
-	statusCode int
+	resp             http.ResponseWriter
+	statusCode       int
 	plainTextContent string
 }
 
@@ -66,4 +69,4 @@ func truncateContent(text []byte, length int) string {
 		return string(text)
 	}
 	return string(text[:length-3]) + "..."
-}  
+}
