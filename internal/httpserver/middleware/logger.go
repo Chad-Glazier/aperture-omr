@@ -3,30 +3,31 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
 // Creates middleware that logs each request and response.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("received request", "endpoint", r.Method+" "+r.URL.Path)
+		slog.Info("incoming", "endpoint", r.Method+" "+r.URL.Path)
 		start := time.Now()
 		wrappedWriter := &loggedResponseWriter{ resp: w }
 		next.ServeHTTP(wrappedWriter, r)
 		if wrappedWriter.plainTextContent != "" {
 			slog.Info(
-				"response sent",
+				"outgoing",
 				"endpoint", r.Method+" "+r.URL.Path,
-				"milliseconds", time.Since(start).Milliseconds(),
 				"status", wrappedWriter.statusCode,
-				"text content", wrappedWriter.plainTextContent,
+				"time_ms", time.Since(start).Milliseconds(),
+				"text_content", wrappedWriter.plainTextContent,
 			)
 		} else {
 			slog.Info(
-				"response sent",
+				"outgoing",
 				"endpoint", r.Method+" "+r.URL.Path,
-				"milliseconds", time.Since(start).Milliseconds(),
 				"status", wrappedWriter.statusCode,
+				"time_ms", time.Since(start).Milliseconds(),
 			)			
 		}
 	})
@@ -54,8 +55,15 @@ func (l *loggedResponseWriter) WriteHeader(statusCode int) {
 }
 
 func (l *loggedResponseWriter) Write(data []byte) (int, error) {
-	if l.resp.Header().Get("Content-Type") == "text/plain" {
-		l.plainTextContent = string(data[:min(len(data), 20)])
+	if strings.HasPrefix(l.resp.Header().Get("Content-Type"), "text/plain") {
+		l.plainTextContent = truncateContent(data, 20)
 	}
 	return l.resp.Write(data)
 }
+
+func truncateContent(text []byte, length int) string {
+	if len(text) <= length {
+		return string(text)
+	}
+	return string(text[:length-3]) + "..."
+}  
