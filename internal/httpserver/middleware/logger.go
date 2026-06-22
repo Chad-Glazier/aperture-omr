@@ -13,7 +13,7 @@ func Logger(next http.Handler) http.Handler {
 		slog.Info("incoming", "endpoint", r.Method+" "+r.URL.Path)
 		start := time.Now()
 		wrappedWriter := &loggedResponseWriter{
-			resp: w, 
+			resp:       w,
 			statusCode: http.StatusOK,
 		}
 		next.ServeHTTP(wrappedWriter, r)

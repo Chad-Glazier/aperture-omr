@@ -14,6 +14,93 @@ tags:
     description: Service health and availability
   - name: Scan
     description: Image scans of exams
+  - name: Preprocessing
+    description: Data for preprocessing scans
+  - name: Template
+    description: Templates for processing scans
+
+components:
+  schemas:
+
+    PreprocessTemplate:
+      type: object
+      required:
+        - width
+        - height
+        - anchors
+        - config
+      properties:
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+
+        anchors:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/Anchor'
+
+        config:
+          $ref: '#/components/schemas/PreprocessConfig'
+
+    Anchor:
+      type: object
+      required:
+        - center
+        - roi
+      properties:
+        center:
+          $ref: '#/components/schemas/Point'
+
+        roi:
+          $ref: '#/components/schemas/Rectangle'
+
+    Point:
+      type: object
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+
+    Rectangle:
+      type: object
+      required:
+        - min
+        - max
+      properties:
+        min:
+          $ref: '#/components/schemas/Point'
+        max:
+          $ref: '#/components/schemas/Point'
+
+    PreprocessConfig:
+      type: object
+      required:
+        - blurSize
+        - morphCloseSize
+        - minAnchorConfidence
+      properties:
+        blurSize:
+          type: integer
+          minimum: 1
+
+        morphCloseSize:
+          type: integer
+          minimum: 1
+
+        minAnchorConfidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
 
 paths:
   /health:
@@ -131,3 +218,66 @@ paths:
             text/plain:
               schema:
                 type: string
+
+  /template/preprocess:
+    post:
+      summary: Upload a Preprocessing Template
+      tags:
+        - Preprocessing
+        - Template
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - anchor0
+                - anchor1
+                - anchor2
+                - template
+              properties:
+                anchor0:
+                  type: string
+                  format: binary
+                  description: First anchor image
+
+                anchor1:
+                  type: string
+                  format: binary
+                  description: Second anchor image
+
+                anchor2:
+                  type: string
+                  format: binary
+                  description: Third anchor image
+
+                template:
+                  $ref: '#/components/schemas/PreprocessTemplate'
+
+            encoding:
+              template:
+                contentType: application/json
+
+      responses:
+        "501":
+          description: Not implemented
+
+        "400":
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                invalidMultipart:
+                  value: invalid multipart form
+                missingAnchor:
+                  value: anchor0 is required
+                invalidImage:
+                  value: failure decoding anchor0; ensure its type is image/*
+                missingTemplate:
+                  value: template field required
+                invalidTemplate:
+                  value: error parsing template JSON data, ensure it matches the specified format
+      

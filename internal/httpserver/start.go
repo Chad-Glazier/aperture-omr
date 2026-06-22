@@ -19,12 +19,16 @@ func Start() error {
 	}
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
 	mux.HandleFunc("GET /", handler.DocsPage)
 	mux.HandleFunc("GET /health", handler.Health)
+
 	mux.HandleFunc("POST /upload", handler.PostUpload)
 	mux.HandleFunc("GET /upload", handler.GetUpload)
 	mux.HandleFunc("DELETE /upload", handler.DeleteUpload)
+
+	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessTemplate)
 
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Logger(httpHandler)

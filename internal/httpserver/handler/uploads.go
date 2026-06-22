@@ -8,7 +8,7 @@ import (
 	"ubco-team15/omr/internal/fs"
 )
 
-const maxUploadSize = 10 * 1024 * 1024 // 10 MB
+const maxUploadSize = 30 * 1024 * 1024 // 30 MB
 
 func getStore() (fs.Store, error) {
 	if config.TestMode() {
