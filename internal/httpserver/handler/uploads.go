@@ -44,7 +44,6 @@ func PostUpload(w http.ResponseWriter, r *http.Request) {
 
 	store, err := getStore()
 	if err != nil {
-		slog.Error("error connecting to file storage")
 		http.Error(
 			w,
 			"error connecting to file storage",
@@ -73,7 +72,6 @@ func GetUpload(w http.ResponseWriter, r *http.Request) {
 
 	store, err := getStore()
 	if err != nil {
-		slog.Error("error connecting to file storage")
 		http.Error(
 			w,
 			"error connecting to file storage",
@@ -84,11 +82,11 @@ func GetUpload(w http.ResponseWriter, r *http.Request) {
 
 	img, err := store.GetImg(id)
 	if err != nil {
-		slog.Error("error retrieving image", "key", id, "err", err.Error())
 		http.Error(w, "image not found", http.StatusNotFound)
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", fs.ImgContentType)
 	err = fs.EncodeImg(w, img)
 	if err != nil {
@@ -110,7 +108,6 @@ func DeleteUpload(w http.ResponseWriter, r *http.Request) {
 
 	store, err := getStore()
 	if err != nil {
-		slog.Error("error connecting to file storage")
 		http.Error(
 			w,
 			"error connecting to file storage",
@@ -125,7 +122,6 @@ func DeleteUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := store.DeleteImg(id); err != nil {
-		slog.Error("error deleting image", "key", id, "err", err.Error())
 		http.Error(w, "image deletion failed", http.StatusInternalServerError)
 		return
 	}
