@@ -73,7 +73,7 @@ var scanCmd = &cobra.Command{
 		defer data.Close()
 
 		if display {
-			Display(data.Color, "Scanned Image")
+			Display(data.Binary, "Scanned Image")
 		}
 
 		if output != "" {
@@ -91,7 +91,7 @@ var scanCmd = &cobra.Command{
 			return nil
 		}
 
-		result, err := marker.Evaluate(data.Binary, template.Questions)
+		result, err := marker.Evaluate(data.Binary, template.Questions, template.Config.FillThreshold)
 		if err != nil {
 			return fmt.Errorf("extract: %w", err)
 		}

@@ -76,6 +76,7 @@ type Config struct {
 	BlurSize            int     `json:"blurSize"`
 	MorphCloseSize      int     `json:"morphCloseSize"`
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
+	FillThreshold       float64 `json:fillThreshold`
 }
 
 // Runs an image through the OMR preprocessing pipeline,

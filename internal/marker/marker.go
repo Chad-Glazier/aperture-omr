@@ -3,6 +3,7 @@ package marker
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 
 	"ubco-team15/omr/internal/scanner"
@@ -21,7 +22,7 @@ type Result struct {
 	Answers []Answer
 }
 
-func Evaluate(img gocv.Mat, questions []scanner.Question) (*Result, error) {
+func Evaluate(img gocv.Mat, questions []scanner.Question, threshold float64) (*Result, error) {
 	if img.Empty() {
 		return nil, fmt.Errorf("cannot extract from empty image")
 	}
@@ -33,14 +34,11 @@ func Evaluate(img gocv.Mat, questions []scanner.Question) (*Result, error) {
 		Answers: make([]Answer, len(questions)),
 	}
 
-	// Based on our inverted binarization, a fully filled bubble should be near 100% white.
-	// A threshold of 45% is strict enough to ignore stray eraser smudges, but forgiving
-	// enough for students who don't completely fill the bubble edge-to-edge.
-	const threshold = 0.45
-
+	// Fill ratio is measured against the inner 75% of the bubble radius (see bubbleFillRatio),
+	// so the printed border ring is excluded.
 	for i, q := range questions {
 		selected, confidence := detectAnswers(img, q, threshold)
-		flag := confidence < 0.5 || len(selected) != 1
+		flag := confidence < 0.5 || len(selected) == 0
 
 		result.Answers[i] = Answer{
 			QuestionID: q.ID,
@@ -55,22 +53,22 @@ func Evaluate(img gocv.Mat, questions []scanner.Question) (*Result, error) {
 
 func detectAnswers(img gocv.Mat, q scanner.Question, threshold float64) ([]string, float64) {
 	var answered []string
-
+	var selectedFills []float64
 	var highestFill float64
-	var nextFill float64
+	var highestUnselected float64
 
 	for _, bubble := range q.Options {
 		fillRatio := bubbleFillRatio(img, bubble)
 
-		if fillRatio >= threshold {
-			answered = append(answered, bubble.Label)
+		if fillRatio > highestFill {
+			highestFill = fillRatio
 		}
 
-		if fillRatio > highestFill {
-			nextFill = highestFill
-			highestFill = fillRatio
-		} else if fillRatio > nextFill {
-			nextFill = fillRatio
+		if fillRatio >= threshold {
+			answered = append(answered, bubble.Label)
+			selectedFills = append(selectedFills, fillRatio)
+		} else if fillRatio > highestUnselected {
+			highestUnselected = fillRatio
 		}
 	}
 
@@ -78,7 +76,15 @@ func detectAnswers(img gocv.Mat, q scanner.Question, threshold float64) ([]strin
 	if len(answered) == 0 {
 		confidence = 1.0 - highestFill
 	} else {
-		confidence = highestFill - nextFill
+		// Weakest selected minus strongest unselected: measures how clearly the
+		// marked bubbles are separated from the unmarked ones regardless of count.
+		minSelected := selectedFills[0]
+		for _, f := range selectedFills[1:] {
+			if f < minSelected {
+				minSelected = f
+			}
+		}
+		confidence = minSelected - highestUnselected
 	}
 
 	confidence = math.Max(confidence, 0.0)
@@ -91,6 +97,28 @@ func bubbleFillRatio(img gocv.Mat, b scanner.Bubble) float64 {
 	roi := img.Region(image.Rect(b.X, b.Y, b.X+b.Width, b.Y+b.Height))
 	defer roi.Close()
 
-	filled := gocv.CountNonZero(roi)
-	return float64(filled) / float64(b.Width*b.Height)
+	// Sample only the inner 75% of the bubble radius so the printed border ring
+	// is excluded entirely. Empty bubbles read near 0; marked ones read high.
+	mask := gocv.NewMatWithSize(b.Height, b.Width, gocv.MatTypeCV8U)
+	defer mask.Close()
+
+	r := b.Width / 2
+	if b.Height < b.Width {
+		r = b.Height / 2
+	}
+	innerR := int(float64(r) * 0.75)
+	gocv.Circle(&mask, image.Pt(b.Width/2, b.Height/2), innerR, color.RGBA{255, 255, 255, 255}, -1)
+
+	masked := gocv.NewMat()
+	defer masked.Close()
+	gocv.BitwiseAnd(roi, mask, &masked)
+
+	circleArea := gocv.CountNonZero(mask)
+	filled := gocv.CountNonZero(masked)
+
+	if circleArea == 0 {
+		return 0.0
+	}
+
+	return float64(filled) / float64(circleArea)
 }
