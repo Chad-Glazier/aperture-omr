@@ -35,16 +35,17 @@ func (ctx *context) exec(op func() error) {
 }
 
 type Bubble struct {
-	Label  string `json:"label"`
-	X      int    `json:"x"`
-	Y      int    `json:"y"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
+	Label string `json:"label"`
+	X     int    `json:"x"`
+	Y     int    `json:"y"`
 }
 
 type Question struct {
-	ID      string   `json:"id"`
-	Options []Bubble `json:"options"`
+	ID           string   `json:"id"`
+	Type         string   `json:"type"` // "single" (default) or "multi"
+	Options      []Bubble `json:"options"`
+	BubbleWidth  int      `json:"bubbleWidth"`
+	BubbleHeight int      `json:"bubbleHeight"`
 }
 
 type Anchor struct {
@@ -76,7 +77,8 @@ type Config struct {
 	BlurSize            int     `json:"blurSize"`
 	MorphCloseSize      int     `json:"morphCloseSize"`
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
-	FillThreshold       float64 `json:fillThreshold`
+	FillThreshold       float64 `json:"fillThreshold"`
+	BubbleInset         float64 `json:"bubbleInset"`
 }
 
 // Runs an image through the OMR preprocessing pipeline,

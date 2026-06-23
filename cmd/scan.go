@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"io"
 	"os"
 	"path/filepath"
@@ -72,10 +74,6 @@ var scanCmd = &cobra.Command{
 		}
 		defer data.Close()
 
-		if display {
-			Display(data.Binary, "Scanned Image")
-		}
-
 		if output != "" {
 			outPath, err := utils.Resolve(output)
 			if err != nil {
@@ -91,12 +89,41 @@ var scanCmd = &cobra.Command{
 			return nil
 		}
 
-		result, err := marker.Evaluate(data.Binary, template.Questions, template.Config.FillThreshold)
+		threshold := template.Config.FillThreshold
+		if threshold == 0 {
+			threshold = 0.5
+		}
+		inset := template.Config.BubbleInset
+		if inset == 0 {
+			inset = 0.75
+		}
+		result, err := marker.Evaluate(data.Binary, template.Questions, threshold, inset)
 		if err != nil {
 			return fmt.Errorf("extract: %w", err)
 		}
 
 		printResults(result)
+
+		if display {
+			preview := gocv.NewMat()
+			data.Color.CopyTo(&preview)
+
+			red := color.RGBA{R: 255}
+			for _, q := range template.Questions {
+				r := q.BubbleWidth / 2
+				if q.BubbleHeight < q.BubbleWidth {
+					r = q.BubbleHeight / 2
+				}
+				for _, b := range q.Options {
+					center := image.Pt(b.X+q.BubbleWidth/2, b.Y+q.BubbleHeight/2)
+					gocv.Circle(&preview, center, r, red, 2)
+				}
+			}
+
+			Display(preview, "Scanned Image")
+			preview.Close()
+		}
+
 		return nil
 	},
 }

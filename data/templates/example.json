@@ -57,16 +57,20 @@
 	"config": {
 		"blurSize": 5,
 		"morphCloseSize": 3,
-		"minAnchorConfidence": 0.5
+		"minAnchorConfidence": 0.5,
+		"fillThreshold": 0.5,
+		"bubbleInset": 0.75
 	},
 	"questions": [
 		{
 			"id": "Q1",
+			"bubbleWidth": 30,
+			"bubbleHeight": 30,
 			"options": [
-				{ "label": "A", "x": 100, "y": 200, "width": 30, "height": 30 },
-				{ "label": "B", "x": 150, "y": 200, "width": 30, "height": 30 },
-				{ "label": "C", "x": 200, "y": 200, "width": 30, "height": 30 },
-				{ "label": "D", "x": 250, "y": 200, "width": 30, "height": 30 }
+				{ "label": "A", "x": 100, "y": 200 },
+				{ "label": "B", "x": 150, "y": 200 },
+				{ "label": "C", "x": 200, "y": 200 },
+				{ "label": "D", "x": 250, "y": 200 }
 			]
 		}
 	]

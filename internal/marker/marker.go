@@ -22,7 +22,11 @@ type Result struct {
 	Answers []Answer
 }
 
-func Evaluate(img gocv.Mat, questions []scanner.Question, threshold float64) (*Result, error) {
+// Evaluate scores all questions in the image against threshold and inset.
+// threshold is the minimum fill ratio for a bubble to be counted as selected.
+// inset is the fraction of the bubble radius sampled (e.g. 0.75 skips the outer
+// border ring so the printed circle outline doesn't inflate fill readings).
+func Evaluate(img gocv.Mat, questions []scanner.Question, threshold, inset float64) (*Result, error) {
 	if img.Empty() {
 		return nil, fmt.Errorf("cannot extract from empty image")
 	}
@@ -34,11 +38,10 @@ func Evaluate(img gocv.Mat, questions []scanner.Question, threshold float64) (*R
 		Answers: make([]Answer, len(questions)),
 	}
 
-	// Fill ratio is measured against the inner 75% of the bubble radius (see bubbleFillRatio),
-	// so the printed border ring is excluded.
 	for i, q := range questions {
-		selected, confidence := detectAnswers(img, q, threshold)
-		flag := confidence < 0.5 || len(selected) == 0
+		selected, confidence := detectAnswers(img, q, threshold, inset)
+		multiSelect := q.Type == "multi"
+		flag := confidence < 0.5 || len(selected) == 0 || (!multiSelect && len(selected) > 1)
 
 		result.Answers[i] = Answer{
 			QuestionID: q.ID,
@@ -51,14 +54,14 @@ func Evaluate(img gocv.Mat, questions []scanner.Question, threshold float64) (*R
 	return result, nil
 }
 
-func detectAnswers(img gocv.Mat, q scanner.Question, threshold float64) ([]string, float64) {
+func detectAnswers(img gocv.Mat, q scanner.Question, threshold, inset float64) ([]string, float64) {
 	var answered []string
 	var selectedFills []float64
 	var highestFill float64
 	var highestUnselected float64
 
 	for _, bubble := range q.Options {
-		fillRatio := bubbleFillRatio(img, bubble)
+		fillRatio := bubbleFillRatio(img, bubble, q.BubbleWidth, q.BubbleHeight, inset)
 
 		if fillRatio > highestFill {
 			highestFill = fillRatio
@@ -93,21 +96,37 @@ func detectAnswers(img gocv.Mat, q scanner.Question, threshold float64) ([]strin
 	return answered, confidence
 }
 
-func bubbleFillRatio(img gocv.Mat, b scanner.Bubble) float64 {
-	roi := img.Region(image.Rect(b.X, b.Y, b.X+b.Width, b.Y+b.Height))
+// bubbleFillRatio returns the fraction of pixels inside the bubble's inset
+// circle that are non-zero (i.e. filled) in the binary image.
+// w and h are the bubble dimensions from the question; inset is the fraction
+// of the bubble radius to sample (e.g. 0.75 skips the outer border ring).
+// The ROI is clamped to image bounds so a bubble placed one pixel over the
+// edge doesn't cause an OpenCV assertion failure.
+func bubbleFillRatio(img gocv.Mat, b scanner.Bubble, w, h int, inset float64) float64 {
+	x0 := max(b.X, 0)
+	y0 := max(b.Y, 0)
+	x1 := min(b.X+w, img.Cols())
+	y1 := min(b.Y+h, img.Rows())
+
+	if x1 <= x0 || y1 <= y0 {
+		return 0.0
+	}
+
+	cw := x1 - x0
+	ch := y1 - y0
+
+	roi := img.Region(image.Rect(x0, y0, x1, y1))
 	defer roi.Close()
 
-	// Sample only the inner 75% of the bubble radius so the printed border ring
-	// is excluded entirely. Empty bubbles read near 0; marked ones read high.
-	mask := gocv.NewMatWithSize(b.Height, b.Width, gocv.MatTypeCV8U)
+	mask := gocv.NewMatWithSize(ch, cw, gocv.MatTypeCV8U)
 	defer mask.Close()
 
-	r := b.Width / 2
-	if b.Height < b.Width {
-		r = b.Height / 2
+	r := w / 2
+	if h < w {
+		r = h / 2
 	}
-	innerR := int(float64(r) * 0.75)
-	gocv.Circle(&mask, image.Pt(b.Width/2, b.Height/2), innerR, color.RGBA{255, 255, 255, 255}, -1)
+	innerR := int(float64(r) * inset)
+	gocv.Circle(&mask, image.Pt(cw/2, ch/2), innerR, color.RGBA{255, 255, 255, 255}, -1)
 
 	masked := gocv.NewMat()
 	defer masked.Close()
