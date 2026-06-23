@@ -34,6 +34,19 @@ func (ctx *context) exec(op func() error) {
 	ctx.err = op()
 }
 
+type Bubble struct {
+	Label  string `json:"label"`
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+}
+
+type Question struct {
+	ID      string   `json:"id"`
+	Options []Bubble `json:"options"`
+}
+
 type Anchor struct {
 	Image  gocv.Mat        `json:"-"`
 	Path   string          `json:"path"`
@@ -46,10 +59,11 @@ func (a *Anchor) Close() {
 }
 
 type Template struct {
-	Width   int      `json:"width"`
-	Height  int      `json:"height"`
-	Anchors []Anchor `json:"anchors"`
-	Config  Config   `json:"config"`
+	Width     int        `json:"width"`
+	Height    int        `json:"height"`
+	Anchors   []Anchor   `json:"anchors"`
+	Config    Config     `json:"config"`
+	Questions []Question `json:"questions"`
 }
 
 func (t *Template) Close() {

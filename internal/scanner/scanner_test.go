@@ -125,7 +125,7 @@ func TestScaleROI(t *testing.T) {
 			got := scaleROI(tc.roi, tc.src, tc.target)
 			if got != tc.want {
 				t.Errorf("scaleROI(%v, %v, %v) = %v, want %v",
-					tc.roi, tc.src, tc.target, got, tc.want)
+				tc.roi, tc.src, tc.target, got, tc.want)
 			}
 		})
 	}

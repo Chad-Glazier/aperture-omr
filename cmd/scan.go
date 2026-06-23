@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
+	"ubco-team15/omr/internal/marker"
 	"ubco-team15/omr/internal/scanner"
 	"ubco-team15/omr/internal/utils"
 
@@ -17,7 +19,7 @@ var scanCmd = &cobra.Command{
 	Use:   "scan <img> <template>",
 	Short: "Scans an image and sends it to the grading service for processing.",
 	Long: `Scans an image and sends it to the grading service for processing.
-	The img argument specifies the path to the image to be scanned. 
+	The img argument specifies the path to the image to be scanned.
 	The template argument specifies the path to the JSON template to use.
 	The --display flag can be used to display the scanned image in a window.
 	The --output flag can be used to write the scanned image to a file.`,
@@ -68,7 +70,6 @@ var scanCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("scanner: %w", err)
 		}
-
 		defer data.Close()
 
 		if display {
@@ -82,22 +83,20 @@ var scanCmd = &cobra.Command{
 			}
 			if ok := gocv.IMWrite(outPath, data.Color); !ok {
 				return fmt.Errorf("failed to write output image to %q", outPath)
-			} else {
-				fmt.Printf("successfully wrote output to: %q\n", outPath)
 			}
+			fmt.Printf("successfully wrote output to: %q\n", outPath)
 		}
 
-		// tmp, err := extractor.LoadTemplate(tPath)
-		// if err != nil {
-		// 	log.Fatalf("Template error: %s", err)
-		// }
+		if len(template.Questions) == 0 {
+			return nil
+		}
 
-		// contract, err := extractor.Extract(img, tmp)
-		// if err != nil {
-		// 	log.Fatalf("Extractor error: %s", err)
-		// }
+		result, err := marker.Evaluate(data.Binary, template.Questions)
+		if err != nil {
+			return fmt.Errorf("extract: %w", err)
+		}
 
-		// fmt.Printf("%+v\n", contract.Answers)
+		printResults(result)
 		return nil
 	},
 }
@@ -108,6 +107,28 @@ func init() {
 	scanCmd.Flags().StringP(
 		"output", "o", "", "Write the scanned image to a file at the given path.")
 	rootCmd.AddCommand(scanCmd)
+}
+
+func printResults(r *marker.Result) {
+	fmt.Println("\n======================================================")
+	fmt.Println("             OMR BUBBLE EXTRACTION REPORT             ")
+	fmt.Println("======================================================")
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+	fmt.Fprintln(w, "QUESTION\tSELECTED\tCONFIDENCE\tMANUAL REVIEW FLAG")
+	fmt.Fprintln(w, "--------\t--------\t----------\t------------------")
+
+	for _, ans := range r.Answers {
+		fmt.Fprintf(w, "%s\t%s\t%.2f\t%t\n",
+			ans.QuestionID,
+			strings.Join(ans.Selected, ", "),
+			ans.Confidence,
+			ans.Flag,
+		)
+	}
+
+	w.Flush()
+	fmt.Println("======================================================")
 }
 
 // Provides a display window to see img output,
