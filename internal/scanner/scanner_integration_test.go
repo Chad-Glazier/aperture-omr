@@ -20,7 +20,7 @@ func TestScan(t *testing.T) {
 	}
 	defer f.Close()
 
-	tmpl, err := LoadTemplate(f, func(path string) (io.Reader, error) {
+	tmpl, err := LoadTemplate(f, func(path string) (io.ReadCloser, error) {
 		return os.Open(filepath.Join("testdata", path))
 	})
 	if err != nil {
