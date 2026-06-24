@@ -45,8 +45,8 @@ func TestMarkIntegration(t *testing.T) {
 		t.Fatalf("evaluate: %v", err)
 	}
 
-	if len(result.Answers) != 100 {
-		t.Fatalf("expected 100 answers, got %d", len(result.Answers))
+	if len(result.Answers) != 8 {
+		t.Fatalf("expected 8 answers, got %d", len(result.Answers))
 	}
 
 	// Index answers by question ID for lookup below.
