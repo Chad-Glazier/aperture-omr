@@ -43,13 +43,15 @@ type ExamGrade struct {
 }
 
 type ExamTemplate struct {
-	ID             pgtype.UUID
-	ExamID         pgtype.UUID
-	QuestionConfig []byte
-	AnswerKey      []byte
-	ScoringRules   []byte
-	TotalQuestions int32
-	Version        pgtype.Int4
+	ID               pgtype.UUID
+	ExamID           pgtype.UUID
+	QuestionConfig   []byte
+	AnswerKey        []byte
+	ScoringRules     []byte
+	TotalQuestions   int32
+	Version          pgtype.Int4
+	OmrTemplateID    pgtype.UUID
+	GeneratedPdfPath pgtype.Text
 }
 
 type OmrDetectedMark struct {
@@ -77,11 +79,13 @@ type OmrMarking struct {
 }
 
 type OmrTemplate struct {
-	ID        pgtype.UUID
-	Name      string
-	PageCount int32
-	Version   pgtype.Int4
-	CreatedAt pgtype.Timestamptz
+	ID               pgtype.UUID
+	Name             string
+	PageCount        int32
+	Version          pgtype.Int4
+	CreatedAt        pgtype.Timestamptz
+	ScanTemplatePath pgtype.Text
+	MarkTemplatePath pgtype.Text
 }
 
 type ReviewRequest struct {

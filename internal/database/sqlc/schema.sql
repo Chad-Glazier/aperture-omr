@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS exam_templates (
     answer_key JSONB NOT NULL,
     scoring_rules JSONB,
     total_questions INT NOT NULL,
-    version INT DEFAULT 1
+    version INT DEFAULT 1,
+    omr_template_id UUID REFERENCES omr_templates(id),
+    generated_pdf_path TEXT
 );
 
 -- ── Scans ─────────────────────────────────────────────────────────────────────
@@ -61,7 +63,9 @@ CREATE TABLE IF NOT EXISTS omr_templates (
     name TEXT NOT NULL,
     page_count INT NOT NULL,
     version INT DEFAULT 1,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    scan_template_path TEXT,
+    mark_template_path TEXT
 );
 
 -- ── OMR Markings ──────────────────────────────────────────────────────────────
