@@ -95,7 +95,9 @@ func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 	for i, q := range tmpl.Questions {
 		selected, confidence := detectAnswers(img, q, threshold, inset)
 		multiSelect := q.Type == "multi"
-		flag := confidence < flagThreshold || len(selected) == 0 || (!multiSelect && len(selected) > 1)
+		flag := confidence < flagThreshold ||
+			len(selected) == 0 ||
+			(!multiSelect && len(selected) > 1)
 
 		result.Answers[i] = Answer{
 			QuestionID: q.ID,
@@ -108,7 +110,9 @@ func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 	return result, nil
 }
 
-func detectAnswers(img gocv.Mat, q Question, threshold, inset float64) ([]string, float64) {
+func detectAnswers(
+	img gocv.Mat, q Question, threshold, inset float64,
+) ([]string, float64) {
 	var answered []string
 	var selectedFills []float64
 	var highestFill float64
@@ -180,7 +184,8 @@ func bubbleFillRatio(img gocv.Mat, b Bubble, w, h int, inset float64) float64 {
 		r = h / 2
 	}
 	innerR := int(float64(r) * inset)
-	gocv.Circle(&mask, image.Pt(cw/2, ch/2), innerR, color.RGBA{255, 255, 255, 255}, -1)
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	gocv.Circle(&mask, image.Pt(cw/2, ch/2), innerR, white, -1)
 
 	masked := gocv.NewMat()
 	defer masked.Close()

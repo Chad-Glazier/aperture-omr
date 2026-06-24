@@ -258,7 +258,9 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 // LoadTemplate parses a template from r and loads anchor images using open.
 // open receives each anchor's path as written in the JSON; the caller is
 // responsible for resolving relative paths and expanding ~ if needed.
-func LoadTemplate(r io.Reader, open func(string) (io.ReadCloser, error)) (*Template, error) {
+func LoadTemplate(
+	r io.Reader, open func(string) (io.ReadCloser, error),
+) (*Template, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("read: %w", err)

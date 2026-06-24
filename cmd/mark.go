@@ -43,7 +43,8 @@ func init() {
 	rootCmd.AddCommand(markCmd)
 }
 
-// doMark evaluates img against the mark template at tmplPath and prints the report.
+// doMark evaluates img against the mark template at tmplPath
+// and prints the report.
 func doMark(img gocv.Mat, tmplPath string) error {
 	tmpl, err := loadMarkTemplate(tmplPath)
 	if err != nil {

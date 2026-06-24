@@ -20,7 +20,7 @@ var preprocessCmd = &cobra.Command{
 anchor points and config defined in the scan template. The --output flag writes
 the preprocessed binary image to a file, which can then be passed to the mark
 command.`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		output, _ := cmd.Flags().GetString("output")
 
@@ -47,10 +47,11 @@ func init() {
 	rootCmd.AddCommand(preprocessCmd)
 }
 
-// doPreprocess runs the scanning pipeline on imgPath, optionally displays the
-// colour image and saves the binary output. The returned ScanData must be closed
-// by the caller.
-func doPreprocess(imgPath, tmplPath string, output string) (*scanner.ScanData, error) {
+// doPreprocess runs the scanning pipeline on imgPath and optionally saves the
+// binary output. The returned ScanData must be closed by the caller.
+func doPreprocess(
+	imgPath, tmplPath, output string,
+) (*scanner.ScanData, error) {
 	tmpl, err := loadScanTemplate(tmplPath)
 	if err != nil {
 		return nil, err
@@ -93,16 +94,18 @@ func loadScanTemplate(tmplPath string) (*scanner.Template, error) {
 	defer f.Close()
 
 	tmplDir := filepath.Dir(tmplPath)
-	tmpl, err := scanner.LoadTemplate(f, func(anchorPath string) (io.ReadCloser, error) {
-		if !filepath.IsAbs(anchorPath) && !strings.HasPrefix(anchorPath, "~") {
-			anchorPath = filepath.Join(tmplDir, anchorPath)
-		}
-		anchorPath, err := utils.Resolve(anchorPath)
-		if err != nil {
-			return nil, err
-		}
-		return os.Open(anchorPath)
-	})
+	tmpl, err := scanner.LoadTemplate(f,
+		func(anchorPath string) (io.ReadCloser, error) {
+			if !filepath.IsAbs(anchorPath) &&
+				!strings.HasPrefix(anchorPath, "~") {
+				anchorPath = filepath.Join(tmplDir, anchorPath)
+			}
+			anchorPath, err := utils.Resolve(anchorPath)
+			if err != nil {
+				return nil, err
+			}
+			return os.Open(anchorPath)
+		})
 	if err != nil {
 		return nil, fmt.Errorf("load scan template: %w", err)
 	}
