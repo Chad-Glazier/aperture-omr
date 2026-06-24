@@ -25,11 +25,14 @@ type Question struct {
 	Options      []Bubble `json:"options"`
 }
 
-// Config holds marking-specific parameters. Zero values fall back to sensible
-// defaults (fillThreshold: 0.5, bubbleInset: 0.75).
+// Config holds marking-specific parameters. Nil fields fall back to defaults:
+// fillThreshold: 0.5, bubbleInset: 0.75, flagThreshold: 0.5.
 type Config struct {
-	FillThreshold float64 `json:"fillThreshold"`
-	BubbleInset   float64 `json:"bubbleInset"`
+	FillThreshold *float64 `json:"fillThreshold"`
+	BubbleInset   *float64 `json:"bubbleInset"`
+	// FlagThreshold is the minimum confidence below which an answer is flagged
+	// for manual review. Set to 0.0 to disable confidence-based flagging.
+	FlagThreshold *float64 `json:"flagThreshold"`
 }
 
 type Template struct {
@@ -72,13 +75,17 @@ func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 		return nil, fmt.Errorf("mark template contains no questions")
 	}
 
-	threshold := tmpl.Config.FillThreshold
-	if threshold == 0 {
-		threshold = 0.5
+	threshold := 0.5
+	if tmpl.Config.FillThreshold != nil {
+		threshold = *tmpl.Config.FillThreshold
 	}
-	inset := tmpl.Config.BubbleInset
-	if inset == 0 {
-		inset = 0.75
+	inset := 0.75
+	if tmpl.Config.BubbleInset != nil {
+		inset = *tmpl.Config.BubbleInset
+	}
+	flagThreshold := 0.5
+	if tmpl.Config.FlagThreshold != nil {
+		flagThreshold = *tmpl.Config.FlagThreshold
 	}
 
 	result := &Result{
@@ -88,7 +95,7 @@ func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 	for i, q := range tmpl.Questions {
 		selected, confidence := detectAnswers(img, q, threshold, inset)
 		multiSelect := q.Type == "multi"
-		flag := confidence < 0.5 || len(selected) == 0 || (!multiSelect && len(selected) > 1)
+		flag := confidence < flagThreshold || len(selected) == 0 || (!multiSelect && len(selected) > 1)
 
 		result.Answers[i] = Answer{
 			QuestionID: q.ID,

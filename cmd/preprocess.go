@@ -19,10 +19,9 @@ var preprocessCmd = &cobra.Command{
 	Long: `Applies perspective correction and binarization to an image using the
 anchor points and config defined in the scan template. The --output flag writes
 the preprocessed binary image to a file, which can then be passed to the mark
-command. The --display flag shows the colour-corrected image in a window.`,
-	Args: cobra.ExactArgs(2),
+command.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		display, _ := cmd.Flags().GetBool("display")
 		output, _ := cmd.Flags().GetString("output")
 
 		imgPath, err := utils.Resolve(args[0])
@@ -34,7 +33,7 @@ command. The --display flag shows the colour-corrected image in a window.`,
 			return fmt.Errorf("resolve template path: %w", err)
 		}
 
-		data, err := doPreprocess(imgPath, tmplPath, display, output)
+		data, err := doPreprocess(imgPath, tmplPath, output)
 		if err != nil {
 			return err
 		}
@@ -44,7 +43,6 @@ command. The --display flag shows the colour-corrected image in a window.`,
 }
 
 func init() {
-	preprocessCmd.Flags().BoolP("display", "d", false, "Display the colour-corrected image in a window.")
 	preprocessCmd.Flags().StringP("output", "o", "", "Write the binary preprocessed image to a file.")
 	rootCmd.AddCommand(preprocessCmd)
 }
@@ -52,7 +50,7 @@ func init() {
 // doPreprocess runs the scanning pipeline on imgPath, optionally displays the
 // colour image and saves the binary output. The returned ScanData must be closed
 // by the caller.
-func doPreprocess(imgPath, tmplPath string, display bool, output string) (*scanner.ScanData, error) {
+func doPreprocess(imgPath, tmplPath string, output string) (*scanner.ScanData, error) {
 	tmpl, err := loadScanTemplate(tmplPath)
 	if err != nil {
 		return nil, err
@@ -68,10 +66,6 @@ func doPreprocess(imgPath, tmplPath string, display bool, output string) (*scann
 	data, err := scanner.Scan(imgFile, tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("preprocess: %w", err)
-	}
-
-	if display {
-		Display(data.Color, "Preprocessed Image")
 	}
 
 	if output != "" {
@@ -99,7 +93,7 @@ func loadScanTemplate(tmplPath string) (*scanner.Template, error) {
 	defer f.Close()
 
 	tmplDir := filepath.Dir(tmplPath)
-	tmpl, err := scanner.LoadTemplate(f, func(anchorPath string) (io.Reader, error) {
+	tmpl, err := scanner.LoadTemplate(f, func(anchorPath string) (io.ReadCloser, error) {
 		if !filepath.IsAbs(anchorPath) && !strings.HasPrefix(anchorPath, "~") {
 			anchorPath = filepath.Join(tmplDir, anchorPath)
 		}

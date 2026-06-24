@@ -33,13 +33,19 @@ show the colour-corrected image before marking.`,
 			return fmt.Errorf("resolve mark template path: %w", err)
 		}
 
-		data, err := doPreprocess(imgPath, scanTmplPath, display, output)
+		data, err := doPreprocess(imgPath, scanTmplPath, output)
 		if err != nil {
 			return err
 		}
 		defer data.Close()
 
-		return doMark(data.Binary, markTmplPath)
+		result := doMark(data.Binary, markTmplPath)
+
+		if display {
+			Display(data.Color, "Marked Result")
+		}
+
+		return result
 	},
 }
 
