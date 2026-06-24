@@ -1,15 +1,54 @@
 package marker
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"math"
-
-	"ubco-team15/omr/internal/scanner"
 
 	"gocv.io/x/gocv"
 )
+
+type Bubble struct {
+	Label string `json:"label"`
+	X     int    `json:"x"`
+	Y     int    `json:"y"`
+}
+
+type Question struct {
+	ID           string   `json:"id"`
+	Type         string   `json:"type"` // "single" (default) or "multi"
+	BubbleWidth  int      `json:"bubbleWidth"`
+	BubbleHeight int      `json:"bubbleHeight"`
+	Options      []Bubble `json:"options"`
+}
+
+// Config holds marking-specific parameters. Zero values fall back to sensible
+// defaults (fillThreshold: 0.5, bubbleInset: 0.75).
+type Config struct {
+	FillThreshold float64 `json:"fillThreshold"`
+	BubbleInset   float64 `json:"bubbleInset"`
+}
+
+type Template struct {
+	Config    Config     `json:"config"`
+	Questions []Question `json:"questions"`
+}
+
+// LoadTemplate parses a marking template from r.
+func LoadTemplate(r io.Reader) (*Template, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	var tmpl Template
+	if err := json.Unmarshal(data, &tmpl); err != nil {
+		return nil, fmt.Errorf("parse: %w", err)
+	}
+	return &tmpl, nil
+}
 
 type Answer struct {
 	QuestionID string   `json:"questionID"`
@@ -22,23 +61,31 @@ type Result struct {
 	Answers []Answer
 }
 
-// Evaluate scores all questions in the image against threshold and inset.
-// threshold is the minimum fill ratio for a bubble to be counted as selected.
-// inset is the fraction of the bubble radius sampled (e.g. 0.75 skips the outer
-// border ring so the printed circle outline doesn't inflate fill readings).
-func Evaluate(img gocv.Mat, questions []scanner.Question, threshold, inset float64) (*Result, error) {
+// Evaluate scores every question in img against the template's fill threshold
+// and bubble inset. img must be a single-channel binary image (the output of
+// the preprocessing pipeline).
+func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 	if img.Empty() {
-		return nil, fmt.Errorf("cannot extract from empty image")
+		return nil, fmt.Errorf("cannot evaluate an empty image")
 	}
-	if len(questions) == 0 {
-		return nil, fmt.Errorf("cannot extract from empty template")
+	if len(tmpl.Questions) == 0 {
+		return nil, fmt.Errorf("mark template contains no questions")
+	}
+
+	threshold := tmpl.Config.FillThreshold
+	if threshold == 0 {
+		threshold = 0.5
+	}
+	inset := tmpl.Config.BubbleInset
+	if inset == 0 {
+		inset = 0.75
 	}
 
 	result := &Result{
-		Answers: make([]Answer, len(questions)),
+		Answers: make([]Answer, len(tmpl.Questions)),
 	}
 
-	for i, q := range questions {
+	for i, q := range tmpl.Questions {
 		selected, confidence := detectAnswers(img, q, threshold, inset)
 		multiSelect := q.Type == "multi"
 		flag := confidence < 0.5 || len(selected) == 0 || (!multiSelect && len(selected) > 1)
@@ -54,7 +101,7 @@ func Evaluate(img gocv.Mat, questions []scanner.Question, threshold, inset float
 	return result, nil
 }
 
-func detectAnswers(img gocv.Mat, q scanner.Question, threshold, inset float64) ([]string, float64) {
+func detectAnswers(img gocv.Mat, q Question, threshold, inset float64) ([]string, float64) {
 	var answered []string
 	var selectedFills []float64
 	var highestFill float64
@@ -102,7 +149,7 @@ func detectAnswers(img gocv.Mat, q scanner.Question, threshold, inset float64) (
 // of the bubble radius to sample (e.g. 0.75 skips the outer border ring).
 // The ROI is clamped to image bounds so a bubble placed one pixel over the
 // edge doesn't cause an OpenCV assertion failure.
-func bubbleFillRatio(img gocv.Mat, b scanner.Bubble, w, h int, inset float64) float64 {
+func bubbleFillRatio(img gocv.Mat, b Bubble, w, h int, inset float64) float64 {
 	x0 := max(b.X, 0)
 	y0 := max(b.Y, 0)
 	x1 := min(b.X+w, img.Cols())

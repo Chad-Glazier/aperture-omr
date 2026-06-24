@@ -34,20 +34,6 @@ func (ctx *context) exec(op func() error) {
 	ctx.err = op()
 }
 
-type Bubble struct {
-	Label string `json:"label"`
-	X     int    `json:"x"`
-	Y     int    `json:"y"`
-}
-
-type Question struct {
-	ID           string   `json:"id"`
-	Type         string   `json:"type"` // "single" (default) or "multi"
-	Options      []Bubble `json:"options"`
-	BubbleWidth  int      `json:"bubbleWidth"`
-	BubbleHeight int      `json:"bubbleHeight"`
-}
-
 type Anchor struct {
 	Image  gocv.Mat        `json:"-"`
 	Path   string          `json:"path"`
@@ -60,11 +46,10 @@ func (a *Anchor) Close() {
 }
 
 type Template struct {
-	Width     int        `json:"width"`
-	Height    int        `json:"height"`
-	Anchors   []Anchor   `json:"anchors"`
-	Config    Config     `json:"config"`
-	Questions []Question `json:"questions"`
+	Width   int      `json:"width"`
+	Height  int      `json:"height"`
+	Anchors []Anchor `json:"anchors"`
+	Config  Config   `json:"config"`
 }
 
 func (t *Template) Close() {
@@ -77,8 +62,6 @@ type Config struct {
 	BlurSize            int     `json:"blurSize"`
 	MorphCloseSize      int     `json:"morphCloseSize"`
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
-	FillThreshold       float64 `json:"fillThreshold"`
-	BubbleInset         float64 `json:"bubbleInset"`
 }
 
 // Runs an image through the OMR preprocessing pipeline,

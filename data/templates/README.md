@@ -1,67 +1,94 @@
 # OMR Templates
 
-A template is a single JSON file that describes everything the scanner needs to process a specific bubble sheet: the output dimensions, anchor points for perspective correction, image processing configuration, and the location of every answer bubble on the form.
+A form is described by two JSON files: a **scan template** that tells the preprocessor how to correct perspective, and a **mark template** that tells the marker where each answer bubble is located.
 
 ## Usage
 
 ```
-omr scan <image> <template.json>
-omr scan <image> <template.json> --output result.jpg
-omr scan <image> <template.json> --display
+# Preprocess only (saves binary image for later marking)
+omr preprocess <image> <scan-template> --output preprocessed.png
+
+# Mark only (requires a preprocessed binary image)
+omr mark <preprocessed.png> <mark-template>
+
+# Preprocess and mark in one step
+omr scan <image> <scan-template> <mark-template>
 ```
 
 ## Example Directory Structure
 
 ```
-my_template/
-├── template.json
+my_form/
+├── scan.json
+├── mark.json
 └── anchors/
     ├── logo.jpg
     ├── footer.jpg
     └── info.jpg
 ```
 
-Anchor image paths in the JSON are resolved relative to the JSON file's location.
+Anchor image paths in the scan template are resolved relative to the JSON file's location.
 
-## Field Reference
+---
 
-### Top-level
+## Scan Template
 
-| Field       | Type   | Description |
-|-------------|--------|-------------|
-| `width`     | int    | Output image width in pixels after warping |
-| `height`    | int    | Output image height in pixels after warping |
-| `anchors`   | array  | Exactly 3 anchor definitions (see below) |
-| `config`    | object | Processing parameters (see below) |
-| `questions` | array  | Ordered list of questions and their bubble locations (see below) |
+Controls perspective correction and binarization. Pass this to `preprocess` or `scan`.
+
+### Top-level fields
+
+| Field     | Type   | Description |
+|-----------|--------|-------------|
+| `width`   | int    | Output image width in pixels after warping |
+| `height`  | int    | Output image height in pixels after warping |
+| `anchors` | array  | Exactly 3 anchor definitions (see below) |
+| `config`  | object | Preprocessing parameters (see below) |
 
 ### Anchor
 
-Each anchor is a distinctive region of the sheet used to compute the perspective transform. All coordinates are in output (`width` x `height`) space. Choose anchors in distinct corners of the page for the most accurate warp.
+Each anchor is a distinctive region of the sheet used to compute the affine perspective transform. All coordinates are in output (`width` × `height`) space. Choose anchors in distinct corners of the page for the most accurate warp.
 
 | Field    | Type   | Description |
 |----------|--------|-------------|
 | `path`   | string | Path to a cropped image of the anchor region, relative to the JSON file |
-| `center` | Point  | Where the center of this anchor should land in the output (`{"X": n, "Y": n}`) |
+| `center` | Point  | Where the centre of this anchor should land in the output (`{"X": n, "Y": n}`) |
 | `roi`    | Rect   | Search region in output space (`{"Min": {"X":n,"Y":n}, "Max": {"X":n,"Y":n}}`). Keep it generous but targeted. |
 
-Anchor images should be cropped from a clean, straight scan of the sheet. The scanner binarizes them automatically at load time.
+Anchor images should be cropped from a clean, straight scan of the sheet. They are binarized automatically at load time.
 
-### Config
+### Scan Config
 
-| Field                 | Type    | Default | Description |
-|-----------------------|---------|---------|-------------|
-| `blurSize`            | int     | —       | Gaussian blur kernel size, must be odd. Increase for noisier scans. |
-| `morphCloseSize`      | int     | —       | Morphological close kernel size. Helps fill gaps in pencil marks. |
-| `minAnchorConfidence` | float32 | —       | Minimum template match score (0.0–1.0). Raise if anchors produce false positives. |
-| `fillThreshold`       | float64 | 0.5     | Fraction of the inset circle that must be filled for a bubble to count as selected. |
-| `bubbleInset`         | float64 | 0.75    | Fraction of the bubble radius sampled when measuring fill. Values below 1.0 exclude the printed border ring from the measurement. |
+| Field                 | Type    | Description |
+|-----------------------|---------|-------------|
+| `blurSize`            | int     | Gaussian blur kernel size, must be odd. Increase for noisier scans. |
+| `morphCloseSize`      | int     | Morphological close kernel size. Helps fill gaps in pencil marks. |
+| `minAnchorConfidence` | float32 | Minimum template-match score (0.0–1.0). Raise if anchors produce false positives. |
+
+---
+
+## Mark Template
+
+Defines question and bubble locations. Pass this to `mark` or `scan`.
+
+### Top-level fields
+
+| Field       | Type   | Description |
+|-------------|--------|-------------|
+| `config`    | object | Marking parameters (see below) |
+| `questions` | array  | Ordered list of questions and their bubble locations (see below) |
+
+### Mark Config
+
+| Field           | Type    | Default | Description |
+|-----------------|---------|---------|-------------|
+| `fillThreshold` | float64 | 0.5     | Minimum fill ratio for a bubble to count as selected (0.0–1.0). |
+| `bubbleInset`   | float64 | 0.75    | Fraction of the bubble radius sampled. Values below 1.0 exclude the printed border ring from the measurement. |
 
 ### Question
 
 | Field          | Type   | Description |
 |----------------|--------|-------------|
-| `id`           | string | Question identifier used in the output report (e.g. `"Q1"`) |
+| `id`           | string | Identifier used in the output report (e.g. `"Q1"`) |
 | `type`         | string | `"single"` (default) flags multiple selections; `"multi"` allows them |
 | `bubbleWidth`  | int    | Width of every bubble in this question, in output-space pixels |
 | `bubbleHeight` | int    | Height of every bubble in this question, in output-space pixels |
@@ -69,7 +96,7 @@ Anchor images should be cropped from a clean, straight scan of the sheet. The sc
 
 ### Bubble
 
-Bubble coordinates are the top-left corner of the bubble rectangle in output-space pixels. Width and height are shared across all bubbles in a question and defined there instead.
+Coordinates are the top-left corner of the bubble rectangle in output-space pixels. Dimensions are shared across all bubbles in a question and defined at the question level.
 
 | Field   | Type   | Description |
 |---------|--------|-------------|
