@@ -2,17 +2,19 @@
 
 A form is described by two JSON files: a **scan template** that tells the preprocessor how to correct perspective, and a **mark template** that tells the marker where each answer bubble is located.
 
+Multi-page exams (e.g. a front page for answers and a back page for student information) are supported by both template types via a `pages` array. Pass one image file per page to the CLI commands; the images are matched to pages in order.
+
 ## Usage
 
 ```
-# Preprocess only (saves binary image for later marking)
-omr preprocess <image> <scan-template> --output preprocessed.png
+# Preprocess only (saves binary images for later marking)
+omr preprocess <scan-template> <page1.jpg> [<page2.jpg>...] --output preprocessed
 
-# Mark only (requires a preprocessed binary image)
-omr mark <preprocessed.png> <mark-template>
+# Mark only (requires preprocessed binary images)
+omr mark <mark-template> <page1.png> [<page2.png>...]
 
 # Preprocess and mark in one step
-omr scan <image> <scan-template> <mark-template>
+omr scan <scan-template> <mark-template> <page1.jpg> [<page2.jpg>...]
 ```
 
 ## Example Directory Structure
@@ -37,16 +39,22 @@ Controls perspective correction and binarization. Pass this to `preprocess` or `
 
 ### Top-level fields
 
-| Field     | Type   | Description |
-|-----------|--------|-------------|
-| `width`   | int    | Output image width in pixels after warping |
-| `height`  | int    | Output image height in pixels after warping |
-| `anchors` | array  | Exactly 3 anchor definitions (see below) |
-| `config`  | object | Preprocessing parameters (see below) |
+| Field    | Type   | Description |
+|----------|--------|-------------|
+| `width`  | int    | Output image width in pixels after warping (shared across all pages) |
+| `height` | int    | Output image height in pixels after warping (shared across all pages) |
+| `config` | object | Preprocessing parameters (shared across all pages, see below) |
+| `pages`  | array  | One entry per exam page; each entry contains that page's `anchors` array |
+
+### Page (scan)
+
+| Field     | Type  | Description |
+|-----------|-------|-------------|
+| `anchors` | array | Exactly 3 anchor definitions for this page (see below) |
 
 ### Anchor
 
-Each anchor is a distinctive region of the sheet used to compute the affine perspective transform. All coordinates are in output (`width` × `height`) space. Choose anchors in distinct corners of the page for the most accurate warp.
+Each anchor is a distinctive region of the sheet used to compute the affine perspective transform. All coordinates are in output (`width` × `height`) space. Choose anchors in distinct corners of the page for the most accurate warp. Use a different set of three corners for each page so the missing corner identifies which side is up.
 
 | Field    | Type   | Description |
 |----------|--------|-------------|
@@ -72,10 +80,16 @@ Defines question and bubble locations. Pass this to `mark` or `scan`.
 
 ### Top-level fields
 
-| Field       | Type   | Description |
-|-------------|--------|-------------|
-| `config`    | object | Marking parameters (see below) |
-| `questions` | array  | Ordered list of questions and their bubble locations (see below) |
+| Field    | Type   | Description |
+|----------|--------|-------------|
+| `config` | object | Marking parameters, shared across all pages (see below) |
+| `pages`  | array  | One entry per exam page; each entry contains that page's `questions` array |
+
+### Page (mark)
+
+| Field       | Type  | Description |
+|-------------|-------|-------------|
+| `questions` | array | Ordered list of questions and their bubble locations for this page (see below) |
 
 ### Mark Config
 
@@ -83,8 +97,19 @@ Defines question and bubble locations. Pass this to `mark` or `scan`.
 |-----------------|---------|---------|-------------|
 | `fillThreshold` | float64 | 0.5     | Minimum fill ratio for a bubble to count as selected (0.0–1.0). |
 | `bubbleInset`   | float64 | 0.75    | Fraction of the bubble radius sampled. Values below 1.0 exclude the printed border ring from the measurement. |
+| `flagThreshold` | float64 | 0.5     | Minimum confidence below which an answer is flagged for manual review. Set to 0.0 to disable. |
 
 ### Question
+
+Question IDs use a prefix convention to identify the field type:
+
+| Prefix | Meaning | Example |
+|--------|---------|---------|
+| `Q#`   | Exam answer question | `Q1`, `Q42` |
+| `V#`   | Exam version selector | `V1` |
+| `L#`   | Last name character column | `L1`–`L15` |
+| `F#`   | First name character column | `F1`–`F10` |
+| `I#`   | Student ID digit column | `I1`–`I8` |
 
 | Field          | Type   | Description |
 |----------------|--------|-------------|
@@ -96,10 +121,8 @@ Defines question and bubble locations. Pass this to `mark` or `scan`.
 
 ### Bubble
 
-Coordinates are the top-left corner of the bubble rectangle in output-space pixels. Dimensions are shared across all bubbles in a question and defined at the question level.
-
 | Field   | Type   | Description |
 |---------|--------|-------------|
 | `label` | string | Answer label shown in the output report (e.g. `"A"`) |
-| `x`     | int    | Left edge of the bubble in output-space pixels |
-| `y`     | int    | Top edge of the bubble in output-space pixels |
+| `x`     | int    | X coordinate of the bubble centre in output-space pixels |
+| `y`     | int    | Y coordinate of the bubble centre in output-space pixels |

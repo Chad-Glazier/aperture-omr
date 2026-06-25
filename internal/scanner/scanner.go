@@ -45,16 +45,26 @@ func (a *Anchor) Close() {
 	a.Image.Close()
 }
 
-type Template struct {
-	Width   int      `json:"width"`
-	Height  int      `json:"height"`
+// ScanPage holds the anchor markers for a single exam page.
+type ScanPage struct {
 	Anchors []Anchor `json:"anchors"`
-	Config  Config   `json:"config"`
+}
+
+// Template is the scan template for a multi-page exam. Each entry in Pages
+// describes one physical page with its own set of anchor markers. Single-page
+// exams use a Pages array with one entry.
+type Template struct {
+	Width  int        `json:"width"`
+	Height int        `json:"height"`
+	Pages  []ScanPage `json:"pages"`
+	Config Config     `json:"config"`
 }
 
 func (t *Template) Close() {
-	for i := range t.Anchors {
-		t.Anchors[i].Image.Close()
+	for pi := range t.Pages {
+		for i := range t.Pages[pi].Anchors {
+			t.Pages[pi].Anchors[i].Image.Close()
+		}
 	}
 }
 
@@ -64,9 +74,31 @@ type Config struct {
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
 }
 
-// Runs an image through the OMR preprocessing pipeline,
-// and returns the prepared image.
-func Scan(r io.Reader, tmpl *Template) (*ScanData, error) {
+// Scan runs each reader through the OMR preprocessing pipeline using the
+// corresponding page's anchors from tmpl. The number of readers must match
+// len(tmpl.Pages). Each returned ScanData must be closed by the caller.
+func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
+	n := len(tmpl.Pages)
+	if len(readers) != n {
+		return nil, fmt.Errorf("template has %d page(s), got %d image(s)", n, len(readers))
+	}
+	results := make([]*ScanData, n)
+	for i, r := range readers {
+		data, err := scanPage(r, tmpl, i)
+		if err != nil {
+			for j := range i {
+				results[j].Close()
+			}
+			return nil, fmt.Errorf("page %d: %w", i, err)
+		}
+		results[i] = data
+	}
+	return results, nil
+}
+
+// scanPage runs a single reader through the preprocessing pipeline using the
+// anchors for page idx.
+func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 	buf, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("read: %w", err)
@@ -81,8 +113,7 @@ func Scan(r io.Reader, tmpl *Template) (*ScanData, error) {
 	}
 	if img.Cols() <= 100 || img.Rows() <= 100 {
 		img.Close()
-		return nil, fmt.Errorf(
-			"image dimensions too small: %dx%d", img.Cols(), img.Rows())
+		return nil, fmt.Errorf("image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
 	data := &ScanData{
@@ -90,11 +121,9 @@ func Scan(r io.Reader, tmpl *Template) (*ScanData, error) {
 		Binary: gocv.NewMat(),
 	}
 
-	// The context captures any errors that occur during the pipeline
-	// and exits early, instead of propagating down the pipeline further.
 	ctx := &context{}
 	ctx.exec(func() error { return binarize(&data.Color, &data.Binary, &tmpl.Config) })
-	ctx.exec(func() error { return warp(data, data, tmpl) })
+	ctx.exec(func() error { return warp(data, data, tmpl.Pages[idx].Anchors, tmpl.Width, tmpl.Height, tmpl.Config) })
 
 	if ctx.err != nil {
 		data.Close()
@@ -137,12 +166,11 @@ func binarize(src, dst *gocv.Mat, conf *Config) error {
 	return nil
 }
 
-func warp(src, dst *ScanData, tmpl *Template) error {
+func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot warp an empty image")
 	}
 
-	anchors := tmpl.Anchors
 	if len(anchors) != 3 {
 		return fmt.Errorf("warping requires exactly 3 anchors, provided %d", len(anchors))
 	}
@@ -157,20 +185,13 @@ func warp(src, dst *ScanData, tmpl *Template) error {
 	dstPts := make([]image.Point, 3)
 
 	srcSize := image.Pt(src.Binary.Cols(), src.Binary.Rows())
-	targetSize := image.Pt(tmpl.Width, tmpl.Height)
+	targetSize := image.Pt(width, height)
 
 	for i := range 3 {
 		anchor := anchors[i]
 		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
 
-		scaledImg, err := scaleImage(anchor.Image, srcSize, targetSize)
-		if err != nil {
-			return fmt.Errorf("anchor %d: scale image: %w", i, err)
-		}
-		anchor.Image = scaledImg
-
-		pt, err := findAnchorCenter(src.Binary, anchor, tmpl.Config.MinAnchorConfidence)
-		scaledImg.Close()
+		pt, err := findAnchorCenter(src.Binary, anchor, conf.MinAnchorConfidence)
 		if err != nil {
 			return fmt.Errorf("anchor %d: %w", i, err)
 		}
@@ -250,19 +271,6 @@ func findAnchorCenter(
 	), nil
 }
 
-// scaleImage resizes src by the same sx/sy factors used by scaleROI so that
-// the anchor template matches the feature size in the source image, not the
-// template-space size it was captured at.
-func scaleImage(src gocv.Mat, srcSize, targetSize image.Point) (gocv.Mat, error) {
-	sx := float64(srcSize.X) / float64(targetSize.X)
-	sy := float64(srcSize.Y) / float64(targetSize.Y)
-	w := max(1, int(float64(src.Cols())*sx))
-	h := max(1, int(float64(src.Rows())*sy))
-	dst := gocv.NewMat()
-	gocv.Resize(src, &dst, image.Pt(w, h), 0, 0, gocv.InterpolationLinear)
-	return dst, nil
-}
-
 // ROI coordinates are defined relative to the target image so that they
 // can remain resolution independent. This scales their dimensions relative
 // to the source image's dimensions before searching.
@@ -278,6 +286,8 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 // LoadTemplate parses a template from r and loads anchor images using open.
 // open receives each anchor's path as written in the JSON; the caller is
 // responsible for resolving relative paths and expanding ~ if needed.
+// Both single-page (top-level anchors) and multi-page (pages array) formats
+// are supported.
 func LoadTemplate(
 	r io.Reader, open func(string) (io.ReadCloser, error),
 ) (*Template, error) {
@@ -289,18 +299,29 @@ func LoadTemplate(
 	if err := json.Unmarshal(data, &tmpl); err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
 	}
-	for i := range tmpl.Anchors {
-		ar, err := open(tmpl.Anchors[i].Path)
-		if err != nil {
-			return nil, fmt.Errorf("anchor %d: open: %w", i, err)
+
+	loadAnchors := func(anchors []Anchor, label string) error {
+		for i := range anchors {
+			ar, err := open(anchors[i].Path)
+			if err != nil {
+				return fmt.Errorf("%s anchor %d: open: %w", label, i, err)
+			}
+			anchors[i].Image, err = loadAnchorFromReader(ar, &tmpl.Config)
+			ar.Close()
+			if err != nil {
+				return fmt.Errorf("%s anchor %d: %w", label, i, err)
+			}
 		}
-		tmpl.Anchors[i].Image, err = loadAnchorFromReader(ar, &tmpl.Config)
-		ar.Close()
-		if err != nil {
+		return nil
+	}
+
+	for pi := range tmpl.Pages {
+		if err := loadAnchors(tmpl.Pages[pi].Anchors, fmt.Sprintf("page %d", pi)); err != nil {
 			tmpl.Close()
-			return nil, fmt.Errorf("anchor %d: %w", i, err)
+			return nil, err
 		}
 	}
+
 	return &tmpl, nil
 }
 

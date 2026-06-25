@@ -35,9 +35,27 @@ type Config struct {
 	FlagThreshold *float64 `json:"flagThreshold"`
 }
 
+// Page holds the questions for a single exam page.
+type Page struct {
+	Questions []Question `json:"questions"`
+}
+
+// Template is the mark template for a single- or multi-page exam.
+// Multi-page templates populate Pages; single-page templates may use the
+// top-level Questions field for backward compatibility.
 type Template struct {
 	Config    Config     `json:"config"`
-	Questions []Question `json:"questions"`
+	Questions []Question `json:"questions,omitempty"` // single-page backward compat
+	Pages     []Page     `json:"pages,omitempty"`     // multi-page
+}
+
+// pages returns the per-page question lists. Single-page templates that use
+// the top-level Questions field are treated as a one-page template.
+func (t *Template) pages() []Page {
+	if len(t.Pages) > 0 {
+		return t.Pages
+	}
+	return []Page{{Questions: t.Questions}}
 }
 
 // LoadTemplate parses a marking template from r.
@@ -64,15 +82,14 @@ type Result struct {
 	Answers []Answer
 }
 
-// Evaluate scores every question in img against the template's fill threshold
-// and bubble inset. img must be a single-channel binary image (the output of
-// the preprocessing pipeline).
-func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
-	if img.Empty() {
-		return nil, fmt.Errorf("cannot evaluate an empty image")
-	}
-	if len(tmpl.Questions) == 0 {
-		return nil, fmt.Errorf("mark template contains no questions")
+// Evaluate scores every question across all pages of the template.
+// imgs must contain one binary image per page (output of the preprocessing
+// pipeline), in page order. For single-page templates a one-element slice is
+// expected.
+func Evaluate(imgs []gocv.Mat, tmpl *Template) (*Result, error) {
+	pages := tmpl.pages()
+	if len(imgs) != len(pages) {
+		return nil, fmt.Errorf("template has %d page(s), got %d image(s)", len(pages), len(imgs))
 	}
 
 	threshold := 0.5
@@ -88,26 +105,30 @@ func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 		flagThreshold = *tmpl.Config.FlagThreshold
 	}
 
-	result := &Result{
-		Answers: make([]Answer, len(tmpl.Questions)),
-	}
-
-	for i, q := range tmpl.Questions {
-		selected, confidence := detectAnswers(img, q, threshold, inset)
-		multiSelect := q.Type == "multi"
-		flag := confidence < flagThreshold ||
-			len(selected) == 0 ||
-			(!multiSelect && len(selected) > 1)
-
-		result.Answers[i] = Answer{
-			QuestionID: q.ID,
-			Selected:   selected,
-			Confidence: confidence,
-			Flag:       flag,
+	var answers []Answer
+	for i, img := range imgs {
+		if img.Empty() {
+			return nil, fmt.Errorf("page %d: cannot evaluate an empty image", i)
+		}
+		if len(pages[i].Questions) == 0 {
+			return nil, fmt.Errorf("page %d: mark template contains no questions", i)
+		}
+		for _, q := range pages[i].Questions {
+			selected, confidence := detectAnswers(img, q, threshold, inset)
+			multiSelect := q.Type == "multi"
+			flag := confidence < flagThreshold ||
+				len(selected) == 0 ||
+				(!multiSelect && len(selected) > 1)
+			answers = append(answers, Answer{
+				QuestionID: q.ID,
+				Selected:   selected,
+				Confidence: confidence,
+				Flag:       flag,
+			})
 		}
 	}
 
-	return result, nil
+	return &Result{Answers: answers}, nil
 }
 
 func detectAnswers(

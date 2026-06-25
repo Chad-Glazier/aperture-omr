@@ -220,7 +220,7 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:        "Template with no questions returns error",
 			img:         imgOneSelected,
-			tmpl:        &Template{Config: defaultConfig},
+			tmpl:        &Template{Config: defaultConfig, Questions: []Question{}},
 			expectError: true,
 			errContains: "no questions",
 		},
@@ -291,7 +291,7 @@ func TestEvaluate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := Evaluate(tc.img, tc.tmpl)
+			result, err := Evaluate([]gocv.Mat{tc.img}, tc.tmpl)
 			assertError(t, err, tc.expectError, tc.errContains)
 			if tc.expectError {
 				return
