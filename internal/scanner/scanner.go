@@ -163,7 +163,14 @@ func warp(src, dst *ScanData, tmpl *Template) error {
 		anchor := anchors[i]
 		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
 
+		scaledImg, err := scaleImage(anchor.Image, srcSize, targetSize)
+		if err != nil {
+			return fmt.Errorf("anchor %d: scale image: %w", i, err)
+		}
+		anchor.Image = scaledImg
+
 		pt, err := findAnchorCenter(src.Binary, anchor, tmpl.Config.MinAnchorConfidence)
+		scaledImg.Close()
 		if err != nil {
 			return fmt.Errorf("anchor %d: %w", i, err)
 		}
@@ -241,6 +248,19 @@ func findAnchorCenter(
 		anchor.ROI.Min.X+bestLocation.X+size.X/2,
 		anchor.ROI.Min.Y+bestLocation.Y+size.Y/2,
 	), nil
+}
+
+// scaleImage resizes src by the same sx/sy factors used by scaleROI so that
+// the anchor template matches the feature size in the source image, not the
+// template-space size it was captured at.
+func scaleImage(src gocv.Mat, srcSize, targetSize image.Point) (gocv.Mat, error) {
+	sx := float64(srcSize.X) / float64(targetSize.X)
+	sy := float64(srcSize.Y) / float64(targetSize.Y)
+	w := max(1, int(float64(src.Cols())*sx))
+	h := max(1, int(float64(src.Rows())*sy))
+	dst := gocv.NewMat()
+	gocv.Resize(src, &dst, image.Pt(w, h), 0, 0, gocv.InterpolationLinear)
+	return dst, nil
 }
 
 // ROI coordinates are defined relative to the target image so that they
