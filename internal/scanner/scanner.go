@@ -191,6 +191,14 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 		anchor := anchors[i]
 		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
 
+		// Scale the anchor template to the size it occupies in the scanned
+		// image before running matchTemplate — template matching is not
+		// scale-invariant, so a 24px PNG matched against a ~51px printed anchor
+		// (at 300 DPI) produces near-zero confidence scores.
+		scaled := scaleAnchorTemplate(anchor.Image, srcSize, targetSize)
+		defer scaled.Close()
+		anchor.Image = scaled
+
 		pt, err := findAnchorCenter(src.Binary, anchor, conf.MinAnchorConfidence)
 		if err != nil {
 			return fmt.Errorf("anchor %d: %w", i, err)
@@ -269,6 +277,23 @@ func findAnchorCenter(
 		anchor.ROI.Min.X+bestLocation.X+size.X/2,
 		anchor.ROI.Min.Y+bestLocation.Y+size.Y/2,
 	), nil
+}
+
+// scaleAnchorTemplate resizes the anchor PNG to the size it occupies in the
+// scanned image (src), given the template coordinate space (target). The caller
+// must Close the returned Mat.
+func scaleAnchorTemplate(tmpl gocv.Mat, src, target image.Point) gocv.Mat {
+	newW := int(float64(tmpl.Cols())*float64(src.X)/float64(target.X) + 0.5)
+	newH := int(float64(tmpl.Rows())*float64(src.Y)/float64(target.Y) + 0.5)
+	if newW < 1 {
+		newW = 1
+	}
+	if newH < 1 {
+		newH = 1
+	}
+	scaled := gocv.NewMat()
+	gocv.Resize(tmpl, &scaled, image.Pt(newW, newH), 0, 0, gocv.InterpolationLinear)
+	return scaled
 }
 
 // ROI coordinates are defined relative to the target image so that they

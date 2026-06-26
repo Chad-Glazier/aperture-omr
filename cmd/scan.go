@@ -49,7 +49,9 @@ colour-corrected first page before marking.`,
 		result := doMark(binaries, markTmplPath)
 
 		if display {
-			Display(pages[0].Color, "Marked Result")
+			for i := range pages {
+				Display(pages[i].Binary, "Marked Result")
+			}
 		}
 
 		return result

@@ -1,6 +1,6 @@
 {
   "config": {
-    "fillThreshold": 0.75,
+    "fillThreshold": 0.25,
     "bubbleInset": 0.75
   },
   "pages": [
