@@ -34,14 +34,14 @@ func TestScan(t *testing.T) {
 	}
 	defer imgFile.Close()
 
-	data, err := Scan(imgFile, tmpl)
+	results, err := Scan([]io.Reader{imgFile}, tmpl)
 	if err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}
-	defer data.Close()
+	defer results[0].Close()
 
-	if data.Color.Cols() != tmpl.Width || data.Color.Rows() != tmpl.Height {
+	if results[0].Color.Cols() != tmpl.Width || results[0].Color.Rows() != tmpl.Height {
 		t.Errorf("expected output %dx%d, got %dx%d",
-			tmpl.Width, tmpl.Height, data.Color.Cols(), data.Color.Rows())
+			tmpl.Width, tmpl.Height, results[0].Color.Cols(), results[0].Color.Rows())
 	}
 }

@@ -9,40 +9,49 @@ import (
 )
 
 var scanCmd = &cobra.Command{
-	Use:   "scan <img> <scan-template> <mark-template>",
-	Short: "Preprocesses an image and marks it in one step.",
+	Use:   "scan <scan-template> <mark-template> <img> [<img>...]",
+	Short: "Preprocesses images and marks them in one step.",
 	Long: `Combines the preprocess and mark commands: applies perspective correction
-and binarization using the scan template, then scores all bubbles using the mark
-template. Use --output to save the binary preprocessed image, and --display to
-show the colour-corrected image before marking.`,
-	Args: cobra.ExactArgs(3),
+and binarization to each page image using the scan template, then scores all
+bubbles using the mark template. Pass one image per page in order.
+Use --output to save binary preprocessed images, and --display to show the
+colour-corrected first page before marking.`,
+	Args: cobra.MinimumNArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		display, _ := cmd.Flags().GetBool("display")
 		output, _ := cmd.Flags().GetString("output")
 
-		imgPath, err := utils.Resolve(args[0])
-		if err != nil {
-			return fmt.Errorf("resolve image path: %w", err)
-		}
-		scanTmplPath, err := utils.Resolve(args[1])
+		scanTmplPath, err := utils.Resolve(args[0])
 		if err != nil {
 			return fmt.Errorf("resolve scan template path: %w", err)
 		}
-		markTmplPath, err := utils.Resolve(args[2])
+		markTmplPath, err := utils.Resolve(args[1])
 		if err != nil {
 			return fmt.Errorf("resolve mark template path: %w", err)
 		}
+		imgPaths := args[2:]
 
-		data, err := doPreprocess(imgPath, scanTmplPath, output)
+		pages, err := doPreprocess(scanTmplPath, imgPaths, output)
 		if err != nil {
 			return err
 		}
-		defer data.Close()
+		defer func() {
+			for _, p := range pages {
+				p.Close()
+			}
+		}()
 
-		result := doMark(data.Binary, markTmplPath)
+		binaries := make([]gocv.Mat, len(pages))
+		for i, p := range pages {
+			binaries[i] = p.Binary
+		}
+
+		result := doMark(binaries, markTmplPath)
 
 		if display {
-			Display(data.Color, "Marked Result")
+			for i := range pages {
+				Display(pages[i].Binary, "Marked Result")
+			}
 		}
 
 		return result

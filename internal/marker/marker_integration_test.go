@@ -40,7 +40,7 @@ func TestMarkIntegration(t *testing.T) {
 		t.Fatalf("load mark template: %v", err)
 	}
 
-	result, err := Evaluate(img, markTmpl)
+	result, err := Evaluate([]gocv.Mat{img}, markTmpl)
 	if err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}

@@ -29,16 +29,15 @@ func assertError(t *testing.T, err error, expectError bool, errContains string) 
 }
 
 // fillBubble paints a white filled circle into img at the inset region of the
-// bubble defined by top-left (bx, by) with dimensions (bw, bh). The circle
-// radius matches what bubbleFillRatio samples, so a filled bubble reads back
-// as ~1.0.
-func fillBubble(img *gocv.Mat, bx, by, bw, bh int, inset float64) {
+// bubble centered at (cx, cy) with dimensions (bw, bh). The circle radius
+// matches what bubbleFillRatio samples, so a filled bubble reads back as ~1.0.
+func fillBubble(img *gocv.Mat, cx, cy, bw, bh int, inset float64) {
 	r := bw / 2
 	if bh < bw {
 		r = bh / 2
 	}
 	gocv.Circle(img,
-		image.Pt(bx+bw/2, by+bh/2),
+		image.Pt(cx, cy),
 		int(float64(r)*inset),
 		color.RGBA{R: 255, G: 255, B: 255, A: 255},
 		-1,
@@ -160,17 +159,17 @@ func TestEvaluate(t *testing.T) {
 		ID: "Q1", Type: "single",
 		BubbleWidth: bw, BubbleHeight: bh,
 		Options: []Bubble{
-			{Label: "A", X: 50, Y: 100},
-			{Label: "B", X: 100, Y: 100},
-			{Label: "C", X: 150, Y: 100},
+			{Label: "A", X: 65, Y: 115},
+			{Label: "B", X: 115, Y: 115},
+			{Label: "C", X: 165, Y: 115},
 		},
 	}
 	multiQ := Question{
 		ID: "Q1", Type: "multi",
 		BubbleWidth: bw, BubbleHeight: bh,
 		Options: []Bubble{
-			{Label: "A", X: 50, Y: 100},
-			{Label: "B", X: 100, Y: 100},
+			{Label: "A", X: 65, Y: 115},
+			{Label: "B", X: 115, Y: 115},
 		},
 	}
 
@@ -184,14 +183,14 @@ func TestEvaluate(t *testing.T) {
 	imgOneSelected := gocv.NewMatWithSizeFromScalar(
 		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
 	defer imgOneSelected.Close()
-	fillBubble(&imgOneSelected, 50, 100, bw, bh, inset)
+	fillBubble(&imgOneSelected, 65, 115, bw, bh, inset)
 
 	// Image with bubbles A and B of singleQ both filled.
 	imgTwoSelected := gocv.NewMatWithSizeFromScalar(
 		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
 	defer imgTwoSelected.Close()
-	fillBubble(&imgTwoSelected, 50, 100, bw, bh, inset)
-	fillBubble(&imgTwoSelected, 100, 100, bw, bh, inset)
+	fillBubble(&imgTwoSelected, 65, 115, bw, bh, inset)
+	fillBubble(&imgTwoSelected, 115, 115, bw, bh, inset)
 
 	// All-black image: no bubbles filled.
 	imgBlank := gocv.NewMatWithSizeFromScalar(
@@ -220,7 +219,7 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:        "Template with no questions returns error",
 			img:         imgOneSelected,
-			tmpl:        &Template{Config: defaultConfig},
+			tmpl:        &Template{Config: defaultConfig, Questions: []Question{}},
 			expectError: true,
 			errContains: "no questions",
 		},
@@ -291,7 +290,7 @@ func TestEvaluate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := Evaluate(tc.img, tc.tmpl)
+			result, err := Evaluate([]gocv.Mat{tc.img}, tc.tmpl)
 			assertError(t, err, tc.expectError, tc.errContains)
 			if tc.expectError {
 				return

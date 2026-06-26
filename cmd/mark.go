@@ -13,29 +13,42 @@ import (
 )
 
 var markCmd = &cobra.Command{
-	Use:   "mark <img> <mark-template>",
-	Short: "Marks a preprocessed binary image using a mark template.",
-	Long: `Reads bubble fill ratios from a preprocessed binary image and scores
-each question defined in the mark template. The image must already have been
-corrected and binarized (e.g. by the preprocess command).`,
-	Args: cobra.ExactArgs(2),
+	Use:   "mark <mark-template> <img> [<img>...]",
+	Short: "Marks preprocessed binary images using a mark template.",
+	Long: `Reads bubble fill ratios from one preprocessed binary image per page and
+scores all questions defined in the mark template. Images must already have been
+corrected and binarized (e.g. by the preprocess command), one per page in order.`,
+	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		imgPath, err := utils.Resolve(args[0])
-		if err != nil {
-			return fmt.Errorf("resolve image path: %w", err)
-		}
-		tmplPath, err := utils.Resolve(args[1])
+		tmplPath, err := utils.Resolve(args[0])
 		if err != nil {
 			return fmt.Errorf("resolve template path: %w", err)
 		}
 
-		img := gocv.IMRead(imgPath, gocv.IMReadGrayScale)
-		defer img.Close()
-		if img.Empty() {
-			return fmt.Errorf("could not read image: %s", imgPath)
+		imgs := make([]gocv.Mat, len(args)-1)
+		for i, p := range args[1:] {
+			resolved, err := utils.Resolve(p)
+			if err != nil {
+				for j := 0; j < i; j++ {
+					imgs[j].Close()
+				}
+				return fmt.Errorf("resolve image path: %w", err)
+			}
+			imgs[i] = gocv.IMRead(resolved, gocv.IMReadGrayScale)
+			if imgs[i].Empty() {
+				for j := 0; j < i; j++ {
+					imgs[j].Close()
+				}
+				return fmt.Errorf("could not read image: %s", p)
+			}
 		}
+		defer func() {
+			for i := range imgs {
+				imgs[i].Close()
+			}
+		}()
 
-		return doMark(img, tmplPath)
+		return doMark(imgs, tmplPath)
 	},
 }
 
@@ -43,14 +56,13 @@ func init() {
 	rootCmd.AddCommand(markCmd)
 }
 
-// doMark evaluates img against the mark template at tmplPath
-// and prints the report.
-func doMark(img gocv.Mat, tmplPath string) error {
+// doMark evaluates imgs against the mark template at tmplPath and prints the report.
+func doMark(imgs []gocv.Mat, tmplPath string) error {
 	tmpl, err := loadMarkTemplate(tmplPath)
 	if err != nil {
 		return err
 	}
-	result, err := marker.Evaluate(img, tmpl)
+	result, err := marker.Evaluate(imgs, tmpl)
 	if err != nil {
 		return fmt.Errorf("mark: %w", err)
 	}

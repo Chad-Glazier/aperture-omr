@@ -7,6 +7,8 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"sort"
+	"strings"
 
 	"gocv.io/x/gocv"
 )
@@ -26,7 +28,7 @@ type Question struct {
 }
 
 // Config holds marking-specific parameters. Nil fields fall back to defaults:
-// fillThreshold: 0.5, bubbleInset: 0.75, flagThreshold: 0.5.
+// fillThreshold: 0.25, bubbleInset: 0.75, flagThreshold: 0.5.
 type Config struct {
 	FillThreshold *float64 `json:"fillThreshold"`
 	BubbleInset   *float64 `json:"bubbleInset"`
@@ -35,9 +37,27 @@ type Config struct {
 	FlagThreshold *float64 `json:"flagThreshold"`
 }
 
+// Page holds the questions for a single exam page.
+type Page struct {
+	Questions []Question `json:"questions"`
+}
+
+// Template is the mark template for a single- or multi-page exam.
+// Multi-page templates populate Pages; single-page templates may use the
+// top-level Questions field for backward compatibility.
 type Template struct {
 	Config    Config     `json:"config"`
-	Questions []Question `json:"questions"`
+	Questions []Question `json:"questions,omitempty"` // single-page backward compat
+	Pages     []Page     `json:"pages,omitempty"`     // multi-page
+}
+
+// pages returns the per-page question lists. Single-page templates that use
+// the top-level Questions field are treated as a one-page template.
+func (t *Template) pages() []Page {
+	if len(t.Pages) > 0 {
+		return t.Pages
+	}
+	return []Page{{Questions: t.Questions}}
 }
 
 // LoadTemplate parses a marking template from r.
@@ -64,18 +84,17 @@ type Result struct {
 	Answers []Answer
 }
 
-// Evaluate scores every question in img against the template's fill threshold
-// and bubble inset. img must be a single-channel binary image (the output of
-// the preprocessing pipeline).
-func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
-	if img.Empty() {
-		return nil, fmt.Errorf("cannot evaluate an empty image")
-	}
-	if len(tmpl.Questions) == 0 {
-		return nil, fmt.Errorf("mark template contains no questions")
+// Evaluate scores every question across all pages of the template.
+// imgs must contain one binary image per page (output of the preprocessing
+// pipeline), in page order. For single-page templates a one-element slice is
+// expected.
+func Evaluate(imgs []gocv.Mat, tmpl *Template) (*Result, error) {
+	pages := tmpl.pages()
+	if len(imgs) != len(pages) {
+		return nil, fmt.Errorf("template has %d page(s), got %d image(s)", len(pages), len(imgs))
 	}
 
-	threshold := 0.5
+	threshold := 0.25
 	if tmpl.Config.FillThreshold != nil {
 		threshold = *tmpl.Config.FillThreshold
 	}
@@ -88,57 +107,115 @@ func Evaluate(img gocv.Mat, tmpl *Template) (*Result, error) {
 		flagThreshold = *tmpl.Config.FlagThreshold
 	}
 
-	result := &Result{
-		Answers: make([]Answer, len(tmpl.Questions)),
-	}
-
-	for i, q := range tmpl.Questions {
-		selected, confidence := detectAnswers(img, q, threshold, inset)
-		multiSelect := q.Type == "multi"
-		flag := confidence < flagThreshold ||
-			len(selected) == 0 ||
-			(!multiSelect && len(selected) > 1)
-
-		result.Answers[i] = Answer{
-			QuestionID: q.ID,
-			Selected:   selected,
-			Confidence: confidence,
-			Flag:       flag,
+	var answers []Answer
+	for i, img := range imgs {
+		if img.Empty() {
+			return nil, fmt.Errorf("page %d: cannot evaluate an empty image", i)
+		}
+		if len(pages[i].Questions) == 0 {
+			return nil, fmt.Errorf("page %d: mark template contains no questions", i)
+		}
+		for _, q := range pages[i].Questions {
+			selected, confidence := detectAnswers(img, q, threshold, inset)
+			multiSelect := q.Type == "multi"
+			flag := confidence < flagThreshold ||
+				(len(selected) == 0 && strings.HasPrefix(q.ID, "Q")) ||
+				(!multiSelect && len(selected) > 1)
+			answers = append(answers, Answer{
+				QuestionID: q.ID,
+				Selected:   selected,
+				Confidence: confidence,
+				Flag:       flag,
+			})
 		}
 	}
 
-	return result, nil
+	return &Result{Answers: answers}, nil
 }
 
 func detectAnswers(
 	img gocv.Mat, q Question, threshold, inset float64,
 ) ([]string, float64) {
+	if len(q.Options) == 0 {
+		return nil, 0.0
+	}
+
+	n := len(q.Options)
+
+	// Measure raw fill ratios and find the per-question minimum.
+	fills := make([]float64, n)
+	baseline := 1.0
+	for i, bubble := range q.Options {
+		fills[i] = bubbleFillRatio(img, bubble, q.BubbleWidth, q.BubbleHeight, inset)
+		if fills[i] < baseline {
+			baseline = fills[i]
+		}
+	}
+
+	// Subtract the per-question minimum so that printed labels inside empty
+	// bubbles register near zero. Guard: if the emptiest bubble already looks
+	// filled (baseline > 0.6), all bubbles are probably marked — skip
+	// normalization so their raw fills are preserved for absolute detection.
+	const maxLetterBaseline = 0.6
+	allFilled := baseline > maxLetterBaseline
+	if allFilled {
+		baseline = 0.0
+	}
+
+	adjusted := make([]float64, n)
+	for i, f := range fills {
+		adjusted[i] = f - baseline
+	}
+
+	// Gap-based selection: sort the adjusted fills and find the largest gap
+	// between consecutive values. Everything above that gap is "selected".
+	// threshold is the minimum gap required for a selection to count — gaps
+	// smaller than this are noise from ink variation between letter shapes
+	// (e.g. "W" has ~4× the ink of "I" across a 26-option row).
+	//
+	// Exception: when allFilled is set, there is no baseline ink offset to
+	// subtract and no meaningful gap to find, so we fall back to an absolute
+	// 0.5 cutoff to detect the (unusual) all-bubbles-marked case.
+	sorted := make([]float64, n)
+	copy(sorted, adjusted)
+	sort.Float64s(sorted)
+
+	maxGap := 0.0
+	splitAt := sorted[n-1] // default: gap at the very top — nothing selected
+	for i := 1; i < n; i++ {
+		if gap := sorted[i] - sorted[i-1]; gap > maxGap {
+			maxGap = gap
+			splitAt = sorted[i-1]
+		}
+	}
+
 	var answered []string
 	var selectedFills []float64
 	var highestFill float64
 	var highestUnselected float64
 
-	for _, bubble := range q.Options {
-		fillRatio := bubbleFillRatio(img, bubble, q.BubbleWidth, q.BubbleHeight, inset)
-
-		if fillRatio > highestFill {
-			highestFill = fillRatio
+	for i, bubble := range q.Options {
+		adj := adjusted[i]
+		if adj > highestFill {
+			highestFill = adj
 		}
-
-		if fillRatio >= threshold {
+		gapSelected := !allFilled && maxGap >= threshold && adj > splitAt
+		absSelected := allFilled && adj >= 0.5
+		if gapSelected || absSelected {
 			answered = append(answered, bubble.Label)
-			selectedFills = append(selectedFills, fillRatio)
-		} else if fillRatio > highestUnselected {
-			highestUnselected = fillRatio
+			selectedFills = append(selectedFills, adj)
+		} else if adj > highestUnselected {
+			highestUnselected = adj
 		}
 	}
 
 	var confidence float64
 	if len(answered) == 0 {
+		// How confidently blank: 1.0 when all adjusted fills are identical.
 		confidence = 1.0 - highestFill
 	} else {
-		// Weakest selected minus strongest unselected: measures how clearly the
-		// marked bubbles are separated from the unmarked ones regardless of count.
+		// Weakest selected minus strongest unselected: measures how cleanly the
+		// marked bubbles separate from the unmarked ones.
 		minSelected := selectedFills[0]
 		for _, f := range selectedFills[1:] {
 			if f < minSelected {
@@ -161,10 +238,10 @@ func detectAnswers(
 // The ROI is clamped to image bounds so a bubble placed one pixel over the
 // edge doesn't cause an OpenCV assertion failure.
 func bubbleFillRatio(img gocv.Mat, b Bubble, w, h int, inset float64) float64 {
-	x0 := max(b.X, 0)
-	y0 := max(b.Y, 0)
-	x1 := min(b.X+w, img.Cols())
-	y1 := min(b.Y+h, img.Rows())
+	x0 := max(b.X-w/2, 0)
+	y0 := max(b.Y-h/2, 0)
+	x1 := min(b.X+w/2, img.Cols())
+	y1 := min(b.Y+h/2, img.Rows())
 
 	if x1 <= x0 || y1 <= y0 {
 		return 0.0
