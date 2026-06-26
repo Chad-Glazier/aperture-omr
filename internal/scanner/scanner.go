@@ -180,8 +180,19 @@ func warp(src, dst *ScanData, tmpl *Template) error {
 	transform := gocv.GetAffineTransform(srcVec, dstVec)
 	defer transform.Close()
 
-	gocv.WarpAffine(src.Color, &dst.Color, transform, targetSize)
-	gocv.WarpAffine(src.Binary, &dst.Binary, transform, targetSize)
+	warped := ScanData{
+		Color:  gocv.NewMat(),
+		Binary: gocv.NewMat(),
+	}
+
+	gocv.WarpAffine(src.Color, &warped.Color, transform, targetSize)
+	gocv.WarpAffine(src.Binary, &warped.Binary, transform, targetSize)
+
+	// Since we are modifying dst in-place,
+	// we must close the old mats before overwritting
+	dst.Close()
+	dst.Color = warped.Color
+	dst.Binary = warped.Binary
 
 	return nil
 }
@@ -247,7 +258,9 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 // LoadTemplate parses a template from r and loads anchor images using open.
 // open receives each anchor's path as written in the JSON; the caller is
 // responsible for resolving relative paths and expanding ~ if needed.
-func LoadTemplate(r io.Reader, open func(string) (io.Reader, error)) (*Template, error) {
+func LoadTemplate(
+	r io.Reader, open func(string) (io.ReadCloser, error),
+) (*Template, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("read: %w", err)
@@ -262,6 +275,7 @@ func LoadTemplate(r io.Reader, open func(string) (io.Reader, error)) (*Template,
 			return nil, fmt.Errorf("anchor %d: open: %w", i, err)
 		}
 		tmpl.Anchors[i].Image, err = loadAnchorFromReader(ar, &tmpl.Config)
+		ar.Close()
 		if err != nil {
 			tmpl.Close()
 			return nil, fmt.Errorf("anchor %d: %w", i, err)

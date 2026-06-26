@@ -2,11 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"strings"
-	"ubco-team15/omr/internal/scanner"
 	"ubco-team15/omr/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -14,93 +9,53 @@ import (
 )
 
 var scanCmd = &cobra.Command{
-	Use:   "scan <img> <template>",
-	Short: "Scans an image and sends it to the grading service for processing.",
-	Long: `Scans an image and sends it to the grading service for processing.
-	The img argument specifies the path to the image to be scanned. 
-	The template argument specifies the path to the JSON template to use.
-	The --display flag can be used to display the scanned image in a window.
-	The --output flag can be used to write the scanned image to a file.`,
-	Args: cobra.ExactArgs(2),
+	Use:   "scan <img> <scan-template> <mark-template>",
+	Short: "Preprocesses an image and marks it in one step.",
+	Long: `Combines the preprocess and mark commands: applies perspective correction
+and binarization using the scan template, then scores all bubbles using the mark
+template. Use --output to save the binary preprocessed image, and --display to
+show the colour-corrected image before marking.`,
+	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		display, _ := cmd.Flags().GetBool("display")
 		output, _ := cmd.Flags().GetString("output")
 
-		path, err := utils.Resolve(args[0])
+		imgPath, err := utils.Resolve(args[0])
 		if err != nil {
-			return fmt.Errorf("resolve path: %w", err)
+			return fmt.Errorf("resolve image path: %w", err)
+		}
+		scanTmplPath, err := utils.Resolve(args[1])
+		if err != nil {
+			return fmt.Errorf("resolve scan template path: %w", err)
+		}
+		markTmplPath, err := utils.Resolve(args[2])
+		if err != nil {
+			return fmt.Errorf("resolve mark template path: %w", err)
 		}
 
-		tmpl, err := utils.Resolve(args[1])
+		data, err := doPreprocess(imgPath, scanTmplPath, output)
 		if err != nil {
-			return fmt.Errorf("resolve path: %w", err)
+			return err
 		}
-
-		f, err := os.Open(tmpl)
-		if err != nil {
-			return fmt.Errorf("open template: %w", err)
-		}
-		defer f.Close()
-
-		tmplDir := filepath.Dir(tmpl)
-		template, err := scanner.LoadTemplate(f, func(anchorPath string) (io.Reader, error) {
-			if !filepath.IsAbs(anchorPath) && !strings.HasPrefix(anchorPath, "~") {
-				anchorPath = filepath.Join(tmplDir, anchorPath)
-			}
-			anchorPath, err := utils.Resolve(anchorPath)
-			if err != nil {
-				return nil, err
-			}
-			return os.Open(anchorPath)
-		})
-		if err != nil {
-			return fmt.Errorf("load template: %w", err)
-		}
-		defer template.Close()
-
-		imgFile, err := os.Open(path)
-		if err != nil {
-			return fmt.Errorf("open image: %w", err)
-		}
-		defer imgFile.Close()
-
-		data, err := scanner.Scan(imgFile, template)
-		if err != nil {
-			return fmt.Errorf("scanner: %w", err)
-		}
-
 		defer data.Close()
 
+		result := doMark(data.Binary, markTmplPath)
+
 		if display {
-			Display(data.Color, "Scanned Image")
+			Display(data.Color, "Marked Result")
 		}
 
-		if output != "" {
-			outPath, err := utils.Resolve(output)
-			if err != nil {
-				return fmt.Errorf("resolve output path: %w", err)
-			}
-			if ok := gocv.IMWrite(outPath, data.Color); !ok {
-				return fmt.Errorf("failed to write output image to %q", outPath)
-			} else {
-				fmt.Printf("successfully wrote output to: %q\n", outPath)
-			}
-		}
-
-		return nil
+		return result
 	},
 }
 
 func init() {
-	scanCmd.Flags().BoolP(
-		"display", "d", false, "Display the scanned image in a window.")
-	scanCmd.Flags().StringP(
-		"output", "o", "", "Write the scanned image to a file at the given path.")
+	scanCmd.Flags().BoolP("display", "d", false, "Display the colour-corrected image in a window.")
+	scanCmd.Flags().StringP("output", "o", "", "Write the binary preprocessed image to a file.")
 	rootCmd.AddCommand(scanCmd)
 }
 
-// Provides a display window to see img output,
-// although it does NOT work in docker containers :'(
+// Display shows img in a window and waits for Esc. Does not work in Docker.
 func Display(img gocv.Mat, title string) {
 	window := gocv.NewWindow(title)
 	defer window.Close()
