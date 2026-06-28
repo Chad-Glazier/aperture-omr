@@ -16,51 +16,95 @@ tags:
     description: Image scans of exams
   - name: Preprocessing
     description: Data for preprocessing scans
-  - name: Template
-    description: Templates for processing scans
+
+paths:
+  /template/preprocess:
+    post:
+      tags:
+        - Preprocessing
+      requestBody:
+        description: |
+          The body defines a preprocessing template in a `multipart/form-data`
+          format. The `template` field is a JSON-encoded string, and the 
+          image fields are expected to be in `image/tiff` encoding.
+
+          Each page has exactly three anchors. The anchor `pageXanchorY` 
+          corresponds to `template.pages[X].anchors[Y]`. Naturally, you 
+          will need three anchors for each page. However, in the special 
+          case that you have multiple pages and only three anchors, it 
+          will be assumed that the anchors are the same for each page.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - template
+                - page0anchor0
+                - page0anchor1
+                - page0anchor2
+              properties:
+                template:
+                  $ref: "#/components/schemas/PreprocessingTemplate"
+                page0anchor0:
+                  type: string
+                  format: binary
+                page0anchor1:
+                  type: string
+                  format: binary
+                page0anchor2:
+                  type: string
+                  format: binary
+            encoding:
+              template:
+                contentType: application/json
+              page0anchor0:
+                contentType: image/tiff
+              page0anchor1:
+                contentType: image/tiff
+              page0anchor2:
+                contentType: image/tiff
+      responses:
+        200:
+          description: |
+            The preprocessing template was uploaded successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - templateId
+                properties:
+                  templateId:
+                    description: |
+                      The ID of the newly-created preprocessing template.
+                    type: string
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+                
 
 components:
   schemas:
-
-    PreprocessTemplate:
-      type: object
-      required:
-        - width
-        - height
-        - anchors
-        - config
-      properties:
-        width:
-          type: integer
-          minimum: 1
-        height:
-          type: integer
-          minimum: 1
-
-        anchors:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            $ref: '#/components/schemas/Anchor'
-
-        config:
-          $ref: '#/components/schemas/PreprocessConfig'
-
-    Anchor:
-      type: object
-      required:
-        - center
-        - roi
-      properties:
-        center:
-          $ref: '#/components/schemas/Point'
-
-        roi:
-          $ref: '#/components/schemas/Rectangle'
-
     Point:
-      type: object
+      description: |
+        Defines a point in the coordinates of a transformed image scan.
       required:
         - x
         - y
@@ -69,19 +113,20 @@ components:
           type: integer
         y:
           type: integer
-
-    Rectangle:
-      type: object
+    ROI:
+      description: |
+        Defines a region of interest; that is, a rectangle.
       required:
         - min
         - max
       properties:
-        min:
-          $ref: '#/components/schemas/Point'
+        min: 
+          $ref: "#/components/schemas/Point"
         max:
-          $ref: '#/components/schemas/Point'
-
-    PreprocessConfig:
+          $ref: "#/components/schemas/Point"
+    PreprocessingConfig:
+      description: |
+        The configuration for the preprocessing of an image.
       type: object
       required:
         - blurSize
@@ -90,194 +135,71 @@ components:
       properties:
         blurSize:
           type: integer
-          minimum: 1
-
+          example: 5
+          description: |
+            Gaussian blur kernel size, **must be odd**. Increase for noisier scans.
         morphCloseSize:
           type: integer
-          minimum: 1
-
+          example: 3
+          description: |
+            Morphological close kernel size. Helps fill gaps in pencil marks.
         minAnchorConfidence:
           type: number
-          format: float
-          minimum: 0
-          maximum: 1
-
-paths:
-  /health:
-    get:
-      tags:
-        - Health
-      summary: Ping the Service
+          example: 0.5
+          description: |
+            Minimum template-match score (0.0-1.0). Raise if anchors produce false positives.
+    PreprocessingPage:
       description: |
-        Simple health-check endpoint. Confirms that the service is running and has a database connection.
-      responses:
-        "200":
-          description: The service is functional.
-        "500":
-          description: The service failed to connect to the database. Check the server logs.
-  /upload:
-    post:
-      tags:
-        - Scan
-      summary: Upload a Scan
+        Defines the anchors for a pages.
+      type: object
+      required:
+        - anchors
+      properties:
+        anchors:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreprocessingAnchor"
+          description: |
+            The data for the three anchors of a preprocessing template page.
+    PreprocessingAnchor:
       description: |
-        Simple upload endpoint. Accepts a `multipart/form-data` body that has an `image` field set to an `image/tiff` file. The uploaded image will be stored with a unique key which is specified in the response body.
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - image
-              properties:
-                image:
-                  type: string
-                  format: binary
-                  description: TIFF image file
-            encoding:
-              image:
-                contentType: image/tiff
-      responses:
-        "200":
-          description: The image was successfully uploaded.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - imageId
-                properties:
-                  imageId:
-                    type: string
-                    description: The new UUID for the image.
-        "500":
-          description: There was an error storing the image.
-          content: 
-            text/plain:
-              schema:
-                type: string
-        "400":
-          description: The request body was malformed. See the response body for details.
-          content:
-            text/plain:
-              schema:
-                type: string
-    get:
-      tags:
-        - Scan
-      summary: Retrieve a Scan
+        Describes information about an anchor.
+      type: object
+      required:
+        - center
+        - roi
+      properties:
+        center:
+          description: |
+            Where the center of this anchor should be in output space.
+          $ref: "#/components/schemas/Point"
+        roi:
+          description: |
+            The region of interest (ROI) for the anchor in output space. That is, the location of its top-left and bottom-right corners.
+          $ref: "#/components/schemas/ROI"
+    PreprocessingTemplate:
       description: |
-        Retrieves an uploaded scan by its unique key.
-      parameters:
-        - name: imageId
-          in: query
-          required: true
-          description: UUID of the uploaded scan.
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The image was successfully retrieved.
-          content:
-            image/tiff:
-              schema:
-                type: string
-                format: binary
-        "500":
-          description: There was an error connecting to the file storage.
-          content:
-            text/plain:
-              schema:
-                type: string
-        "404":
-          description: No image with the specified key was found.
-          content:
-            text/plain:
-              schema:
-                type: string
-    delete:
-      tags:
-        - Scan
-      summary: Delete a Scan
-      description: |
-        Deletes an uploaded scan by its unique key. If the image isn't found, the request is still considered successful.
-      parameters:
-        - name: imageId
-          in: query
-          required: true
-          description: Unique key of the uploaded scan.
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The image is deleted.
-        "500":
-          description: There was an error connecting to the file storage.
-          content:
-            text/plain:
-              schema:
-                type: string
-
-  /template/preprocess:
-    post:
-      summary: Upload a Preprocessing Template
-      tags:
-        - Preprocessing
-        - Template
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - anchor0
-                - anchor1
-                - anchor2
-                - template
-              properties:
-                anchor0:
-                  type: string
-                  format: binary
-                  description: First anchor image
-
-                anchor1:
-                  type: string
-                  format: binary
-                  description: Second anchor image
-
-                anchor2:
-                  type: string
-                  format: binary
-                  description: Third anchor image
-
-                template:
-                  $ref: '#/components/schemas/PreprocessTemplate'
-
-            encoding:
-              template:
-                contentType: application/json
-
-      responses:
-        "501":
-          description: Not implemented
-
-        "400":
-          description: Invalid request
-          content:
-            text/plain:
-              schema:
-                type: string
-              examples:
-                invalidMultipart:
-                  value: invalid multipart form
-                missingAnchor:
-                  value: anchor0 is required
-                invalidImage:
-                  value: failure decoding anchor0; ensure its type is image/*
-                missingTemplate:
-                  value: template field required
-                invalidTemplate:
-                  value: error parsing template JSON data, ensure it matches the specified format
-      
+        Represents the template used for preprocessing an image scan.
+      type: object
+      required:
+        - width
+        - height
+        - config
+        - pages
+      properties:
+        width:
+          type: integer
+          example: 800
+          description: |
+            The desired width of the image after preprocessing. Shared across all pages.
+        height:
+          type: integer
+          example: 1700
+          description: |
+            The desired height of the image after preprocessing. Shared across all pages.
+        config:
+          $ref: "#/components/schemas/PreprocessingConfig"
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreprocessingPage"
