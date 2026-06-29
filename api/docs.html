@@ -15,6 +15,13 @@
             height: 100vh !important;
         }
     </style>
+    <script>
+        // Remove the ugly logo. Sorry.
+        window.addEventListener("DOMContentLoaded", () => {
+            let link = document.querySelector("a.sl-flex.sl-items-center.sl-px-4.sl-py-3.sl-border-t")
+            link.parentNode.removeChild(link)
+        })
+    </script>
 </body>
 
 </html>

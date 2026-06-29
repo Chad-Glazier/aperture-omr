@@ -28,8 +28,6 @@ func Start() error {
 	mux.HandleFunc("GET /upload", handler.GetUpload)
 	mux.HandleFunc("DELETE /upload", handler.DeleteUpload)
 
-	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessTemplate)
-
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Logger(httpHandler)
 
