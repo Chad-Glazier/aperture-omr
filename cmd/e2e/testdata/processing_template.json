@@ -1,0 +1,63 @@
+{
+    "width": 800,
+    "height": 1700,
+    "config": {
+        "blurSize": 5,
+        "morphCloseSize": 3,
+        "minAnchorConfidence": 0.4
+    },
+    "pages": [
+        {
+            "anchors": [
+                {
+                    "center": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "roi": {
+                        "min": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "max": {
+                            "x": 0,
+                            "y": 0
+                        }
+                    }
+                },
+                {
+                    "center": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "roi": {
+                        "min": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "max": {
+                            "x": 0,
+                            "y": 0
+                        }
+                    }
+                },
+                {
+                    "center": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "roi": {
+                        "min": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "max": {
+                            "x": 0,
+                            "y": 0
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

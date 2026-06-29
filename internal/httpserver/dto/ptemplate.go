@@ -21,7 +21,7 @@ func ParsePreprocessingTemplate(
 
 type PreprocessingTemplate struct {
 	Width  int `json:"width"`
-	Height int `json:"heigh"`
+	Height int `json:"height"`
 	Config struct {
 		BlurSize            int     `json:"blurSize"`
 		MorphCloseSize      int     `json:"morphCloseSize"`

@@ -90,7 +90,18 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 - [OpenCV](https://opencv.org/) is used for computer vision stuff.
 - [GoCV](gocv.io/x/gocv) provides Go bindings for OpenCV.
 - [pgx](https://pkg.go.dev/github.com/jackc/pgx/v5) is the Postgres driver we use. It's used in the [database](./internal/database/) layer.
+- [sqlite3](modernc.org/sqlite) is also included as an alternative local database.
 - [rs/cors](https://pkg.go.dev/github.com/rs/cors) is used to configure CORS. It's thinly wrapped in [cors.go](./internal/httpserver/middleware/cors.go). 
 - [Cobra](https://cobra.dev/) is used to set up the command-line interface. It's only used in the [cmd](./cmd) package.
 - [sqlc](https://sqlc.dev/) is used to generate Go functions from SQL queries (read more [here](./internal/database/sqlc/README.md)). sqlc is strictly for code generation; it is not a runtime dependency.
 - [AWS's SDK](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2) and some of its subpackages are used to manage an S3 client. It's only used in the [fs](./internal/fs) package
+
+## Development Notes
+
+### Room for Improvement
+
+The following is a list of known improvements that can be made to the system.
+- The current storage system relies on converting images to/from `image.Image` objects repeatedly. In multiple areas, this is likely unnecessary and instead we can just use `io.Writer`/`io.Reader` to minimize the number of times we load the full image into memory.
+- The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to also implement a version for Postgres.
+- More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
+- The API spec assumes the domain and port are `localhost:3000`. However, we could rewrite it as a template and have those values populated at runtime.
