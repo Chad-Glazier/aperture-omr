@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 
 	"ubco-team15/omr/internal/httpserver/dto"
@@ -10,17 +11,18 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		defer r.Body.Close()
-		tmpl, err := dto.ParseMarkingTemplate(r)
+		jsonBuf, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(
-				w, "error parsing body: "+err.Error(), http.StatusBadRequest,
+				w, "error reading body: "+err.Error(), http.StatusBadRequest,
 			)
 			return
 		}
-		if err := tmpl.Validate(); err != nil {
+
+		tmpl, err := dto.ParseMarkingTemplate(jsonBuf)
+		if err != nil {
 			http.Error(
-				w, "error validating body: "+err.Error(),
-				http.StatusBadRequest,
+				w, "error parsing body: "+err.Error(), http.StatusBadRequest,
 			)
 			return
 		}

@@ -7,7 +7,6 @@ package dto
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 )
 
@@ -15,9 +14,13 @@ import (
 // MarkingTemplate
 //
 
-func ParseMarkingTemplate(r *http.Request) (*MarkingTemplate, error) {
+// Parses and validates a marking template from JSON text.
+func ParseMarkingTemplate(jsonBuf []byte) (*MarkingTemplate, error) {
 	v := &MarkingTemplate{}
-	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+	if err := json.Unmarshal(jsonBuf, v); err != nil {
+		return nil, err
+	}
+	if err := v.Validate(); err != nil {
 		return nil, err
 	}
 	return v, nil

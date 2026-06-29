@@ -9,8 +9,17 @@ import (
 )
 
 type Querier interface {
+	CountAnchors(ctx context.Context) (int64, error)
+	CountScans(ctx context.Context) (int64, error)
+	CreateAnchor(ctx context.Context, arg CreateAnchorParams) error
 	CreateMarkingTemplate(ctx context.Context, arg CreateMarkingTemplateParams) error
 	CreatePreprocessingTemplate(ctx context.Context, arg CreatePreprocessingTemplateParams) error
+	CreateScan(ctx context.Context, arg CreateScanParams) error
+	CreateScanPage(ctx context.Context, arg CreateScanPageParams) error
+	GetAnchorsForTemplate(ctx context.Context, templateID string) ([]Anchor, error)
+	GetMarkingTemplate(ctx context.Context, id string) (MarkingTemplate, error)
+	GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorForTemplateParams) (Anchor, error)
+	GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -18,6 +18,8 @@ import (
 // and you want to set the right Content-Type header.
 const ImgContentType = "image/tiff"
 
+const ImgFileExt = ".tiff"
+
 // Encodes an image and writes it to the given destination. The encoding
 // method matches the format specified by ImgContentType.
 func EncodeImg(w io.Writer, img image.Image) error {

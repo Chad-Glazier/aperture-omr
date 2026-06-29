@@ -2,4 +2,5 @@
 *.exe
 
 # File uploads in OMR_MODE=TEST will be stored here.
-data/test_uploads/
+data/images/
+*.sqlite3

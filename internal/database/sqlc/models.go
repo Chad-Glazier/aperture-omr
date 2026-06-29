@@ -4,6 +4,13 @@
 
 package sqlc
 
+type Anchor struct {
+	ID          string
+	TemplateID  string
+	PageIndex   int64
+	AnchorIndex int64
+}
+
 type MarkingTemplate struct {
 	ID   string
 	Json string
@@ -12,4 +19,15 @@ type MarkingTemplate struct {
 type PreprocessingTemplate struct {
 	ID   string
 	Json string
+}
+
+type Scan struct {
+	ID                      string
+	PreprocessingTemplateID string
+}
+
+type ScanPage struct {
+	ID        string
+	PageIndex int64
+	ScanID    string
 }

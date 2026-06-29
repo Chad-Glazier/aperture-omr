@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"image"
 	"net/http"
 
 	"ubco-team15/omr/internal/httpserver/dto"
@@ -12,10 +13,34 @@ import (
 // requests. E.g., access to data/file stores.
 //
 
-type ServerResources interface {
-	// Saves a marking template and returns the new ID for it or an error if
-	// the operation failed.
+type MarkingTemplateSaveLoader interface {
+	// Saves a marking template and returns the new ID for it.
 	SaveMarkingTemplate(tmpl *dto.MarkingTemplate) (string, error)
+
+	// Loads a marking template and returns the new ID for it.
+	LoadMarkingTemplate(id string) (*dto.MarkingTemplate, error)
+}
+
+type PreprocessingTemplateSaveLoader interface {
+	// Saves a preprocessing template and returns the new ID for it.
+	SavePreprocessingTemplate(tmpl *dto.PreprocessingTemplate) (string, error)
+
+	// Loads a preprocessing template and returns the ID for it.
+	LoadPreprocessingTemplate(id string) (*dto.PreprocessingTemplate, error)
+}
+
+type AnchorSaveLoader interface {
+	// Saves an anchor image and returns the new ID for it.
+	SaveAnchor(anchor image.Image, templateId string, pageIdx, anchorIdx int) error
+
+	// Loads an anchor image.
+	LoadAnchor(templateId string, pageIdx, anchorIdx int) (image.Image, error)
+}
+
+type ServerResources interface {
+	MarkingTemplateSaveLoader
+	PreprocessingTemplateSaveLoader
+	AnchorSaveLoader
 }
 
 //

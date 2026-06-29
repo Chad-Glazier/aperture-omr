@@ -26,9 +26,9 @@ func initialize(db *sql.DB) error {
 	return nil
 }
 
-func Connect() (Querier, error) {
+func Connect(databaseFilepath string) (Querier, error) {
 
-	db, err := sql.Open("sqlite", "data/database")
+	db, err := sql.Open("sqlite", databaseFilepath)
 	if err != nil {
 		return nil, err
 	}
