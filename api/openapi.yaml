@@ -25,8 +25,8 @@ servers:
   - url: http://localhost:3000/
 
 tags:
-  - name: Health
-    description: Service health and availability
+  - name: Status
+    description: Service status and availability
   - name: Scan
     description: Image scans of exams
   - name: Preprocessing
@@ -35,6 +35,28 @@ tags:
     description: Data for marking scans
 
 paths:
+  /health:
+    get:
+      summary: |
+        Check OMR status
+      description: |
+        A simple endpoint to check that the OMR is up and running.
+      tags:
+        - Status
+      responses:
+        200:
+          description: |
+            The service is healthy.
+        500:
+          description: |
+            There's some problem with the service. Check the response message.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+
   /template/preprocess:
     post:
       summary: |

@@ -8,7 +8,7 @@ import (
 // Writes a 200 response to indicate that the server is functioning.
 func Health(w http.ResponseWriter, r *http.Request) {
 
-	err := database.CheckConnection()
+	_, err := database.Connect()
 	if err != nil {
 		http.Error(
 			w,

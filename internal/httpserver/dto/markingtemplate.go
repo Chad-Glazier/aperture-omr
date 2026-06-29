@@ -1,4 +1,8 @@
-package handler
+/*
+This package implements the Data Transfer Objects. That is, the structured data
+we expect from the client.
+*/
+package dto
 
 import (
 	"encoding/json"
@@ -8,24 +12,16 @@ import (
 )
 
 //
-// This file defines data transfer objects (DTOs), the type of data that we
-// expect from the client. It also includes validators for those types.
-//
-
-//
-// General helper functions.
-//
-
-func sendJson(w http.ResponseWriter, v any) {
-	w.Header().Add("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "error writing response", http.StatusInternalServerError)
-	}
-} 
-
-//
 // MarkingTemplate
 //
+
+func ParseMarkingTemplate(r *http.Request) (*MarkingTemplate, error) {
+	v := &MarkingTemplate{}
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
 
 type MarkingTemplate struct {
 	Config MarkingConfig `json:"config"`
@@ -53,9 +49,9 @@ func (t *MarkingTemplate) Validate() error {
 }
 
 type MarkingConfig struct {
-	FillThreshold float64  `json:"fillThreshold"`
-	BubbleInset   float64  `json:"bubbleInset"`
-	FlagThreshold *float64 `json:"flagThreshold,omitempty"`
+	FillThreshold float64 `json:"fillThreshold"`
+	BubbleInset   float64 `json:"bubbleInset"`
+	FlagThreshold float64 `json:"flagThreshold"`
 }
 
 func (c *MarkingConfig) Validate() error {
@@ -67,10 +63,8 @@ func (c *MarkingConfig) Validate() error {
 		return fmt.Errorf("bubbleInset must be between 0 and 1")
 	}
 
-	if c.FlagThreshold != nil {
-		if *c.FlagThreshold < 0 || *c.FlagThreshold > 1 {
-			return fmt.Errorf("flagThreshold must be between 0 and 1")
-		}
+	if c.FlagThreshold < 0 || c.FlagThreshold > 1 {
+		return fmt.Errorf("flagThreshold must be between 0 and 1")
 	}
 
 	return nil
