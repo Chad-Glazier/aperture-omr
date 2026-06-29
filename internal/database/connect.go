@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"ubco-team15/omr/config"
-	"ubco-team15/omr/internal/database/sqlc"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type DB struct {
-	Query sqlc.Querier
+	Query Querier
 	conn  *pgx.Conn
 }
 
