@@ -72,6 +72,12 @@ type Config struct {
 	BlurSize            int     `json:"blurSize"`
 	MorphCloseSize      int     `json:"morphCloseSize"`
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
+	// AdaptiveBlockSize is the neighbourhood size for adaptive thresholding
+	// (must be odd). Defaults to 91, which works well for 200–300 DPI scans.
+	AdaptiveBlockSize int     `json:"adaptiveBlockSize"`
+	// AdaptiveC is subtracted from the local mean; negative values make the
+	// threshold more lenient and are needed to catch light pencil marks.
+	AdaptiveC         float32 `json:"adaptiveC"`
 }
 
 // Scan runs each reader through the OMR preprocessing pipeline using the
@@ -158,9 +164,17 @@ func binarize(src, dst *gocv.Mat, conf *Config) error {
 	blurSize := image.Pt(conf.BlurSize, conf.BlurSize)
 	gocv.GaussianBlur(gray, &blur, blurSize, 0, 0, gocv.BorderDefault)
 
-	// Replaces adaptive thresholding because binary threshold better preserves
-	// pencil marks within bubbles
-	gocv.Threshold(blur, &thresh, 0, 255, gocv.ThresholdBinaryInv|gocv.ThresholdOtsu)
+	blockSize := conf.AdaptiveBlockSize
+	if blockSize == 0 {
+		blockSize = 91
+	}
+	adaptiveC := conf.AdaptiveC
+	if adaptiveC == 0 {
+		adaptiveC = float32(-15)
+	}
+	// Adaptive threshold compares each pixel to its local neighbourhood mean,
+	// so light pencil marks (which global Otsu misses) are reliably detected.
+	gocv.AdaptiveThreshold(blur, &thresh, 255, gocv.AdaptiveThresholdGaussian, gocv.ThresholdBinaryInv, blockSize, adaptiveC)
 	gocv.MorphologyEx(thresh, dst, gocv.MorphClose, kernel)
 
 	return nil
@@ -223,6 +237,9 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 
 	gocv.WarpAffine(src.Color, &warped.Color, transform, targetSize)
 	gocv.WarpAffine(src.Binary, &warped.Binary, transform, targetSize)
+	// Bilinear interpolation produces intermediate gray values at edges; re-snap
+	// to strict 0/255 so CountNonZero only counts genuinely filled pixels.
+	gocv.Threshold(warped.Binary, &warped.Binary, 128, 255, gocv.ThresholdBinary)
 
 	// Since we are modifying dst in-place,
 	// we must close the old mats before overwritting

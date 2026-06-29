@@ -66,11 +66,13 @@ Anchor images should be cropped from a clean, straight scan of the sheet. They a
 
 ### Scan Config
 
-| Field                 | Type    | Description |
-|-----------------------|---------|-------------|
-| `blurSize`            | int     | Gaussian blur kernel size, must be odd. Increase for noisier scans. |
-| `morphCloseSize`      | int     | Morphological close kernel size. Helps fill gaps in pencil marks. |
-| `minAnchorConfidence` | float32 | Minimum template-match score (0.0–1.0). Raise if anchors produce false positives. |
+| Field                 | Type    | Default | Description |
+|-----------------------|---------|---------|-------------|
+| `blurSize`            | int     | —       | Gaussian blur kernel size, must be odd. Increase for noisier scans. |
+| `morphCloseSize`      | int     | —       | Morphological close kernel size. Helps fill sparse pencil marks. |
+| `minAnchorConfidence` | float32 | —       | Minimum template-match score (0.0–1.0). Raise if anchors produce false positives. |
+| `adaptiveBlockSize`   | int     | `91`    | Neighbourhood size (pixels, must be odd) for adaptive thresholding. Larger values use a wider local region to compute the threshold; recommended starting point is roughly 3× the bubble diameter at scan resolution. |
+| `adaptiveC`           | float32 | `-15`   | Constant subtracted from the local mean before thresholding. More negative values raise the threshold, capturing lighter pencil marks but increasing noise. Typical range: `-5` to `-15`. |
 
 ---
 
