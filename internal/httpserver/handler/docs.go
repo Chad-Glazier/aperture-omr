@@ -43,9 +43,13 @@ func DocsPage(w http.ResponseWriter, r *http.Request) {
 			// Remove the ugly logo. Sorry.
 			window.addEventListener("DOMContentLoaded", () => {
 				let link = document.querySelector("a.sl-flex.sl-items-center.sl-px-4.sl-py-3.sl-border-t")
-				link.href = "https://youtu.be/2Ax-TWSceLs?si=gvZhjODbIhNw-dSf"
 				link.lastChild.innerHTML = "Powered by Swalalala"
-				// link.parentNode.removeChild(link)
+				link.href = "https://youtu.be/2Ax-TWSceLs?si=gvZhjODbIhNw-dSf"
+				setInterval(() => {
+					let link = document.querySelector("a.sl-flex.sl-items-center.sl-px-4.sl-py-3.sl-border-t")
+					link.lastChild.innerHTML = "Powered by Swalla-la-la"
+					link.href = "https://youtu.be/2Ax-TWSceLs?si=gvZhjODbIhNw-dSf"
+				}, 200)
 			})
 		</script>
 	</body>

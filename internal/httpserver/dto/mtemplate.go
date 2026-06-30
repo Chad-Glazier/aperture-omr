@@ -1,6 +1,7 @@
 /*
 This package implements the Data Transfer Objects. That is, the structured data
-we expect from the client.
+we expect to send to/from the client. For each of these types, we include 
+functions for serialization, deserialization, and validation where appropriate.
 */
 package dto
 
@@ -9,10 +10,6 @@ import (
 	"fmt"
 	"strings"
 )
-
-//
-// MarkingTemplate
-//
 
 // Parses and validates a marking template from JSON text.
 func ParseMarkingTemplate(jsonBuf []byte) (*MarkingTemplate, error) {

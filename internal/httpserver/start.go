@@ -36,6 +36,7 @@ func Start() {
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(res))
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
 	mux.HandleFunc("POST /scan", handler.PostScan(res))
+	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
 
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Logger(httpHandler)
@@ -51,7 +52,7 @@ func Start() {
 
 //
 // Below, we implement the ServerResources interface. This is how the database
-// and file storage is hooked up to the endpoints.
+// and file storage are provided to the handler functions.
 //
 
 type ServerResources struct {

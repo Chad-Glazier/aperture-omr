@@ -318,6 +318,36 @@ paths:
                     type: string
                     description: |
                       The ID of the new marking job.
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        404:
+          description: |
+            Some resource that the request specified (e.g., a template or scan 
+            ID) could not be found. 
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of which resource couldn't be found.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
     get:
       summary: Get marking results
       tags:
