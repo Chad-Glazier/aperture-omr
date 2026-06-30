@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"ubco-team15/omr/internal/marker"
-	"ubco-team15/omr/internal/utils"
 
 	"github.com/spf13/cobra"
 	"gocv.io/x/gocv"
@@ -20,14 +20,14 @@ scores all questions defined in the mark template. Images must already have been
 corrected and binarized (e.g. by the preprocess command), one per page in order.`,
 	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		tmplPath, err := utils.Resolve(args[0])
+		tmplPath, err := resolve(args[0])
 		if err != nil {
 			return fmt.Errorf("resolve template path: %w", err)
 		}
 
 		imgs := make([]gocv.Mat, len(args)-1)
 		for i, p := range args[1:] {
-			resolved, err := utils.Resolve(p)
+			resolved, err := resolve(p)
 			if err != nil {
 				for j := 0; j < i; j++ {
 					imgs[j].Close()
@@ -105,4 +105,35 @@ func printResults(r *marker.Result) {
 
 	w.Flush()
 	fmt.Println("======================================================")
+}
+
+func resolve(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("path cannot be empty")
+	}
+
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+
+		if err != nil {
+			return "", fmt.Errorf("unable to resolve home directory: %v", err)
+		}
+
+		if path == "~" {
+			path = home
+		} else if strings.HasPrefix(path, "~/") {
+			path = filepath.Join(home, path[2:])
+		}
+	}
+
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("unable to resolve absolute path: %v", err)
+	}
+
+	return filepath.Clean(abs), nil
 }

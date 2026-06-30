@@ -106,3 +106,4 @@ The following is a list of known improvements that can be made to the system.
 - The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to also implement a version for Postgres.
   - More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
 - The API spec assumes the domain and port are `localhost:3000`. However, we could rewrite it as a template and have those values populated at runtime.
+- The service, in its current form, manages its own database and file storage. It might be worthwhile to create a small web UI for managing that data.
