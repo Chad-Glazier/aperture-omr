@@ -192,8 +192,9 @@ func detectAnswers(
 	// the gap unchanged or smaller.
 	bestDX, bestDY := 0, 0
 	if searchRadius > 0 {
-		bestScore := -1.0
 		sortBuf := make([]float64, n)
+
+		bestGapScore := 0.0
 		for dy := -searchRadius; dy <= searchRadius; dy++ {
 			for dx := -searchRadius; dx <= searchRadius; dx++ {
 				for i, b := range q.Options {
@@ -206,9 +207,34 @@ func detectAnswers(
 						maxGap = g
 					}
 				}
-				if maxGap > bestScore {
-					bestScore = maxGap
+				if maxGap > bestGapScore {
+					bestGapScore = maxGap
 					bestDX, bestDY = dx, dy
+				}
+			}
+		}
+
+		// If the gap found is below the fill threshold, the discrimination is
+		// too small to be meaningful — fills are nearly uniform across all
+		// options. This happens when all bubbles are selected (or all empty).
+		// In this regime the gap search chases noise and may land on a position
+		// where accidental pixel variation looks like a gap but the absolute
+		// fills are poor. Fall back instead to the offset that maximises the
+		// total fill across all options: for the all-selected case this centres
+		// the window on the best available position so allFilled can trigger;
+		// for the all-empty case fills stay near zero regardless of offset.
+		if bestGapScore < threshold {
+			bestSum := -1.0
+			for dy := -searchRadius; dy <= searchRadius; dy++ {
+				for dx := -searchRadius; dx <= searchRadius; dx++ {
+					sum := 0.0
+					for _, b := range q.Options {
+						sum += measure(b.X+dx, b.Y+dy)
+					}
+					if sum > bestSum {
+						bestSum = sum
+						bestDX, bestDY = dx, dy
+					}
 				}
 			}
 		}
