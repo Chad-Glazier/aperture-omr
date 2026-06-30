@@ -110,14 +110,14 @@ func TestBubbleFillRatio(t *testing.T) {
 		{
 			name:    "Fully white image gives high fill ratio",
 			img:     white,
-			bubble:  Bubble{X: 10, Y: 10},
+			bubble:  Bubble{X: 50, Y: 50},
 			wantMin: 0.9,
 			wantMax: 1.0,
 		},
 		{
 			name:    "Fully black image gives zero fill ratio",
 			img:     black,
-			bubble:  Bubble{X: 10, Y: 10},
+			bubble:  Bubble{X: 50, Y: 50},
 			wantMin: 0.0,
 			wantMax: 0.0,
 		},
