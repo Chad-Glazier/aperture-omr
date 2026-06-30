@@ -232,3 +232,37 @@ func (q *Queries) GetPreprocessingTemplate(ctx context.Context, id string) (Prep
 	err := row.Scan(&i.ID, &i.Json)
 	return i, err
 }
+
+const getScanPages = `-- name: GetScanPages :many
+SELECT 
+    id, page_index, scan_id
+FROM
+    scan_pages
+WHERE
+    scan_id = ?
+ORDER BY
+    page_index ASC
+`
+
+func (q *Queries) GetScanPages(ctx context.Context, scanID string) ([]ScanPage, error) {
+	rows, err := q.db.QueryContext(ctx, getScanPages, scanID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ScanPage
+	for rows.Next() {
+		var i ScanPage
+		if err := rows.Scan(&i.ID, &i.PageIndex, &i.ScanID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

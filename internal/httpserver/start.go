@@ -39,6 +39,7 @@ func Start() {
 
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(res))
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
+	mux.HandleFunc("POST /scan", handler.PostScan(res))
 
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Logger(httpHandler)
@@ -207,4 +208,42 @@ func (s *ServerResources) LoadAnchor(
 	}
 
 	return img, nil
+}
+
+func (s *ServerResources) SaveScan(
+	pages []image.Image, templateId string,
+) (string, error) {
+
+	scanId := uuid.New().String()
+	err := s.db.CreateScan(context.Background(), sqlc.CreateScanParams{
+		ID:                      scanId,
+		PreprocessingTemplateID: templateId,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	for pageIdx, page := range pages {
+
+		pageId := uuid.New().String() + ".png"
+
+		err := s.store.PutImg(pageId, page)
+		if err != nil {
+			return "", err
+		}
+
+		err = s.db.CreateScanPage(
+			context.Background(),
+			sqlc.CreateScanPageParams{
+				ID:        pageId,
+				PageIndex: int64(pageIdx),
+				ScanID:    scanId,
+			},
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return scanId, nil
 }

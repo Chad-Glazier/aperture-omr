@@ -78,3 +78,13 @@ SELECT
     count(*)
 FROM
     scans;
+
+-- name: GetScanPages :many
+SELECT 
+    *
+FROM
+    scan_pages
+WHERE
+    scan_id = ?
+ORDER BY
+    page_index ASC;

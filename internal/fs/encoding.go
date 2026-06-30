@@ -10,24 +10,24 @@ import (
 	"image"
 	"io"
 
-	"golang.org/x/image/tiff"
+	"image/png"
 )
 
 // The MIME type of the image encoding used by this package. This might be
 // useful if, for example, you want to pipe an image through an HTTP response
 // and you want to set the right Content-Type header.
-const ImgContentType = "image/tiff"
+const ImgContentType = "image/png"
 
-const ImgFileExt = ".tiff"
+const ImgFileExt = ".png"
 
 // Encodes an image and writes it to the given destination. The encoding
 // method matches the format specified by ImgContentType.
 func EncodeImg(w io.Writer, img image.Image) error {
-	return tiff.Encode(w, img, nil)
+	return png.Encode(w, img)
 }
 
 // Decodes an image and returns it. The decoding method matches the image
 // format specified by ImgContentType.
 func DecodeImg(r io.Reader) (image.Image, error) {
-	return tiff.Decode(r)
+	return png.Decode(r)
 }

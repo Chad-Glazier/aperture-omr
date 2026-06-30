@@ -1,0 +1,205 @@
+package handler
+
+import (
+	"bytes"
+	"fmt"
+	"image"
+	"image/png"
+	"io"
+	"net/http"
+	"ubco-team15/omr/internal/fs"
+	"ubco-team15/omr/internal/scanner"
+
+	"gocv.io/x/gocv"
+)
+
+func PostScan(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		//
+		// Load the template.
+		//
+
+		templateId := r.URL.Query().Get("template")
+		if templateId == "" {
+			http.Error(
+				w,
+				"template query parameter is missing",
+				http.StatusBadRequest,
+			)
+			return
+		}
+		template, err := s.LoadPreprocessingTemplate(templateId)
+		if err != nil {
+			http.Error(
+				w,
+				"template "+templateId+" not found",
+				http.StatusNotFound,
+			)
+			return
+		}
+
+		//
+		// Load the template's anchors.
+		//
+
+		pageCount := len(template.Pages)
+		anchors := make([][3]gocv.Mat, pageCount)
+		for pageIdx := range template.Pages {
+			for anchorIdx := range template.Pages[pageIdx].Anchors {
+
+				anchor, err := s.LoadAnchor(templateId, pageIdx, anchorIdx)
+				if err != nil {
+					http.Error(
+						w,
+						fmt.Sprintf(
+							"error loading anchor page%danchor%d for %s",
+							pageIdx, anchorIdx, templateId,
+						),
+						http.StatusInternalServerError,
+					)
+					return
+				}
+
+				buf := bytes.Buffer{}
+				if err := fs.EncodeImg(&buf, anchor); err != nil {
+					http.Error(
+						w,
+						fmt.Sprintf(
+							"error loading anchor page%danchor%d for %s",
+							pageIdx, anchorIdx, templateId,
+						),
+						http.StatusInternalServerError,
+					)
+					return
+				}
+
+				mat, err := gocv.IMDecode(buf.Bytes(), gocv.IMReadUnchanged)
+				if err != nil {
+					http.Error(
+						w,
+						fmt.Sprintf(
+							"error decoding anchor page%danchor%d for %s",
+							pageIdx, anchorIdx, templateId,
+						),
+						http.StatusInternalServerError,
+					)
+					return
+				}
+
+				anchors[pageIdx][anchorIdx] = mat
+			}
+		}
+
+		//
+		// Read the page scans.
+		//
+
+		defer r.Body.Close()
+		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+			http.Error(w, "invalid multipart form", http.StatusBadRequest)
+			return
+		}
+
+		pageScans := make([]io.Reader, pageCount)
+		for pageIdx := range template.Pages {
+			f, _, err := r.FormFile(fmt.Sprintf("page%d", pageIdx))
+			if err != nil {
+				http.Error(
+					w,
+					fmt.Sprintf(
+						"expected page%d on the request "+
+							"(the preprocessing template has %d pages)",
+						pageIdx, pageCount,
+					),
+					http.StatusBadRequest,
+				)
+				return
+			}
+			defer f.Close()
+
+			pageScans[pageIdx] = f
+		}
+
+		//
+		// Below, we convert the data into a format that the scanner package
+		// understands.
+		//
+
+		pages := make([]scanner.ScanPage, pageCount)
+		for pageIdx := range pageCount {
+			pages[pageIdx].Anchors = make([]scanner.Anchor, 3)
+			for anchorIdx := range 3 {
+				pages[pageIdx].Anchors[anchorIdx] = scanner.Anchor{
+					Image: anchors[pageIdx][anchorIdx],
+					Path:  "",
+					ROI: image.Rectangle{
+						Min: image.Point(template.Pages[pageIdx].Anchors[anchorIdx].Roi.Min),
+						Max: image.Point(template.Pages[pageIdx].Anchors[anchorIdx].Roi.Max),
+					},
+					Center: image.Point(template.Pages[pageIdx].Anchors[anchorIdx].Center),
+				}
+			}
+		}
+
+		result, err := scanner.Scan(pageScans, &scanner.Template{
+			Width:  template.Width,
+			Height: template.Height,
+			Config: scanner.Config{
+				BlurSize:            template.Config.BlurSize,
+				MorphCloseSize:      template.Config.MorphCloseSize,
+				MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
+			},
+			Pages: pages,
+		})
+		if err != nil {
+			http.Error(
+				w,
+				"error during preprocessing: "+err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		pageImages := make([]image.Image, pageCount)
+		for i, data := range result {
+			buf, err := gocv.IMEncode(gocv.PNGFileExt, data.Color)
+			if err != nil {
+				http.Error(
+					w,
+					"error encoding image: "+err.Error(),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+			defer buf.Close()
+
+			r := bytes.NewReader(buf.GetBytes())
+			img, err := png.Decode(r)
+			if err != nil {
+				http.Error(
+					w,
+					"error encoding image: "+err.Error(),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+
+			pageImages[i] = img
+		}
+
+		id, err := s.SaveScan(pageImages, templateId)
+		if err != nil {
+			http.Error(
+				w,
+				"error saving preprocessed scans: "+err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		resp := make(map[string]string, 1)
+		resp["scanId"] = id
+		sendJson(w, resp)
+	}
+}

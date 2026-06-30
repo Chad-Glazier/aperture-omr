@@ -20,6 +20,7 @@ type Querier interface {
 	GetMarkingTemplate(ctx context.Context, id string) (MarkingTemplate, error)
 	GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorForTemplateParams) (Anchor, error)
 	GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error)
+	GetScanPages(ctx context.Context, scanID string) ([]ScanPage, error)
 }
 
 var _ Querier = (*Queries)(nil)
