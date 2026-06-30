@@ -184,7 +184,6 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	if src.Empty() {
 		return fmt.Errorf("cannot warp an empty image")
 	}
-
 	if len(anchors) != 3 {
 		return fmt.Errorf("warping requires exactly 3 anchors, provided %d", len(anchors))
 	}
@@ -195,13 +194,14 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 		}
 	}
 
-	srcPts := make([]image.Point, 3)
-	dstPts := make([]image.Point, 3)
+	n := len(anchors)
+	srcPts := make([]image.Point, n)
+	dstPts := make([]image.Point, n)
 
 	srcSize := image.Pt(src.Binary.Cols(), src.Binary.Rows())
 	targetSize := image.Pt(width, height)
 
-	for i := range 3 {
+	for i := range n {
 		anchor := anchors[i]
 		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
 
@@ -227,22 +227,23 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	dstVec := gocv.NewPointVectorFromPoints(dstPts)
 	defer dstVec.Close()
 
-	transform := gocv.GetAffineTransform(srcVec, dstVec)
-	defer transform.Close()
-
 	warped := ScanData{
 		Color:  gocv.NewMat(),
 		Binary: gocv.NewMat(),
 	}
 
+	transform := gocv.GetAffineTransform(srcVec, dstVec)
+	defer transform.Close()
+
 	gocv.WarpAffine(src.Color, &warped.Color, transform, targetSize)
 	gocv.WarpAffine(src.Binary, &warped.Binary, transform, targetSize)
+
 	// Bilinear interpolation produces intermediate gray values at edges; re-snap
 	// to strict 0/255 so CountNonZero only counts genuinely filled pixels.
 	gocv.Threshold(warped.Binary, &warped.Binary, 128, 255, gocv.ThresholdBinary)
 
 	// Since we are modifying dst in-place,
-	// we must close the old mats before overwritting
+	// we must close the old mats before overwriting.
 	dst.Close()
 	dst.Color = warped.Color
 	dst.Binary = warped.Binary

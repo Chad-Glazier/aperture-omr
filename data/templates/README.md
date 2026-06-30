@@ -97,9 +97,10 @@ Defines question and bubble locations. Pass this to `mark` or `scan`.
 
 | Field           | Type    | Default | Description |
 |-----------------|---------|---------|-------------|
-| `fillThreshold` | float64 | 0.5     | Minimum fill ratio for a bubble to count as selected (0.0–1.0). |
+| `fillThreshold` | float64 | 0.25    | Minimum gap between the selected bubble's fill and the next-best to count as a selection (0.0–1.0). |
 | `bubbleInset`   | float64 | 0.75    | Fraction of the bubble radius sampled. Values below 1.0 exclude the printed border ring from the measurement. |
 | `flagThreshold` | float64 | 0.5     | Minimum confidence below which an answer is flagged for manual review. Set to 0.0 to disable. |
+| `searchRadius`  | int     | 0       | Per-axis pixel search window around each bubble's template position. The maximum fill found across the (2r+1)² candidate centres is used. Set to 3–5 to tolerate small printer/scanner misalignment. |
 
 ### Question
 
