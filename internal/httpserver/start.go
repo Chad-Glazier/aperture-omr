@@ -247,3 +247,21 @@ func (s *ServerResources) SaveScan(
 
 	return scanId, nil
 }
+
+func (s *ServerResources) LoadScan(scanId string) ([]image.Image, error) {
+	records, err := s.db.GetScanPages(context.Background(), scanId)
+	if err != nil {
+		return nil, err
+	}
+
+	images := make([]image.Image, len(records))
+	for i, record := range records {
+		img, err := s.store.GetImg(record.ID)
+		if err != nil {
+			return nil, err
+		}
+		images[i] = img
+	}
+
+	return images, nil
+}

@@ -101,7 +101,8 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 ### Room for Improvement
 
 The following is a list of known improvements that can be made to the system.
-- The current storage system relies on converting images to/from `image.Image` objects repeatedly. In multiple areas, this is likely unnecessary and instead we can just use `io.Writer`/`io.Reader` to minimize the number of times we load the full image into memory.
+- The current storage system relies on converting images to/from `image.Image` objects repeatedly for the convenience of a common interface. In multiple areas, this is likely unnecessary and instead we can just use `io.Writer`/`io.Reader` to minimize the number of times we load the full image into memory.
+  - As a tangent, the processing pipeline should probably universally use JPEGs to save disk space and (potentially) speed. We can use magic bytes to confirm that a file is a JPEG and then, rather than decoding the whole image, just write it straight to storage. This method might be tricky with S3 storage, but would be trivial to implement for the local filesystem.
 - The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to also implement a version for Postgres.
-- More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
+  - More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
 - The API spec assumes the domain and port are `localhost:3000`. However, we could rewrite it as a template and have those values populated at runtime.

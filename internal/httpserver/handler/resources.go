@@ -10,7 +10,9 @@ import (
 
 //
 // The ServerResources interface defines things that should be shared between
-// requests. E.g., access to data/file stores.
+// requests. E.g., access to data/file stores. Note that this package does not
+// implement the interface. It's expected that these resources are provided to
+// the handler functions, not the other way around.
 //
 
 type MarkingTemplateSaveLoader interface {
@@ -42,7 +44,11 @@ type ScanSaver interface {
 	// represents a page. The preprocessing template ID is also included for
 	// the sake of debugging. Returns an ID for the scan.
 	SaveScan(pages []image.Image, templateId string) (string, error)
+
+	// Loads a preprocessed scan's pages.
+	LoadScan(scanId string) ([]image.Image, error)
 }
+
 
 type ServerResources interface {
 	MarkingTemplateSaveLoader

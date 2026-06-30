@@ -16,7 +16,7 @@ import (
 //
 // NOTE: Some parts of this function are kind of hacky. I plan to fix this by
 // slightly refactoring the interface of the `scanner` package in certain ways.
-// Also ignore the excessive image encoding/decoding; I'm going to fix those
+// Also, ignore the excessive image encoding/decoding. I'm going to fix those
 // quirks later on.
 //
 
