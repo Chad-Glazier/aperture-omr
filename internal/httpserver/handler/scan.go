@@ -13,6 +13,13 @@ import (
 	"gocv.io/x/gocv"
 )
 
+//
+// NOTE: Some parts of this function are kind of hacky. I plan to fix this by
+// slightly refactoring the interface of the `scanner` package in certain ways.
+// Also ignore the excessive image encoding/decoding; I'm going to fix those
+// quirks later on.
+//
+
 func PostScan(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -74,7 +81,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 					return
 				}
 
-				mat, err := gocv.IMDecode(buf.Bytes(), gocv.IMReadUnchanged)
+				mat, err := gocv.IMDecode(buf.Bytes(), gocv.IMReadColor)
 				if err != nil {
 					http.Error(
 						w,
@@ -86,6 +93,12 @@ func PostScan(s ServerResources) http.HandlerFunc {
 					)
 					return
 				}
+
+				scanner.Binarize(&mat, &mat, &scanner.Config{
+					BlurSize:            template.Config.BlurSize,
+					MorphCloseSize:      template.Config.MorphCloseSize,
+					MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
+				})
 
 				anchors[pageIdx][anchorIdx] = mat
 			}
@@ -132,12 +145,20 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			for anchorIdx := range 3 {
 				pages[pageIdx].Anchors[anchorIdx] = scanner.Anchor{
 					Image: anchors[pageIdx][anchorIdx],
-					Path:  "",
 					ROI: image.Rectangle{
-						Min: image.Point(template.Pages[pageIdx].Anchors[anchorIdx].Roi.Min),
-						Max: image.Point(template.Pages[pageIdx].Anchors[anchorIdx].Roi.Max),
+						Min: image.Point{
+							X: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Min.X,
+							Y: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Min.Y,
+						},
+						Max: image.Point{
+							X: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Max.X,
+							Y: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Max.Y,
+						},
 					},
-					Center: image.Point(template.Pages[pageIdx].Anchors[anchorIdx].Center),
+					Center: image.Point{
+						X: template.Pages[pageIdx].Anchors[anchorIdx].Center.X,
+						Y: template.Pages[pageIdx].Anchors[anchorIdx].Center.Y,
+					},
 				}
 			}
 		}
@@ -163,7 +184,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		pageImages := make([]image.Image, pageCount)
 		for i, data := range result {
-			buf, err := gocv.IMEncode(gocv.PNGFileExt, data.Color)
+			buf, err := gocv.IMEncode(gocv.PNGFileExt, data.Binary)
 			if err != nil {
 				http.Error(
 					w,

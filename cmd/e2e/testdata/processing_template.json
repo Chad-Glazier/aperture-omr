@@ -10,7 +10,6 @@
 		{
 			"anchors": [
 				{
-					"path": "anchors/footer.jpg",
 					"center": {
 						"x": 596,
 						"y": 1592
@@ -27,7 +26,6 @@
 					}
 				},
 				{
-					"path": "anchors/logo.jpg",
 					"center": {
 						"x": 938,
 						"y": 161
@@ -44,7 +42,6 @@
 					}
 				},
 				{
-					"path": "anchors/info.jpg",
 					"center": {
 						"x": 161,
 						"y": 214

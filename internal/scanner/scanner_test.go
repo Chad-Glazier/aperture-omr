@@ -72,7 +72,7 @@ func TestBinarize(t *testing.T) {
 			dst := gocv.NewMat()
 			defer dst.Close()
 
-			err := binarize(&tc.src, &dst, &tc.conf)
+			err := Binarize(&tc.src, &dst, &tc.conf)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError && dst.Channels() != 1 {
