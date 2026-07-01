@@ -50,11 +50,11 @@ Controls perspective correction and binarization. Pass this to `preprocess` or `
 
 | Field     | Type  | Description |
 |-----------|-------|-------------|
-| `anchors` | array | Exactly 3 anchor definitions for this page (see below) |
+| `anchors` | array | At least 3 anchor definitions for this page (see below) |
 
 ### Anchor
 
-Each anchor is a distinctive region of the sheet used to compute the affine perspective transform. All coordinates are in output (`width` × `height`) space. Choose anchors in distinct corners of the page for the most accurate warp. Use a different set of three corners for each page so the missing corner identifies which side is up.
+Each anchor is a distinctive region of the sheet used to compute the affine transform. All coordinates are in output (`width` × `height`) space. With 3 anchors the transform is exact; with 4+ it uses a least-squares fit, which is more robust against individual matching errors. Spread anchors around all four corners of the page content area for best accuracy. Use a different set of anchors for each page so the layout identifies which side is up.
 
 | Field    | Type   | Description |
 |----------|--------|-------------|
@@ -72,7 +72,7 @@ Anchor images should be cropped from a clean, straight scan of the sheet. They a
 | `morphCloseSize`      | int     | —       | Morphological close kernel size. Helps fill sparse pencil marks. |
 | `minAnchorConfidence` | float32 | —       | Minimum template-match score (0.0–1.0). Raise if anchors produce false positives. |
 | `adaptiveBlockSize`   | int     | `91`    | Neighbourhood size (pixels, must be odd) for adaptive thresholding. Larger values use a wider local region to compute the threshold; recommended starting point is roughly 3× the bubble diameter at scan resolution. |
-| `adaptiveC`           | float32 | `-15`   | Constant subtracted from the local mean before thresholding. More negative values raise the threshold, capturing lighter pencil marks but increasing noise. Typical range: `-5` to `-15`. |
+| `adaptiveC`           | float32 | `-15`   | Constant subtracted from the local mean before thresholding (`T = mean − C`). Positive values lower the threshold, giving cleaner ink/paper separation on high-contrast flatbed scans. Negative values raise the threshold, which can help detect lighter pencil marks but risks misclassifying clean white areas as ink. |
 
 ---
 
