@@ -276,13 +276,17 @@ paths:
                   A description of the error.
   /mark:
     post:
-      summary: Start a marking job
+      summary: Run a marking job
       tags:
         - Marking
       description: |
-        This endpoint can be used to start a marking job by specifying a list
-        of scans to mark and a template to mark them with. You can later request
-        the results with a different endpoint.
+        This endpoint can be used to run a marking job by specifying a list of 
+        scans to mark and a template to mark them with. 
+
+        Previously, this functionality was broken into two endpoints: one to
+        start the marking job, and another to retrieve the results. However,
+        the marking job is faster than expected (~3ms per page), so it makes 
+        more sense to just send the results back immediately.
       requestBody:
         content:
           application/json:
@@ -305,67 +309,6 @@ paths:
       responses:
         200:
           description: |
-            The marking job was successfully posted. The included ID can be used
-            to get the status/results of the marking.
-          content: 
-            application/json:
-              schema:
-                type: object
-                required:
-                  - markingId
-                properties:
-                  markingId:
-                    type: string
-                    description: |
-                      The ID of the new marking job.
-        400:
-          description: |
-            The request was missing something. Check the error message for 
-            details.
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: |
-                  A description of the error.
-        404:
-          description: |
-            Some resource that the request specified (e.g., a template or scan 
-            ID) could not be found. 
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: |
-                  A description of which resource couldn't be found.
-        500:
-          description: |
-            Something went wrong on the OMR's side. Check the OMR's logs and
-            the error message for details.
-          content:
-            text/plain:
-              schema: 
-                type: string
-                description: |
-                  A description of the error.
-    get:
-      summary: Get marking results
-      tags:
-        - Marking
-      description: |
-        After posting a marking job, this endpoint can be used to get the current
-        status of the job or its results (if its done).
-      parameters:
-        - in: query
-          name: marking
-          required: true
-          schema:
-            type: string
-            description: |
-              The ID of the marking job to check.
-      responses:
-        200:
-          description: |
             The marking job is complete. The marks are included in the response body.
           content: 
             application/json:
@@ -373,19 +316,38 @@ paths:
                 type: object
                 required:
                   - scans
-                  - startTime
-                  - endTime
+                  - performanceMetrics
                   - pagesMarked
                   - templateId
                 properties:
-                  startTime:
-                    type: integer
-                    description: |
-                      A UNIX timestamp for the time when the job was initiated.
-                  endTime:
-                    type: integer
-                    description: |
-                      A UNIX timestamp for the time when the job was completed.
+                  performanceMetrics:
+                    type: object
+                    required:
+                      - startTime
+                      - endTime
+                      - diskTime
+                      - omrTime
+                    properties:
+                      startTime:
+                        type: integer
+                        description: |
+                          A UNIX timestamp for the time when the job was 
+                          initiated.
+                      endTime:
+                        type: integer
+                        description: |
+                          A UNIX timestamp for the time when the job was 
+                          completed.
+                      diskTime:
+                        type: integer
+                        description: |
+                          The number of milliseconds that the system spent on
+                          reading/writing files to disk.
+                      omrTime:
+                        type: integer
+                        description: |
+                          The number of milliseconds that the system spent on
+                          marking the loaded scans.
                   pagesMarked:
                     type: integer
                     description: |
@@ -434,18 +396,134 @@ paths:
                                   A list of selected options that were detected for the question.
                                   The options are named according to the marking template. For
                                   example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
-        202:
+        400:
           description: |
-            The marking job is in progress.
-        500:
-          description: |
-            There was some error in the marking. See the response body for details.
+            The request was missing something. Check the error message for 
+            details.
           content:
             text/plain:
               schema:
                 type: string
                 description: |
-                  A description of the marking error.
+                  A description of the error.
+        404:
+          description: |
+            Some resource that the request specified (e.g., a template or scan 
+            ID) could not be found. 
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of which resource couldn't be found.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+    # get:
+    #   summary: Get marking results
+    #   tags:
+    #     - Marking
+    #   description: |
+    #     After posting a marking job, this endpoint can be used to get the current
+    #     status of the job or its results (if its done).
+    #   parameters:
+    #     - in: query
+    #       name: marking
+    #       required: true
+    #       schema:
+    #         type: string
+    #         description: |
+    #           The ID of the marking job to check.
+    #   responses:
+    #     200:
+    #       description: |
+    #         The marking job is complete. The marks are included in the response body.
+    #       content: 
+    #         application/json:
+    #           schema:
+    #             type: object
+    #             required:
+    #               - scans
+    #               - startTime
+    #               - endTime
+    #               - pagesMarked
+    #               - templateId
+    #             properties:
+    #               startTime:
+    #                 type: integer
+    #                 description: |
+    #                   A UNIX timestamp for the time when the job was initiated.
+    #               endTime:
+    #                 type: integer
+    #                 description: |
+    #                   A UNIX timestamp for the time when the job was completed.
+    #               pagesMarked:
+    #                 type: integer
+    #                 description: |
+    #                   The total number of pages processed.
+    #               templateId:
+    #                 type: string
+    #                 description: | 
+    #                   The ID of the marking template that was used.
+    #               scans:
+    #                 type: array
+    #                 items:
+    #                   type: object
+    #                   required: 
+    #                     - scanId
+    #                     - marks
+    #                   properties:
+    #                     scanId:
+    #                       type: string
+    #                       description: |
+    #                         The ID of the scan that was marked.
+    #                     marks:
+    #                       description: |
+    #                         A list of marked questions. The question IDs match the IDs given in 
+    #                         the marking template.
+    #                       type: array
+    #                       items:
+    #                         type: object
+    #                         required: 
+    #                           - questionId
+    #                           - flagged
+    #                           - selected
+    #                         properties:
+    #                           questionId:
+    #                             type: string
+    #                             description: |
+    #                               The ID of the question as defined by the template.
+    #                           flagged:
+    #                             type: boolean
+    #                             description: |
+    #                               Whether or not the question was flagged for manual review.
+    #                           selected:
+    #                             type: array
+    #                             items: 
+    #                               type: string
+    #                             description: |
+    #                               A list of selected options that were detected for the question.
+    #                               The options are named according to the marking template. For
+    #                               example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
+    #     202:
+    #       description: |
+    #         The marking job is in progress.
+    #     500:
+    #       description: |
+    #         There was some error in the marking. See the response body for details.
+    #       content:
+    #         text/plain:
+    #           schema:
+    #             type: string
+    #             description: |
+    #               A description of the marking error.
 
 
 components:

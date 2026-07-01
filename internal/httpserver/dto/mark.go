@@ -45,12 +45,11 @@ func (m *MarkingJobRequest) Validate() error {
 //
 
 type MarkingResult struct {
-	StartTime   int    `json:"startTime"`
-	EndTime     int    `json:"endTime"`
-	PagesMarked int    `json:"pagesMarked"`
-	TemplateId  string `json:"templateId"`
-	Scans       []Scan `json:"scans"`
-	Errors []string `json:"errors,omitempty"`
+	PerformanceMetrics PerformanceMetrics `json:"performanceMetrics"`
+	PagesMarked        int                `json:"pagesMarked"`
+	TemplateId         string             `json:"templateId"`
+	Scans              []Scan             `json:"scans"`
+	Errors             []string           `json:"errors,omitempty"`
 }
 
 type Scan struct {
@@ -62,4 +61,11 @@ type Mark struct {
 	QuestionId string   `json:"questionId"`
 	Flagged    bool     `json:"flagged"`
 	Selected   []string `json:"selected"`
+}
+
+type PerformanceMetrics struct {
+	StartTime int64 `json:"startTime"`
+	EndTime   int64 `json:"endTime"`
+	DiskTime  int64 `json:"diskTime"`
+	OMRTime   int64 `json:"omrTime"`
 }

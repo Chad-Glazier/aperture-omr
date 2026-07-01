@@ -39,6 +39,7 @@ func Start() {
 	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
 
 	httpHandler := middleware.Cors(mux)
+	httpHandler = middleware.Recovery(httpHandler)
 	httpHandler = middleware.Logger(httpHandler)
 
 	server := &http.Server{

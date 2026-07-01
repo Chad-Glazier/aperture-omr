@@ -44,9 +44,14 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			return
 		}
 
+		perf := dto.PerformanceMetrics{}
+
 		//
 		// Fetch the required resources.
 		//
+
+		perf.StartTime = time.Now().UnixMilli()
+		diskStart := time.Now()
 
 		tmpl, err := s.LoadMarkingTemplate(markingJob.TemplateId)
 		if err != nil {
@@ -90,14 +95,17 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			totalQuestions += len(page.Questions)
 		}
 
+		perf.DiskTime = time.Since(diskStart).Milliseconds()
+
 		//
 		// Run the job.
 		//
 
+		omrStartTime := time.Now()
+
 		results := dto.MarkingResult{}
 		results.PagesMarked = len(tmpl.Pages) * len(scans)
 		results.TemplateId = markingJob.TemplateId
-		results.StartTime = int(time.Now().Unix())
 		results.Scans = make([]dto.Scan, len(markingJob.ScanIds))
 		for i := range results.Scans {
 			results.Scans[i].Marks = make([]dto.Mark, totalQuestions)
@@ -124,7 +132,10 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		}
 		wg.Wait()
 
-		results.EndTime = int(time.Now().Unix())
+		perf.OMRTime = time.Since(omrStartTime).Milliseconds()
+		perf.EndTime = time.Now().UnixMilli()
+
+		results.PerformanceMetrics = perf
 
 		sendJson(w, results)
 	}
@@ -208,6 +219,9 @@ func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 		marks[i].flagged = answer.Flag
 		marks[i].questionId = answer.QuestionID
 		marks[i].selected = answer.Selected
+		if marks[i].selected == nil {
+			marks[i].selected = make([]string, 0)
+		}
 	}
 
 	return marks, nil
