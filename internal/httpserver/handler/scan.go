@@ -51,7 +51,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		//
 
 		pageCount := len(template.Pages)
-		anchors := make([][3]gocv.Mat, pageCount)
+		anchors := make([][]gocv.Mat, pageCount)
 		for pageIdx := range template.Pages {
 			for anchorIdx := range template.Pages[pageIdx].Anchors {
 
@@ -100,7 +100,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 					MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
 				})
 
-				anchors[pageIdx][anchorIdx] = mat
+				anchors[pageIdx] = append(anchors[pageIdx], mat)
 			}
 		}
 
@@ -141,8 +141,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		pages := make([]scanner.ScanPage, pageCount)
 		for pageIdx := range pageCount {
-			pages[pageIdx].Anchors = make([]scanner.Anchor, 3)
-			for anchorIdx := range 3 {
+			nAnchors := len(template.Pages[pageIdx].Anchors)
+			pages[pageIdx].Anchors = make([]scanner.Anchor, nAnchors)
+			for anchorIdx := range nAnchors {
 				pages[pageIdx].Anchors[anchorIdx] = scanner.Anchor{
 					Image: anchors[pageIdx][anchorIdx],
 					ROI: image.Rectangle{

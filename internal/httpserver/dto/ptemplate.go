@@ -66,9 +66,13 @@ func (p *PreprocessingTemplate) Validate() error {
 		return fmt.Errorf("at least one page must be included")
 	}
 
+	const minAnchors = 3
 	for _, page := range p.Pages {
-		if len(page.Anchors) != 3 {
-			return fmt.Errorf("each page must have exactly 3 anchors")
+		if len(page.Anchors) < minAnchors {
+			return fmt.Errorf(
+				"each page must have at least %d anchors", 
+				minAnchors,
+			)
 		}
 		for _, anchor := range page.Anchors {
 			err := inBounds(p.Width, p.Height, anchor.Center.X, anchor.Center.Y)

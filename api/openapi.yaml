@@ -72,11 +72,8 @@ paths:
           format. The `template` field is a JSON-encoded string, and the 
           image fields are expected to be in `image/jpeg` encoding.
 
-          Each page has exactly three anchors. The anchor `pageXanchorY` 
-          corresponds to `template.pages[X].anchors[Y]`. Naturally, you 
-          will need three anchors for each page. However, in the special 
-          case that you have multiple pages and only three anchors, it 
-          will be assumed that the anchors are the same for each page.
+          Each page has at least three anchors. The anchor `pageXanchorY` 
+          corresponds to `template.pages[X].anchors[Y]`.
         content:
           multipart/form-data:
             schema:
@@ -98,6 +95,9 @@ paths:
                 page0anchor2:
                   type: string
                   format: binary
+                page0anchor3:
+                  type: string
+                  format: binary
             encoding:
               template:
                 contentType: application/json
@@ -106,6 +106,8 @@ paths:
               page0anchor1:
                 contentType: image/jpeg
               page0anchor2:
+                contentType: image/jpeg
+              page0anchor3:
                 contentType: image/jpeg
       responses:
         200:
