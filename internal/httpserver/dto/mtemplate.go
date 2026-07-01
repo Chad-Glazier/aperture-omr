@@ -1,6 +1,6 @@
 /*
 This package implements the Data Transfer Objects. That is, the structured data
-we expect to send to/from the client. For each of these types, we include 
+we expect to send to/from the client. For each of these types, we include
 functions for serialization, deserialization, and validation where appropriate.
 */
 package dto

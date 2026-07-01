@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"net/http"
 	"log/slog"
+	"net/http"
 )
 
 // Makes it so that handlers will gracefully recover from panics and send back

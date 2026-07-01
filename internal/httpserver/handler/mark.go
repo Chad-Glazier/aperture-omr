@@ -57,7 +57,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		if err != nil {
 			http.Error(
 				w,
-				"error retrieving template: " + err.Error(),
+				"error retrieving template: "+err.Error(),
 				http.StatusNotFound,
 			)
 			return
@@ -69,7 +69,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			if err != nil {
 				http.Error(
 					w,
-					"error loading scan " + scanId + ": " + err.Error(),
+					"error loading scan "+scanId+": "+err.Error(),
 					http.StatusNotFound,
 				)
 				return
@@ -78,8 +78,8 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 				http.Error(
 					w,
 					fmt.Sprintf(
-						"page count %d for scan %s does not match "+ 
-						"page count %d of template %s",
+						"page count %d for scan %s does not match "+
+							"page count %d of template %s",
 						len(pages), scanId,
 						len(tmpl.Pages), markingJob.TemplateId,
 					),
@@ -111,14 +111,14 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			results.Scans[i].Marks = make([]dto.Mark, totalQuestions)
 		}
 
-		wg := sync.WaitGroup{}		
+		wg := sync.WaitGroup{}
 		for i, scan := range scans {
 			wg.Go(func() {
 				marks, err := markScan(tmpl, &scan)
 				if err != nil {
 					results.Errors = append(
-						results.Errors, 
-						"error in scan " + scan.id + ": " + err.Error(),
+						results.Errors,
+						"error in scan "+scan.id+": "+err.Error(),
 					)
 					return
 				}
@@ -126,7 +126,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 					results.Scans[i].Marks[j].Flagged = mark.flagged
 					results.Scans[i].Marks[j].Selected = mark.selected
 					results.Scans[i].Marks[j].QuestionId = mark.questionId
-				} 
+				}
 				results.Scans[i].ScanId = scan.id
 			})
 		}
@@ -146,7 +146,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 //
 
 type scan struct {
-	id string
+	id    string
 	pages []image.Image
 }
 
@@ -165,7 +165,7 @@ func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 	template := marker.Template{
 		Config: marker.Config{
 			FillThreshold: &tmpl.Config.FillThreshold,
-			BubbleInset: &tmpl.Config.BubbleInset,
+			BubbleInset:   &tmpl.Config.BubbleInset,
 			FlagThreshold: &tmpl.Config.FlagThreshold,
 		},
 		Pages: make([]marker.Page, len(tmpl.Pages)),
@@ -188,7 +188,7 @@ func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 		}
 	}
 
-	// 
+	//
 	// Translate the images.
 	//
 

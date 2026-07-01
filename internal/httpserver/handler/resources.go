@@ -49,7 +49,6 @@ type ScanSaver interface {
 	LoadScan(scanId string) ([]image.Image, error)
 }
 
-
 type ServerResources interface {
 	MarkingTemplateSaveLoader
 	PreprocessingTemplateSaveLoader
