@@ -82,17 +82,17 @@ func TestPostPreprocessingTemplate_OK(t *testing.T) {
 		t,
 		"testdata/preprocessing_template.json",
 		multipartImage{
-			name: "page0anchor0", 
+			name:     "page0anchor0",
 			filename: "testdata/anchors/page0anchor0.jpg",
 		},
 		multipartImage{
-			name: "page0anchor1", 
+			name:     "page0anchor1",
 			filename: "testdata/anchors/page0anchor1.jpg",
-		},		
+		},
 		multipartImage{
-			name: "page0anchor2", 
+			name:     "page0anchor2",
 			filename: "testdata/anchors/page0anchor2.jpg",
-		},	
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
