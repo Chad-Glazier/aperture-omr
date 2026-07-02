@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"log"
 
 	"gocv.io/x/gocv"
 )
@@ -72,6 +73,12 @@ type Config struct {
 	BlurSize            int     `json:"blurSize"`
 	MorphCloseSize      int     `json:"morphCloseSize"`
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
+	// AdaptiveBlockSize is the neighbourhood size for adaptive thresholding
+	// (must be odd). Defaults to 91, which works well for 200–300 DPI scans.
+	AdaptiveBlockSize int `json:"adaptiveBlockSize"`
+	// AdaptiveC is subtracted from the local mean; negative values make the
+	// threshold more lenient and are needed to catch light pencil marks.
+	AdaptiveC float32 `json:"adaptiveC"`
 }
 
 // Scan runs each reader through the OMR preprocessing pipeline using the
@@ -158,9 +165,17 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	blurSize := image.Pt(conf.BlurSize, conf.BlurSize)
 	gocv.GaussianBlur(gray, &blur, blurSize, 0, 0, gocv.BorderDefault)
 
-	// Replaces adaptive thresholding because binary threshold better preserves
-	// pencil marks within bubbles
-	gocv.Threshold(blur, &thresh, 0, 255, gocv.ThresholdBinaryInv|gocv.ThresholdOtsu)
+	blockSize := conf.AdaptiveBlockSize
+	if blockSize == 0 {
+		blockSize = 91
+	}
+	adaptiveC := conf.AdaptiveC
+	if adaptiveC == 0 {
+		adaptiveC = float32(-15)
+	}
+	// Adaptive threshold compares each pixel to its local neighbourhood mean,
+	// so light pencil marks (which global Otsu misses) are reliably detected.
+	gocv.AdaptiveThreshold(blur, &thresh, 255, gocv.AdaptiveThresholdGaussian, gocv.ThresholdBinaryInv, blockSize, adaptiveC)
 	gocv.MorphologyEx(thresh, dst, gocv.MorphClose, kernel)
 
 	return nil
@@ -170,9 +185,8 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	if src.Empty() {
 		return fmt.Errorf("cannot warp an empty image")
 	}
-
-	if len(anchors) != 3 {
-		return fmt.Errorf("warping requires exactly 3 anchors, provided %d", len(anchors))
+	if len(anchors) < 3 {
+		return fmt.Errorf("warping requires at least 3 anchors, provided %d", len(anchors))
 	}
 
 	for i := range anchors {
@@ -181,13 +195,14 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 		}
 	}
 
-	srcPts := make([]image.Point, 3)
-	dstPts := make([]image.Point, 3)
+	n := len(anchors)
+	srcPts := make([]image.Point, n)
+	dstPts := make([]image.Point, n)
 
 	srcSize := image.Pt(src.Binary.Cols(), src.Binary.Rows())
 	targetSize := image.Pt(width, height)
 
-	for i := range 3 {
+	for i := range n {
 		anchor := anchors[i]
 		anchor.ROI = scaleROI(anchor.ROI, srcSize, targetSize)
 
@@ -203,29 +218,45 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 		if err != nil {
 			return fmt.Errorf("anchor %d: %w", i, err)
 		}
+		log.Printf("anchor %d: found at %v → dst %v", i, pt, anchors[i].Center)
 
 		srcPts[i] = pt
 		dstPts[i] = anchors[i].Center
 	}
 
-	srcVec := gocv.NewPointVectorFromPoints(srcPts)
+	srcPts2f := make([]gocv.Point2f, n)
+	dstPts2f := make([]gocv.Point2f, n)
+	for i := range n {
+		srcPts2f[i] = gocv.Point2f{X: float32(srcPts[i].X), Y: float32(srcPts[i].Y)}
+		dstPts2f[i] = gocv.Point2f{X: float32(dstPts[i].X), Y: float32(dstPts[i].Y)}
+	}
+	srcVec := gocv.NewPoint2fVectorFromPoints(srcPts2f)
 	defer srcVec.Close()
-	dstVec := gocv.NewPointVectorFromPoints(dstPts)
+	dstVec := gocv.NewPoint2fVectorFromPoints(dstPts2f)
 	defer dstVec.Close()
-
-	transform := gocv.GetAffineTransform(srcVec, dstVec)
-	defer transform.Close()
 
 	warped := ScanData{
 		Color:  gocv.NewMat(),
 		Binary: gocv.NewMat(),
 	}
 
+	// EstimateAffine2D fits a least-squares affine from 3+ point pairs, so
+	// additional anchors reduce sensitivity to individual matching errors.
+	transform := gocv.EstimateAffine2D(srcVec, dstVec)
+	defer transform.Close()
+	if transform.Empty() {
+		return fmt.Errorf("could not estimate affine transform from anchor points")
+	}
+
 	gocv.WarpAffine(src.Color, &warped.Color, transform, targetSize)
 	gocv.WarpAffine(src.Binary, &warped.Binary, transform, targetSize)
 
+	// Bilinear interpolation produces intermediate gray values at edges; re-snap
+	// to strict 0/255 so CountNonZero only counts genuinely filled pixels.
+	gocv.Threshold(warped.Binary, &warped.Binary, 128, 255, gocv.ThresholdBinary)
+
 	// Since we are modifying dst in-place,
-	// we must close the old mats before overwritting
+	// we must close the old mats before overwriting.
 	dst.Close()
 	dst.Color = warped.Color
 	dst.Binary = warped.Binary
@@ -362,7 +393,28 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
 	if img.Empty() {
 		return gocv.Mat{}, fmt.Errorf("decoded image is empty")
 	}
-	if err := Binarize(&img, &img, conf); err != nil {
+
+	// Cap adaptive block size to below the anchor's smallest dimension.
+	// OpenCV degrades to a near-global threshold when blockSize ≥ min(w,h),
+	// producing binary stroke widths that differ from those in the full-scan
+	// binary and reduce template-match precision.
+	anchorConf := *conf
+	minDim := img.Cols()
+	if img.Rows() < minDim {
+		minDim = img.Rows()
+	}
+	if anchorConf.AdaptiveBlockSize >= minDim {
+		bs := minDim - 1
+		if bs%2 == 0 {
+			bs--
+		}
+		if bs < 3 {
+			bs = 3
+		}
+		anchorConf.AdaptiveBlockSize = bs
+	}
+
+	if err := Binarize(&img, &img, &anchorConf); err != nil {
 		img.Close()
 		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
 	}

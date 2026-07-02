@@ -15,7 +15,7 @@ import (
 
 //
 // NOTE: Some parts of this function are kind of hacky. I plan to fix this by
-// slightly refactoring the interface of the `scanner` package in certain ways.
+// slightly refactoring the interface of the `scanner` package in a couple ways.
 // Also, ignore the excessive image encoding/decoding. I'm going to fix those
 // quirks later on.
 //
@@ -164,6 +164,10 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			}
 		}
 
+		//
+		// Preprocess the scan.
+		//
+
 		result, err := scanner.Scan(pageScans, &scanner.Template{
 			Width:  template.Width,
 			Height: template.Height,
@@ -182,6 +186,10 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+
+		//
+		// Save the results.
+		//
 
 		pageImages := make([]image.Image, pageCount)
 		for i, data := range result {
@@ -220,8 +228,12 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		resp := make(map[string]string, 1)
-		resp["scanId"] = id
-		sendJson(w, resp)
+		//
+		// Send the response.
+		//
+
+		sendJson(w, map[string]string{
+			"scanId": id,
+		})
 	}
 }

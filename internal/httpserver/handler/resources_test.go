@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"os"
+	"testing"
 	"ubco-team15/omr/internal/database"
 	"ubco-team15/omr/internal/database/sqlc"
 	"ubco-team15/omr/internal/fs"
@@ -32,7 +33,9 @@ type res struct {
 
 var _ ServerResources = (*res)(nil)
 
-func NewServerResources() (*res, error) {
+func NewServerResources(t *testing.T) (*res, error) {
+	t.Helper()
+
 	db, err := database.Connect(":memory:")
 	if err != nil {
 		return nil, err

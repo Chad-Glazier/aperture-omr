@@ -159,7 +159,7 @@ type marks []struct {
 func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 
 	//
-	// Translate the template.
+	// Translate the template into the marker package's format.
 	//
 
 	template := marker.Template{
@@ -189,7 +189,7 @@ func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 	}
 
 	//
-	// Translate the images.
+	// Translate the images into matrices.
 	//
 
 	mats := make([]gocv.Mat, len(scan.pages))

@@ -10,6 +10,7 @@ import (
 )
 
 func ptr(f float64) *float64 { return &f }
+func intPtr(i int) *int      { return &i }
 
 func assertError(t *testing.T, err error, expectError bool, errContains string) {
 	t.Helper()
@@ -110,14 +111,14 @@ func TestBubbleFillRatio(t *testing.T) {
 		{
 			name:    "Fully white image gives high fill ratio",
 			img:     white,
-			bubble:  Bubble{X: 10, Y: 10},
+			bubble:  Bubble{X: 50, Y: 50},
 			wantMin: 0.9,
 			wantMax: 1.0,
 		},
 		{
 			name:    "Fully black image gives zero fill ratio",
 			img:     black,
-			bubble:  Bubble{X: 10, Y: 10},
+			bubble:  Bubble{X: 50, Y: 50},
 			wantMin: 0.0,
 			wantMax: 0.0,
 		},
@@ -197,6 +198,22 @@ func TestEvaluate(t *testing.T) {
 		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
 	defer imgBlank.Close()
 
+	// Image with all three bubbles of singleQ filled, but the marks are
+	// printed/scanned 8px off from their template positions — simulating
+	// scan misalignment. Because every option is shifted identically, the
+	// gap between sorted fills is exactly 0 at every search offset, so the
+	// gap-maximising search alone has no signal to align on (regression:
+	// previously this caused the question to read back as confidently
+	// blank instead of all-filled). SearchRadius must be wide enough to
+	// reach the true offset for the sum-fill fallback to recover it.
+	const allFilledShiftX = 8
+	imgAllSelectedShifted := gocv.NewMatWithSizeFromScalar(
+		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
+	defer imgAllSelectedShifted.Close()
+	fillBubble(&imgAllSelectedShifted, 65+allFilledShiftX, 115, bw, bh, inset)
+	fillBubble(&imgAllSelectedShifted, 115+allFilledShiftX, 115, bw, bh, inset)
+	fillBubble(&imgAllSelectedShifted, 165+allFilledShiftX, 115, bw, bh, inset)
+
 	emptyImg := gocv.NewMat()
 	defer emptyImg.Close()
 
@@ -250,6 +267,28 @@ func TestEvaluate(t *testing.T) {
 			tmpl:         &Template{Config: defaultConfig, Questions: []Question{multiQ}},
 			wantSelected: [][]string{{"A", "B"}},
 			wantFlagged:  []bool{false},
+		},
+		{
+			name:         "All options filled but shifted: without search radius reads as blank",
+			img:          imgAllSelectedShifted,
+			tmpl:         &Template{Config: defaultConfig, Questions: []Question{singleQ}},
+			wantSelected: [][]string{nil},
+			wantFlagged:  []bool{true},
+		},
+		{
+			name: "All options filled but shifted: search radius recovers all-filled detection",
+			img:  imgAllSelectedShifted,
+			tmpl: &Template{
+				Config: Config{
+					FillThreshold: ptr(0.5),
+					BubbleInset:   ptr(inset),
+					FlagThreshold: ptr(0.5),
+					SearchRadius:  intPtr(allFilledShiftX),
+				},
+				Questions: []Question{singleQ},
+			},
+			wantSelected: [][]string{{"A", "B", "C"}},
+			wantFlagged:  []bool{true},
 		},
 		{
 			name: "FlagThreshold above max confidence flags clear answers",

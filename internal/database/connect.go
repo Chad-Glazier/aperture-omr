@@ -33,7 +33,7 @@ func Connect(databaseFilepath string) (Querier, error) {
 		return nil, err
 	}
 
-	if !initialized {
+	if !initialized || databaseFilepath == ":memory:" {
 		if err := initialize(db); err != nil {
 			return nil, err
 		}

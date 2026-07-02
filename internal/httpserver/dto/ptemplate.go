@@ -26,6 +26,8 @@ type PreprocessingTemplate struct {
 		BlurSize            int     `json:"blurSize"`
 		MorphCloseSize      int     `json:"morphCloseSize"`
 		MinAnchorConfidence float64 `json:"minAnchorConfidence"`
+		AdaptiveBlockSize   int     `json:"adaptiveBlockSize"`
+		AdaptiveC           float64 `json:"adaptiveC"`
 	} `json:"config"`
 	Pages []struct {
 		Anchors []struct {
@@ -64,13 +66,19 @@ func (p *PreprocessingTemplate) Validate() error {
 		return fmt.Errorf("minAnchorConfidence must be in (0.0, 1.0)")
 	case len(p.Pages) == 0:
 		return fmt.Errorf("at least one page must be included")
+	case p.Config.AdaptiveBlockSize == 0:
+		return fmt.Errorf("adaptiveBlockSize is required")
+	case p.Config.AdaptiveBlockSize%2 == 0:
+		return fmt.Errorf("adaptiveBlockSize must be odd")
+	case p.Config.AdaptiveBlockSize <= 0:
+		return fmt.Errorf("adaptiveBlockSize must be positive")
 	}
 
 	const minAnchors = 3
 	for _, page := range p.Pages {
 		if len(page.Anchors) < minAnchors {
 			return fmt.Errorf(
-				"each page must have at least %d anchors", 
+				"each page must have at least %d anchors",
 				minAnchors,
 			)
 		}

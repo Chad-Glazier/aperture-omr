@@ -245,7 +245,7 @@ paths:
                 required:
                   - scanId
                 properties:
-                  templateId:
+                  scanId:
                     description: |
                       The ID of the newly uploaded scan.
                     type: string
@@ -560,12 +560,14 @@ components:
         - blurSize
         - morphCloseSize
         - minAnchorConfidence
+        - adaptiveBlockSize
       properties:
         blurSize:
           type: integer
           example: 5
           description: |
-            Gaussian blur kernel size, **must be odd**. Increase for noisier scans.
+            Gaussian blur kernel size, **must be odd**. Increase for noisier 
+            scans.
         morphCloseSize:
           type: integer
           example: 3
@@ -575,7 +577,25 @@ components:
           type: number
           example: 0.5
           description: |
-            Minimum template-match score (0.0-1.0). Raise if anchors produce false positives.
+            Minimum template-match score (0.0-1.0). Raise if anchors produce 
+            false positives.
+        adaptiveBlockSize:
+          type: integer
+          example: 91
+          description: |
+            Neighbourhood size (pixels, must be odd) for adaptive thresholding. 
+            Larger values use a wider local region to compute the threshold; 
+            recommended starting point is roughly 3 times the bubble diameter 
+            at scan resolution.
+        adaptiveC:
+          type: number
+          example: -15
+          description: |
+            Constant subtracted from the local mean before thresholding 
+            (`T = mean - C`). Positive values lower the threshold, giving 
+            cleaner ink/paper separation on high-contrast flatbed scans. 
+            Negative values raise the threshold, which can help detect lighter 
+            pencil marks but risks misclassifying clean white areas as ink.
     PreprocessingPage:
       description: |
         Defines the anchors for a pages.
@@ -652,10 +672,18 @@ components:
             below 1.0 will exclude the printed border ring from the measurement.
         flagThreshold:
           type: number
-          example: 0.5
+          example: 0.25
           description: |
             The minimum confidence below which an answer is flagged for manual
             review. Set to 0.0 or omit to disable.
+        searchThreshold:
+          type: integer
+          example: 3
+          description: |
+            Per-axis pixel search window around each bubble's template 
+            position. The maximum fill found across the (2r+1)² candidate 
+            centres is used. Set to 3 to 5 to tolerate small printer/scanner 
+            misalignment.
     QuestionOption:
       description: |
         Defines an option for a question (e.g., "A", "B", and "C" might be options

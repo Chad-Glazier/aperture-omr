@@ -51,10 +51,9 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		resp := make(map[string]string, 1)
-		resp["templateId"] = id
-		sendJson(w, resp)
-
+		sendJson(w, map[string]string{
+			"templateId": id,
+		})
 	}
 }
 
@@ -81,6 +80,10 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+
+		// Note: It's possible for the template to be saved and then later have
+		// the anchors fail. This isn't a major bug (it won't cause runtime
+		// errors), but it should be fixed later.
 
 		templateId, err := s.SavePreprocessingTemplate(tmpl)
 		if err != nil {
@@ -132,8 +135,8 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 			}
 		}
 
-		resp := make(map[string]string, 1)
-		resp["templateId"] = templateId
-		sendJson(w, resp)
+		sendJson(w, map[string]string{
+			"templateId": templateId,
+		})
 	}
 }

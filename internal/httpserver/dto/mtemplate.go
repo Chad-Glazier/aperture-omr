@@ -52,6 +52,7 @@ type MarkingConfig struct {
 	FillThreshold float64 `json:"fillThreshold"`
 	BubbleInset   float64 `json:"bubbleInset"`
 	FlagThreshold float64 `json:"flagThreshold"`
+	SearchRadius int `json:"searchRadius"`
 }
 
 func (c *MarkingConfig) Validate() error {
@@ -65,6 +66,10 @@ func (c *MarkingConfig) Validate() error {
 
 	if c.FlagThreshold < 0 || c.FlagThreshold > 1 {
 		return fmt.Errorf("flagThreshold must be between 0 and 1")
+	}
+
+	if c.SearchRadius <= 0 {
+		return fmt.Errorf("searchRadius must be nonnegative")
 	}
 
 	return nil
@@ -103,23 +108,18 @@ type Question struct {
 }
 
 func (q *Question) Validate() error {
-	if !strings.HasPrefix(q.ID, "Q") {
-		return fmt.Errorf("id must begin with 'Q'")
-	}
 
-	if q.BubbleWidth <= 0 {
+	switch {
+	case q.BubbleWidth <= 0:
 		return fmt.Errorf("bubbleWidth must be positive")
-	}
-
-	if q.BubbleHeight <= 0 {
+	case q.BubbleHeight <= 0:
 		return fmt.Errorf("bubbleHeight must be positive")
-	}
-
-	if q.Type != "" && q.Type != "multi" {
-		return fmt.Errorf("type must be omitted or \"multi\"")
-	}
-
-	if len(q.Options) == 0 {
+	case q.Type != "" && q.Type != "single" && q.Type != "multi":
+		return fmt.Errorf(
+			"type must be \"multi\", \"single\", "+
+			"or omitted (defaults to \"single\")",
+		)
+	case len(q.Options) == 0:
 		return fmt.Errorf("question must contain at least one option")
 	}
 
