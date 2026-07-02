@@ -72,7 +72,7 @@ func TestBinarize(t *testing.T) {
 			dst := gocv.NewMat()
 			defer dst.Close()
 
-			err := binarize(&tc.src, &dst, &tc.conf)
+			err := Binarize(&tc.src, &dst, &tc.conf)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError && dst.Channels() != 1 {
@@ -125,7 +125,7 @@ func TestScaleROI(t *testing.T) {
 			got := scaleROI(tc.roi, tc.src, tc.target)
 			if got != tc.want {
 				t.Errorf("scaleROI(%v, %v, %v) = %v, want %v",
-				tc.roi, tc.src, tc.target, got, tc.want)
+					tc.roi, tc.src, tc.target, got, tc.want)
 			}
 		})
 	}

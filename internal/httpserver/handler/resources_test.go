@@ -1,87 +1,65 @@
-package httpserver
+package handler
 
 import (
 	"context"
 	"encoding/json"
 	"image"
-	"log/slog"
-	"net/http"
 	"os"
-
-	"ubco-team15/omr/config"
+	"testing"
 	"ubco-team15/omr/internal/database"
 	"ubco-team15/omr/internal/database/sqlc"
 	"ubco-team15/omr/internal/fs"
 	"ubco-team15/omr/internal/httpserver/dto"
-	"ubco-team15/omr/internal/httpserver/handler"
-	"ubco-team15/omr/internal/httpserver/middleware"
 
 	"github.com/google/uuid"
 )
 
-func Start() {
-
-	res, err := NewServerResources()
-	if err != nil {
-		slog.Error("error getting server resources", "err", err)
-		os.Exit(1)
-	}
-
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
-	mux.HandleFunc("GET /", handler.DocsPage)
-	mux.HandleFunc("GET /health", handler.Health)
-
-	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(res))
-	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
-	mux.HandleFunc("POST /scan", handler.PostScan(res))
-	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
-
-	httpHandler := middleware.Cors(mux)
-	httpHandler = middleware.Recovery(httpHandler)
-	httpHandler = middleware.Logger(httpHandler)
-
-	server := &http.Server{
-		Addr:    ":" + config.Port,
-		Handler: httpHandler,
-	}
-
-	slog.Info("starting server at http://" + config.Host + ":" + config.Port)
-	server.ListenAndServe()
-}
-
 //
-// Below, we implement the ServerResources interface. This is how the database
-// and file storage are provided to the handler functions.
+// In this file, we implement a mock version of server resources. To use this
+// in a test you can allocate the resources with NewServerResources, then
+// defer the Cleanup method to remove any temporary files.
 //
 
-type ServerResources struct {
+// An implementation of server resources for testing purposes. Use the Cleanup
+// method to remove any temporary files created.
+//
+// This implementation is fully functional, meaning that you can query its
+// database and image stores to verify that data was correctly stored.
+type res struct {
 	db    database.Querier
 	store fs.Store
+	root  string
 }
 
-var _ handler.ServerResources = (*ServerResources)(nil)
+var _ ServerResources = (*res)(nil)
 
-func NewServerResources() (*ServerResources, error) {
-	// In the future we can consider changing this to ":memory:" during
-	// testing in order to avoid a cleanup step. This only works for SQLite
-	// though.
-	db, err := database.Connect("data/database.sqlite3")
+func NewServerResources(t *testing.T) (*res, error) {
+	t.Helper()
+
+	db, err := database.Connect(":memory:")
 	if err != nil {
 		return nil, err
 	}
 
-	store := fs.NewLocalStore("data/images")
+	root, err := os.MkdirTemp("", "omr_test_fs_*")
+	if err != nil {
+		return nil, err
+	}
+	store := fs.NewLocalStore(root)
 
-	res := &ServerResources{
+	res := &res{
 		db:    db,
 		store: store,
+		root:  root,
 	}
 	return res, nil
 }
 
-func (s *ServerResources) SaveMarkingTemplate(
+func (s *res) Cleanup() {
+	os.RemoveAll(s.root)
+}
+
+func (s *res) SaveMarkingTemplate(
 	tmpl *dto.MarkingTemplate,
 ) (string, error) {
 	id := uuid.New()
@@ -104,7 +82,7 @@ func (s *ServerResources) SaveMarkingTemplate(
 	return id.String(), nil
 }
 
-func (s *ServerResources) LoadMarkingTemplate(
+func (s *res) LoadMarkingTemplate(
 	id string,
 ) (*dto.MarkingTemplate, error) {
 
@@ -121,7 +99,7 @@ func (s *ServerResources) LoadMarkingTemplate(
 	return tmpl, nil
 }
 
-func (s *ServerResources) SavePreprocessingTemplate(
+func (s *res) SavePreprocessingTemplate(
 	tmpl *dto.PreprocessingTemplate,
 ) (string, error) {
 	id := uuid.New()
@@ -144,7 +122,7 @@ func (s *ServerResources) SavePreprocessingTemplate(
 	return id.String(), nil
 }
 
-func (s *ServerResources) LoadPreprocessingTemplate(
+func (s *res) LoadPreprocessingTemplate(
 	id string,
 ) (*dto.PreprocessingTemplate, error) {
 
@@ -161,7 +139,7 @@ func (s *ServerResources) LoadPreprocessingTemplate(
 	return tmpl, nil
 }
 
-func (s *ServerResources) SaveAnchor(
+func (s *res) SaveAnchor(
 	img image.Image, templateId string, pageIdx, anchorIdx int,
 ) error {
 
@@ -187,7 +165,7 @@ func (s *ServerResources) SaveAnchor(
 	return nil
 }
 
-func (s *ServerResources) LoadAnchor(
+func (s *res) LoadAnchor(
 	templateId string, pageIdx, anchorIdx int,
 ) (image.Image, error) {
 
@@ -211,7 +189,7 @@ func (s *ServerResources) LoadAnchor(
 	return img, nil
 }
 
-func (s *ServerResources) SaveScan(
+func (s *res) SaveScan(
 	pages []image.Image, templateId string,
 ) (string, error) {
 
@@ -249,7 +227,7 @@ func (s *ServerResources) SaveScan(
 	return scanId, nil
 }
 
-func (s *ServerResources) LoadScan(scanId string) ([]image.Image, error) {
+func (s *res) LoadScan(scanId string) ([]image.Image, error) {
 	records, err := s.db.GetScanPages(context.Background(), scanId)
 	if err != nil {
 		return nil, err

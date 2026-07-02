@@ -38,7 +38,7 @@ func TestLocalStore(t *testing.T) {
 
 	store := NewLocalStore(root)
 
-	r, err := os.Open("./testdata/sample_image.tiff")
+	r, err := os.Open("./testdata/sample_image.png")
 	if err != nil {
 		t.Error("error reading test image: " + err.Error())
 	}
@@ -51,7 +51,7 @@ func TestLocalStore(t *testing.T) {
 	// Testing
 	//
 
-	name := "sample.tiff"
+	name := "sample.png"
 
 	if store.ImgExists(name) {
 		t.Error("image already exists in store")
@@ -89,7 +89,7 @@ func TestLocalStore(t *testing.T) {
 		t.Errorf("expected snippet height of %d, got %d", snippetSize, bounds.Dy())
 	}
 
-	err = store.PutImg("snippet.tiff", snippet)
+	err = store.PutImg("snippet.png", snippet)
 	if err != nil {
 		t.Error("error putting snippet: " + err.Error())
 	}

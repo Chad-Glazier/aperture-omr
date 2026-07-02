@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"ubco-team15/omr/internal/utils"
 
 	"github.com/spf13/cobra"
 	"gocv.io/x/gocv"
@@ -21,11 +20,11 @@ colour-corrected first page before marking.`,
 		display, _ := cmd.Flags().GetBool("display")
 		output, _ := cmd.Flags().GetString("output")
 
-		scanTmplPath, err := utils.Resolve(args[0])
+		scanTmplPath, err := resolve(args[0])
 		if err != nil {
 			return fmt.Errorf("resolve scan template path: %w", err)
 		}
-		markTmplPath, err := utils.Resolve(args[1])
+		markTmplPath, err := resolve(args[1])
 		if err != nil {
 			return fmt.Errorf("resolve mark template path: %w", err)
 		}

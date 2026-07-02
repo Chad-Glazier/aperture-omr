@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"ubco-team15/omr/internal/scanner"
-	"ubco-team15/omr/internal/utils"
 
 	"github.com/spf13/cobra"
 	"gocv.io/x/gocv"
@@ -24,7 +23,7 @@ binary image to <prefix>_<N>.png.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		output, _ := cmd.Flags().GetString("output")
 
-		tmplPath, err := utils.Resolve(args[0])
+		tmplPath, err := resolve(args[0])
 		if err != nil {
 			return fmt.Errorf("resolve template path: %w", err)
 		}
@@ -60,7 +59,7 @@ func doPreprocess(
 	readers := make([]io.Reader, len(imgPaths))
 	closers := make([]io.Closer, len(imgPaths))
 	for i, p := range imgPaths {
-		resolved, err := utils.Resolve(p)
+		resolved, err := resolve(p)
 		if err != nil {
 			for j := 0; j < i; j++ {
 				closers[j].Close()
@@ -91,7 +90,7 @@ func doPreprocess(
 	if outputPrefix != "" {
 		for i, data := range results {
 			outPath := fmt.Sprintf("%s_%d.png", outputPrefix, i)
-			resolved, err := utils.Resolve(outPath)
+			resolved, err := resolve(outPath)
 			if err != nil {
 				for _, d := range results {
 					d.Close()
@@ -126,7 +125,7 @@ func loadScanTemplate(tmplPath string) (*scanner.Template, error) {
 				!strings.HasPrefix(anchorPath, "~") {
 				anchorPath = filepath.Join(tmplDir, anchorPath)
 			}
-			anchorPath, err := utils.Resolve(anchorPath)
+			anchorPath, err := resolve(anchorPath)
 			if err != nil {
 				return nil, err
 			}

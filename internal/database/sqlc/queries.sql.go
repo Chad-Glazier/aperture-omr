@@ -9,19 +9,260 @@ import (
 	"context"
 )
 
-const getScan = `-- name: GetScan :one
-SELECT id, exam_id, uploader_user_id, path, page_count FROM scans LIMIT 1
+const countAnchors = `-- name: CountAnchors :one
+SELECT
+    count(*)
+FROM
+    anchors
 `
 
-func (q *Queries) GetScan(ctx context.Context) (Scan, error) {
-	row := q.db.QueryRow(ctx, getScan)
-	var i Scan
+func (q *Queries) CountAnchors(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnchors)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countScans = `-- name: CountScans :one
+SELECT
+    count(*)
+FROM
+    scans
+`
+
+func (q *Queries) CountScans(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countScans)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createAnchor = `-- name: CreateAnchor :exec
+INSERT INTO
+    anchors (
+        id,
+        template_id,
+        page_index,
+        anchor_index
+    )
+VALUES
+    (?, ?, ?, ?)
+`
+
+type CreateAnchorParams struct {
+	ID          string
+	TemplateID  string
+	PageIndex   int64
+	AnchorIndex int64
+}
+
+func (q *Queries) CreateAnchor(ctx context.Context, arg CreateAnchorParams) error {
+	_, err := q.db.ExecContext(ctx, createAnchor,
+		arg.ID,
+		arg.TemplateID,
+		arg.PageIndex,
+		arg.AnchorIndex,
+	)
+	return err
+}
+
+const createMarkingTemplate = `-- name: CreateMarkingTemplate :exec
+INSERT INTO
+    marking_templates (id, json)
+VALUES
+    (?, ?)
+`
+
+type CreateMarkingTemplateParams struct {
+	ID   string
+	Json string
+}
+
+func (q *Queries) CreateMarkingTemplate(ctx context.Context, arg CreateMarkingTemplateParams) error {
+	_, err := q.db.ExecContext(ctx, createMarkingTemplate, arg.ID, arg.Json)
+	return err
+}
+
+const createPreprocessingTemplate = `-- name: CreatePreprocessingTemplate :exec
+INSERT INTO
+    preprocessing_templates (id, json)
+VALUES
+    (?, ?)
+`
+
+type CreatePreprocessingTemplateParams struct {
+	ID   string
+	Json string
+}
+
+func (q *Queries) CreatePreprocessingTemplate(ctx context.Context, arg CreatePreprocessingTemplateParams) error {
+	_, err := q.db.ExecContext(ctx, createPreprocessingTemplate, arg.ID, arg.Json)
+	return err
+}
+
+const createScan = `-- name: CreateScan :exec
+INSERT INTO
+    scans (id, preprocessing_template_id)
+VALUES
+    (?, ?)
+`
+
+type CreateScanParams struct {
+	ID                      string
+	PreprocessingTemplateID string
+}
+
+func (q *Queries) CreateScan(ctx context.Context, arg CreateScanParams) error {
+	_, err := q.db.ExecContext(ctx, createScan, arg.ID, arg.PreprocessingTemplateID)
+	return err
+}
+
+const createScanPage = `-- name: CreateScanPage :exec
+INSERT INTO
+    scan_pages (id, page_index, scan_id)
+VALUES
+    (?, ?, ?)
+`
+
+type CreateScanPageParams struct {
+	ID        string
+	PageIndex int64
+	ScanID    string
+}
+
+func (q *Queries) CreateScanPage(ctx context.Context, arg CreateScanPageParams) error {
+	_, err := q.db.ExecContext(ctx, createScanPage, arg.ID, arg.PageIndex, arg.ScanID)
+	return err
+}
+
+const getAnchorsForTemplate = `-- name: GetAnchorsForTemplate :many
+SELECT
+    id, template_id, page_index, anchor_index
+FROM
+    anchors
+WHERE
+    template_id = ?
+`
+
+func (q *Queries) GetAnchorsForTemplate(ctx context.Context, templateID string) ([]Anchor, error) {
+	rows, err := q.db.QueryContext(ctx, getAnchorsForTemplate, templateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Anchor
+	for rows.Next() {
+		var i Anchor
+		if err := rows.Scan(
+			&i.ID,
+			&i.TemplateID,
+			&i.PageIndex,
+			&i.AnchorIndex,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMarkingTemplate = `-- name: GetMarkingTemplate :one
+SELECT
+    id, json
+FROM
+    marking_templates
+WHERE
+    id = ?
+`
+
+func (q *Queries) GetMarkingTemplate(ctx context.Context, id string) (MarkingTemplate, error) {
+	row := q.db.QueryRowContext(ctx, getMarkingTemplate, id)
+	var i MarkingTemplate
+	err := row.Scan(&i.ID, &i.Json)
+	return i, err
+}
+
+const getOneAnchorForTemplate = `-- name: GetOneAnchorForTemplate :one
+SELECT
+    id, template_id, page_index, anchor_index
+FROM
+    anchors
+WHERE
+    template_id = ?
+    AND page_index = ?
+    AND anchor_index = ?
+`
+
+type GetOneAnchorForTemplateParams struct {
+	TemplateID  string
+	PageIndex   int64
+	AnchorIndex int64
+}
+
+func (q *Queries) GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorForTemplateParams) (Anchor, error) {
+	row := q.db.QueryRowContext(ctx, getOneAnchorForTemplate, arg.TemplateID, arg.PageIndex, arg.AnchorIndex)
+	var i Anchor
 	err := row.Scan(
 		&i.ID,
-		&i.ExamID,
-		&i.UploaderUserID,
-		&i.Path,
-		&i.PageCount,
+		&i.TemplateID,
+		&i.PageIndex,
+		&i.AnchorIndex,
 	)
 	return i, err
+}
+
+const getPreprocessingTemplate = `-- name: GetPreprocessingTemplate :one
+SELECT
+    id, json
+FROM
+    preprocessing_templates
+WHERE
+    id = ?
+`
+
+func (q *Queries) GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error) {
+	row := q.db.QueryRowContext(ctx, getPreprocessingTemplate, id)
+	var i PreprocessingTemplate
+	err := row.Scan(&i.ID, &i.Json)
+	return i, err
+}
+
+const getScanPages = `-- name: GetScanPages :many
+SELECT 
+    id, page_index, scan_id
+FROM
+    scan_pages
+WHERE
+    scan_id = ?
+ORDER BY
+    page_index ASC
+`
+
+func (q *Queries) GetScanPages(ctx context.Context, scanID string) ([]ScanPage, error) {
+	rows, err := q.db.QueryContext(ctx, getScanPages, scanID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ScanPage
+	for rows.Next() {
+		var i ScanPage
+		if err := rows.Scan(&i.ID, &i.PageIndex, &i.ScanID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

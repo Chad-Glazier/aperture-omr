@@ -129,7 +129,7 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 	}
 
 	ctx := &context{}
-	ctx.exec(func() error { return binarize(&data.Color, &data.Binary, &tmpl.Config) })
+	ctx.exec(func() error { return Binarize(&data.Color, &data.Binary, &tmpl.Config) })
 	ctx.exec(func() error { return warp(data, data, tmpl.Pages[idx].Anchors, tmpl.Width, tmpl.Height, tmpl.Config) })
 
 	if ctx.err != nil {
@@ -140,7 +140,7 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 	return data, nil
 }
 
-func binarize(src, dst *gocv.Mat, conf *Config) error {
+func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot binarize an empty image")
 	}
