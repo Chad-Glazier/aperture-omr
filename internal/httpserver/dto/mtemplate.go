@@ -68,7 +68,7 @@ func (c *MarkingConfig) Validate() error {
 		return fmt.Errorf("flagThreshold must be between 0 and 1")
 	}
 
-	if c.SearchRadius <= 0 {
+	if c.SearchRadius < 0 {
 		return fmt.Errorf("searchRadius must be nonnegative")
 	}
 

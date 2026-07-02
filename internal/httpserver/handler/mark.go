@@ -85,6 +85,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 					),
 					http.StatusBadRequest,
 				)
+				return
 			}
 			scans[i].id = scanId
 			scans[i].pages = pages
@@ -167,6 +168,7 @@ func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 			FillThreshold: &tmpl.Config.FillThreshold,
 			BubbleInset:   &tmpl.Config.BubbleInset,
 			FlagThreshold: &tmpl.Config.FlagThreshold,
+			SearchRadius:  &tmpl.Config.SearchRadius,
 		},
 		Pages: make([]marker.Page, len(tmpl.Pages)),
 	}

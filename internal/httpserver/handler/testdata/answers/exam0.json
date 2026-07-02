@@ -684,8 +684,10 @@
                 },
                 {
                     "questionId": "Q95",
-                    "flagged": true,
-                    "selected": []
+                    "flagged": false,
+                    "selected": [
+                        "D"
+                    ]
                 },
                 {
                     "questionId": "Q96",
@@ -816,7 +818,9 @@
                 {
                     "questionId": "F1",
                     "flagged": false,
-                    "selected": []
+                    "selected": [
+                        "K"
+                    ]
                 },
                 {
                     "questionId": "F2",

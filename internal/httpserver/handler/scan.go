@@ -168,16 +168,21 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		// Preprocess the scan.
 		//
 
-		result, err := scanner.Scan(pageScans, &scanner.Template{
+		tmpl := &scanner.Template{
 			Width:  template.Width,
 			Height: template.Height,
 			Config: scanner.Config{
 				BlurSize:            template.Config.BlurSize,
 				MorphCloseSize:      template.Config.MorphCloseSize,
 				MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
+				AdaptiveBlockSize:   template.Config.AdaptiveBlockSize,
+				AdaptiveC:           float32(template.Config.AdaptiveC),
 			},
 			Pages: pages,
-		})
+		}
+		defer tmpl.Close()
+
+		result, err := scanner.Scan(pageScans, tmpl)
 		if err != nil {
 			http.Error(
 				w,

@@ -676,7 +676,7 @@ components:
           description: |
             The minimum confidence below which an answer is flagged for manual
             review. Set to 0.0 or omit to disable.
-        searchThreshold:
+        searchRadius:
           type: integer
           example: 3
           description: |
