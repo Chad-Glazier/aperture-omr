@@ -24,7 +24,7 @@ type multipartImage struct {
 }
 
 func makeJsonRequest(
-	t *testing.T, 
+	t *testing.T,
 	templateFilename string,
 ) (*http.Request, error) {
 	t.Helper()

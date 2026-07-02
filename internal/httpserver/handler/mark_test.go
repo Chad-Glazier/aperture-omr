@@ -149,14 +149,14 @@ func TestPostMark(t *testing.T) {
 	// 4) Post the marking job.
 	//
 
-	body := fmt.Appendf(nil, 
+	body := fmt.Appendf(nil,
 		`{
 			"template": "%s",
 			"scans": [
 				"%s"
 			]
-		}`, 
-		markingTemplateId, 
+		}`,
+		markingTemplateId,
 		scanId,
 	)
 	req = httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
@@ -200,7 +200,7 @@ func TestPostMark(t *testing.T) {
 	for i := range actual.Scans {
 		if actual.Scans[i].ScanId != scanId {
 			t.Fatalf(
-				"expected result scanId to be %s, got %s", 
+				"expected result scanId to be %s, got %s",
 				scanId, actual.Scans[i].ScanId,
 			)
 		}
@@ -210,7 +210,7 @@ func TestPostMark(t *testing.T) {
 				len(expected.Scans), len(actual.Scans),
 			)
 		}
-		
+
 		// Note: this current test expects answers to be in a specific order,
 		// but that's not actually important. We can remove that constraint
 		// later if it becomes relevant.
@@ -223,8 +223,8 @@ func TestPostMark(t *testing.T) {
 			if actualMark.Flagged != expectedMark.Flagged {
 				t.Fatalf(
 					"question %s: expected flagged=%t, got flagged=%t",
-					actualMark.QuestionId, 
-					expectedMark.Flagged, 
+					actualMark.QuestionId,
+					expectedMark.Flagged,
 					actualMark.Flagged,
 				)
 			}
@@ -236,7 +236,7 @@ func TestPostMark(t *testing.T) {
 					len(actualMark.Selected),
 				)
 			}
-			
+
 			for k := range len(actualMark.Selected) {
 				if actualMark.Selected[k] != expectedMark.Selected[k] {
 					t.Fatalf(

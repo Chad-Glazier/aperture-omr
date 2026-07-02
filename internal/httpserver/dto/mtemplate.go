@@ -52,7 +52,7 @@ type MarkingConfig struct {
 	FillThreshold float64 `json:"fillThreshold"`
 	BubbleInset   float64 `json:"bubbleInset"`
 	FlagThreshold float64 `json:"flagThreshold"`
-	SearchRadius int `json:"searchRadius"`
+	SearchRadius  int     `json:"searchRadius"`
 }
 
 func (c *MarkingConfig) Validate() error {
@@ -116,8 +116,8 @@ func (q *Question) Validate() error {
 		return fmt.Errorf("bubbleHeight must be positive")
 	case q.Type != "" && q.Type != "single" && q.Type != "multi":
 		return fmt.Errorf(
-			"type must be \"multi\", \"single\", "+
-			"or omitted (defaults to \"single\")",
+			"type must be \"multi\", \"single\", " +
+				"or omitted (defaults to \"single\")",
 		)
 	case len(q.Options) == 0:
 		return fmt.Errorf("question must contain at least one option")
