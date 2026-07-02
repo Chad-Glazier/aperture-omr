@@ -13,27 +13,19 @@ docker build --tag omr_server .
 
 Since we use OpenCV as a dependency the program takes a while to build. Refer to the [this section](#setting-up-a-local-environment) if you need a faster build for development. 
 
-Once the image is built, you can run the app via docker in one of three modes:
+Once the image is built, you can run the app via docker:
 
 ```sh
-# Run without specifying a mode (defaults to test mode)
 docker run --rm -p 3000:3000 omr_server
-
-# Run in test mode
-docker run --rm -e OMR_MODE=TEST -p 3000:3000 omr_server
-
-# Run in development mode
-docker run --rm -e OMR_MODE=DEVELOPMENT -p 3000:3000 omr_server
-
-# Run in production mode
-docker run --rm -e OMR_MODE=PRODUCTION -p 3000:3000 omr_server
 ```
 
-- In test mode, all external services are mocked. This means that the program will run without a real database or file storage system.
-- In development mode, external services are used and the information needed to connect to them must be passed via environment variables. If a variable is omitted, the service will use a default and log a warning.
-- Similarly, production mode requires access to external services. Unlike development mode, the program will refuse to start if a necessary environment variable is missing.
+This will log a URL to the documentation on startup. Follow that link to view details about the endpoints.
 
-An example set of environment variables are written in [`.env.example`](./.env.example). If you want to see exactly how those variables are used, refer to the [config package](./config/).
+If you want the container to persist and maintain its stored data (volume), instead run:
+
+```sh
+docker run -p 3000:3000 -v omr-data:/app/data omr_server
+```
 
 >The Go version set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
 
@@ -49,26 +41,6 @@ This should print a help message that describes the subcommands for the program.
 
 If you get an error that mentions missing C/C++ objects, it's likely that GoCV isn't seeing your OpenCV installation. Refer to [their documentation](https://gocv.io/getting-started/) to correct this.
 
-### Service Dependencies for Development Mode
-
-In testing mode, the OMR service mocks all external dependencies--namely, the database and file storage services. In development mode, we want to run actual containers for these services so that we can test the app end-to-end. At the time of writing, we have set up a small docker compose file to start a development Garage container for this purpose:
-
-```sh
-docker compose -f ./scripts/docker-compose.dev.yml up
-```
-
-The configuration for this container can be found in `./scripts/config`. You'll notice that the keys in the container configuration are identical to the default keys used when the OMR service is run in development mode (specified [here](./config/config.go)). So, you should be able to set the `OMR_MODE` to `DEVELOPMENT` and then run the development tests without any additional setup.
-
-```sh
-export OMR_MODE="DEVELOPMENT" # Bash
-$env:OMR_MODE="DEVELOPMENT"   # Powershell (Windows)
-
-# Then, to run the tests,
-go test .\...
-```
-
-In the future, we will also make a similar `docker-compose` file to start up a development database that works in a similar way.
-
 ## File Structure
 
 In keeping with Go conventions, the top-level directories are as follows:
@@ -77,6 +49,8 @@ In keeping with Go conventions, the top-level directories are as follows:
 - [`internal`](./internal) contains packages that are used internally. This will be most of the project.
   - [`database`](./internal/database/) contains all database interactions. Most of the queries are generated with sqlc (I explain this more [here](./internal/database/sqlc/README.md)).
   - [`httpserver`](./internal/httpserver/) contains the handler functions and middleware that make up the HTTP API for the service. We are just using the standard [`net/http`](https://pkg.go.dev/net/http) library since the API should be relatively simple.
+    - [`dto`](./internal/httpserver/dto/) contains the data transfer objects (DTOs) for the server. Any complex object that will be sent or received from the server is put there, along with relevant deserialization and validation functions.
+    - [`handler`](./internal/httpserver/handler/) includes the bulk of the HTTP server's logic.
   - [`fs`](./internal/fs/) exposes a simple interface for file storage, particularly images. Internally, it currently has two implementations; one wraps the local file system (suitable for testing) and the other wraps an S3 client.
 - [`config`](./config) wraps configuration data.
   - Conventionally, this folder would simply include `.env` files and stuff. However in this project we define it as an actual Go package that's responsible for wrapping configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This also allows us to set environment variables based on the runtime mode (development, production, or test) and validate them when the program starts, instead of postponing potential runtime errors.
@@ -102,11 +76,12 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 
 The following is a list of known improvements that can be made to the system.
 - The current storage system relies on converting images to/from `image.Image` objects repeatedly for the convenience of a common interface. In multiple areas, this is likely unnecessary and instead we can just use `io.Writer`/`io.Reader` to minimize the number of times we load the full image into memory.
-  - On a related note, the processing pipeline should probably universally use JPEGs to save disk space and (potentially) speed. We can use magic bytes to confirm that a file is a JPEG and then, rather than decoding the whole image, just write it straight to storage. This method might be tricky with S3 storage but would be trivial to implement for the local filesystem.
-- The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to also implement a version for Postgres.
+  - On a related note, the processing pipeline should probably universally use JPEGs to save disk space and (potentially) speed. We can use magic bytes to confirm that an incoming file is a JPEG and then, rather than decoding the whole image, just write it straight to storage. This method might be tricky with S3 storage but would be trivial to implement for the local filesystem.
+- The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to implement a version for Postgres.
   - More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
 - The API spec assumes the domain and port are `localhost:3000`. However, we could rewrite it as a template and have those values populated at runtime.
 - The service, in its current form, manages its own database and file storage. If this is the approach we want to stick with, we should include endpoints to manage that data (e.g., delete old data, compress unused images periodically, etc). It would also be feasible to make a small web UI to expose that functionality.
-- Anchor images are stored as proper images right now, but we only really need them as `gocv.Mat` objects. There's probably a more direct way to serialize that data than the current approach of converting them to/from image files.
+- Anchor images are stored as properly encoded image files right now, but we only really need them as `gocv.Mat` objects. There's certainly a more direct way to serialize that data than the current approach of converting them to/from image files.
 - Logs are currently printed by directly calling `slog` functions that write to stdout. We should change this so that the logger is on the `ServerResources` struct instead. This way we could conveniently also log errors to a database, a log file, or whatever else.
 - The whole `config` package needs to be refactored or removed entirely. I don't know why I thought it would be a good idea.
+- The tests in `httpserver/handlers` cover the normal path, but they don't exhaust all of the bad inputs. We could make the test suite a little more comprehensive.
