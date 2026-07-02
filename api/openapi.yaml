@@ -1,27 +1,767 @@
-openapi: "3.0.3"
+openapi: 3.0.3
+
 info:
   title: OMR Service
   version: "0.0.1"
   description: |
-    A service to perform Optical Mark Recognition (OMR) on PDFs scans of bubblesheets.
+    A service to perform Optical Mark Recognition (OMR) on scans of 
+    bubblesheets. The general workflow is described below:
+    1) Upload a preprocessing template. This will be used to handle the
+       scaling and orientation of uploaded scans. If done correctly, the
+       response will include a new ID for the template.
+    2) Upload a scan and specify its preprocessing template. The OMR will
+       take the uploaded page image(s) and preprocess them according to
+       the identified template. Upon success, the response will include
+       a new ID for the scan.
+    3) Upload a marking template. This template defines identifiers for
+       questions on the scanned pages and how the OMR can find them.
+    4) Request marks by specifying a scan and the marking template to use.
+       The scan will be parsed according to the marking template and 
+       a mapping of questions to answers will be generated and returned.
+    In the future, more endpoints will be added to list and delete any
+    uploaded resources.
 
 servers:
   - url: http://localhost:3000/
 
 tags:
-  - name: Health
-    description: Service health and availability
+  - name: Status
+    description: Service status and availability
+  - name: Scan
+    description: Image scans of exams
+  - name: Preprocessing
+    description: Data for preprocessing scans
+  - name: Marking
+    description: Data for marking scans
 
 paths:
   /health:
     get:
-      tags:
-        - Health
-      summary: Ping the service
+      summary: |
+        Check OMR status
       description: |
-        Simple health-check endpoint. Confirms that the service is running and has a database connection.
+        A simple endpoint to check that the OMR is up and running.
+      tags:
+        - Status
       responses:
-        "200":
-          description: The service is functional.
-        "500":
-          description: The service failed to connect to the database. Check the server logs.
+        200:
+          description: |
+            The service is healthy.
+        500:
+          description: |
+            There's some problem with the service. Check the response message.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+
+  /template/preprocess:
+    post:
+      summary: |
+        Upload a preprocessing template
+      description: |
+        This endpoint is used to upload a preprocessing template. Such a
+        template must be uploaded before any scans.
+      tags:
+        - Preprocessing
+      requestBody:
+        description: |
+          The body defines a preprocessing template in a `multipart/form-data`
+          format. The `template` field is a JSON-encoded string, and the 
+          image fields are expected to be in `image/jpeg` encoding.
+
+          Each page has at least three anchors. The anchor `pageXanchorY` 
+          corresponds to `template.pages[X].anchors[Y]`.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - template
+                - page0anchor0
+                - page0anchor1
+                - page0anchor2
+              properties:
+                template:
+                  $ref: "#/components/schemas/PreprocessingTemplate"
+                page0anchor0:
+                  type: string
+                  format: binary
+                page0anchor1:
+                  type: string
+                  format: binary
+                page0anchor2:
+                  type: string
+                  format: binary
+                page0anchor3:
+                  type: string
+                  format: binary
+            encoding:
+              template:
+                contentType: application/json
+              page0anchor0:
+                contentType: image/jpeg
+              page0anchor1:
+                contentType: image/jpeg
+              page0anchor2:
+                contentType: image/jpeg
+              page0anchor3:
+                contentType: image/jpeg
+      responses:
+        200:
+          description: |
+            The preprocessing template was uploaded successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - templateId
+                properties:
+                  templateId:
+                    description: |
+                      The ID of the newly-created preprocessing template.
+                    type: string
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+  /template/mark:
+    post:
+      summary: |
+        Upload a marking template
+      description: |
+        This endpoint is used to upload a marking template. Such a template
+        must be uploaded before any scans can be marked.
+      tags:
+        - Marking
+      requestBody:
+        description: |
+          The body describes the marking template for an exam.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkingTemplate"
+      responses:
+        200:
+          description: |
+            The template was successfully uploaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - templateId
+                properties:
+                  templateId:
+                    description: |
+                      The ID of the newly-created marking template.
+                    type: string
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+  /scan:
+    post:
+      summary: Upload a scan
+      description: |
+        This endpoint lets you upload a scan. The OMR will perform any
+        preprocessing according to the specified template and store the
+        scans.
+      tags:
+        - Preprocessing
+      parameters:
+        - in: query
+          name: template
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the preprocessing template to use.
+      requestBody:
+        description: |
+          The JPEG image(s) used for the scan. There should be one image per 
+          page.
+        content: 
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - page0
+              properties:
+                page0:
+                  type: string
+                  format: binary
+                page1:
+                  type: string
+                  format: binary
+            encoding:
+              page0:
+                contentType: image/jpeg
+              page1:
+                contentType: image/jpeg
+      responses: 
+        200:
+          description: |
+            The scan was successfully preprocessed and stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - scanId
+                properties:
+                  scanId:
+                    description: |
+                      The ID of the newly uploaded scan.
+                    type: string
+        404:
+          description: |
+            The requested preprocessing template could not be found.
+          content: 
+            text/plain:
+              schema:
+                type: string
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+  /mark:
+    post:
+      summary: Run a marking job
+      tags:
+        - Marking
+      description: |
+        This endpoint can be used to run a marking job by specifying a list of 
+        scans to mark and a template to mark them with. 
+
+        Previously, this functionality was broken into two endpoints: one to
+        start the marking job, and another to retrieve the results. However,
+        the marking job is faster than expected (~3ms per page), so it makes 
+        more sense to just send the results back immediately.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - template
+                - scans
+              properties:
+                template:
+                  type: string
+                  description: |
+                    The ID of the marking template to use.
+                scans:
+                  type: array
+                  description: |
+                    A list of uploaded scan IDs to mark.            
+                  items: 
+                    type: string
+      responses:
+        200:
+          description: |
+            The marking job is complete. The marks are included in the response body.
+          content: 
+            application/json:
+              schema:
+                type: object
+                required:
+                  - scans
+                  - performanceMetrics
+                  - pagesMarked
+                  - templateId
+                properties:
+                  performanceMetrics:
+                    type: object
+                    required:
+                      - startTime
+                      - endTime
+                      - diskTime
+                      - omrTime
+                    properties:
+                      startTime:
+                        type: integer
+                        description: |
+                          A UNIX timestamp for the time when the job was 
+                          initiated.
+                      endTime:
+                        type: integer
+                        description: |
+                          A UNIX timestamp for the time when the job was 
+                          completed.
+                      diskTime:
+                        type: integer
+                        description: |
+                          The number of milliseconds that the system spent on
+                          reading/writing files to disk.
+                      omrTime:
+                        type: integer
+                        description: |
+                          The number of milliseconds that the system spent on
+                          marking the loaded scans.
+                  pagesMarked:
+                    type: integer
+                    description: |
+                      The total number of pages processed.
+                  templateId:
+                    type: string
+                    description: | 
+                      The ID of the marking template that was used.
+                  scans:
+                    type: array
+                    items:
+                      type: object
+                      required: 
+                        - scanId
+                        - marks
+                      properties:
+                        scanId:
+                          type: string
+                          description: |
+                            The ID of the scan that was marked.
+                        marks:
+                          description: |
+                            A list of marked questions. The question IDs match the IDs given in 
+                            the marking template.
+                          type: array
+                          items:
+                            type: object
+                            required: 
+                              - questionId
+                              - flagged
+                              - selected
+                            properties:
+                              questionId:
+                                type: string
+                                description: |
+                                  The ID of the question as defined by the template.
+                              flagged:
+                                type: boolean
+                                description: |
+                                  Whether or not the question was flagged for manual review.
+                              selected:
+                                type: array
+                                items: 
+                                  type: string
+                                description: |
+                                  A list of selected options that were detected for the question.
+                                  The options are named according to the marking template. For
+                                  example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        404:
+          description: |
+            Some resource that the request specified (e.g., a template or scan 
+            ID) could not be found. 
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of which resource couldn't be found.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+    # get:
+    #   summary: Get marking results
+    #   tags:
+    #     - Marking
+    #   description: |
+    #     After posting a marking job, this endpoint can be used to get the current
+    #     status of the job or its results (if its done).
+    #   parameters:
+    #     - in: query
+    #       name: marking
+    #       required: true
+    #       schema:
+    #         type: string
+    #         description: |
+    #           The ID of the marking job to check.
+    #   responses:
+    #     200:
+    #       description: |
+    #         The marking job is complete. The marks are included in the response body.
+    #       content: 
+    #         application/json:
+    #           schema:
+    #             type: object
+    #             required:
+    #               - scans
+    #               - startTime
+    #               - endTime
+    #               - pagesMarked
+    #               - templateId
+    #             properties:
+    #               startTime:
+    #                 type: integer
+    #                 description: |
+    #                   A UNIX timestamp for the time when the job was initiated.
+    #               endTime:
+    #                 type: integer
+    #                 description: |
+    #                   A UNIX timestamp for the time when the job was completed.
+    #               pagesMarked:
+    #                 type: integer
+    #                 description: |
+    #                   The total number of pages processed.
+    #               templateId:
+    #                 type: string
+    #                 description: | 
+    #                   The ID of the marking template that was used.
+    #               scans:
+    #                 type: array
+    #                 items:
+    #                   type: object
+    #                   required: 
+    #                     - scanId
+    #                     - marks
+    #                   properties:
+    #                     scanId:
+    #                       type: string
+    #                       description: |
+    #                         The ID of the scan that was marked.
+    #                     marks:
+    #                       description: |
+    #                         A list of marked questions. The question IDs match the IDs given in 
+    #                         the marking template.
+    #                       type: array
+    #                       items:
+    #                         type: object
+    #                         required: 
+    #                           - questionId
+    #                           - flagged
+    #                           - selected
+    #                         properties:
+    #                           questionId:
+    #                             type: string
+    #                             description: |
+    #                               The ID of the question as defined by the template.
+    #                           flagged:
+    #                             type: boolean
+    #                             description: |
+    #                               Whether or not the question was flagged for manual review.
+    #                           selected:
+    #                             type: array
+    #                             items: 
+    #                               type: string
+    #                             description: |
+    #                               A list of selected options that were detected for the question.
+    #                               The options are named according to the marking template. For
+    #                               example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
+    #     202:
+    #       description: |
+    #         The marking job is in progress.
+    #     500:
+    #       description: |
+    #         There was some error in the marking. See the response body for details.
+    #       content:
+    #         text/plain:
+    #           schema:
+    #             type: string
+    #             description: |
+    #               A description of the marking error.
+
+
+components:
+  schemas:
+    Point:
+      description: |
+        Defines a point in the coordinates of a transformed image scan.
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+    ROI:
+      description: |
+        Defines a region of interest; that is, a rectangle.
+      required:
+        - min
+        - max
+      properties:
+        min: 
+          $ref: "#/components/schemas/Point"
+        max:
+          $ref: "#/components/schemas/Point"
+    PreprocessingConfig:
+      description: |
+        The configuration for the preprocessing of an image.
+      type: object
+      required:
+        - blurSize
+        - morphCloseSize
+        - minAnchorConfidence
+        - adaptiveBlockSize
+      properties:
+        blurSize:
+          type: integer
+          example: 5
+          description: |
+            Gaussian blur kernel size, **must be odd**. Increase for noisier 
+            scans.
+        morphCloseSize:
+          type: integer
+          example: 3
+          description: |
+            Morphological close kernel size. Helps fill gaps in pencil marks.
+        minAnchorConfidence:
+          type: number
+          example: 0.5
+          description: |
+            Minimum template-match score (0.0-1.0). Raise if anchors produce 
+            false positives.
+        adaptiveBlockSize:
+          type: integer
+          example: 91
+          description: |
+            Neighbourhood size (pixels, must be odd) for adaptive thresholding. 
+            Larger values use a wider local region to compute the threshold; 
+            recommended starting point is roughly 3 times the bubble diameter 
+            at scan resolution.
+        adaptiveC:
+          type: number
+          example: -15
+          description: |
+            Constant subtracted from the local mean before thresholding 
+            (`T = mean - C`). Positive values lower the threshold, giving 
+            cleaner ink/paper separation on high-contrast flatbed scans. 
+            Negative values raise the threshold, which can help detect lighter 
+            pencil marks but risks misclassifying clean white areas as ink.
+    PreprocessingPage:
+      description: |
+        Defines the anchors for a pages.
+      type: object
+      required:
+        - anchors
+      properties:
+        anchors:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreprocessingAnchor"
+          description: |
+            The data for the three anchors of a preprocessing template page.
+    PreprocessingAnchor:
+      description: |
+        Describes information about an anchor.
+      type: object
+      required:
+        - center
+        - roi
+      properties:
+        center:
+          description: |
+            Where the center of this anchor should be in output space.
+          $ref: "#/components/schemas/Point"
+        roi:
+          description: |
+            The region of interest (ROI) for the anchor in output space. That is, the location of its top-left and bottom-right corners.
+          $ref: "#/components/schemas/ROI"
+    PreprocessingTemplate:
+      description: |
+        Represents the template used for preprocessing an image scan.
+      type: object
+      required:
+        - width
+        - height
+        - config
+        - pages
+      properties:
+        width:
+          type: integer
+          example: 800
+          description: |
+            The desired width of the image after preprocessing. Shared across all pages.
+        height:
+          type: integer
+          example: 1700
+          description: |
+            The desired height of the image after preprocessing. Shared across all pages.
+        config:
+          $ref: "#/components/schemas/PreprocessingConfig"
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreprocessingPage"
+    MarkingConfig:
+      description: |
+        Defines the configuration for marking.
+      type: object
+      required:
+        - fillThreshold
+        - bubbleInset
+      properties:
+        fillThreshold:
+          type: number
+          example: 0.25
+          description: |
+            The minimum fill ratio for a bubble to count as selected (0.0-1.0).
+        bubbleInset:
+          type: number
+          example: 0.75
+          description: |
+            The fraction of the bubble's radius that is sampled (0.0-1.0). Values
+            below 1.0 will exclude the printed border ring from the measurement.
+        flagThreshold:
+          type: number
+          example: 0.25
+          description: |
+            The minimum confidence below which an answer is flagged for manual
+            review. Set to 0.0 or omit to disable.
+        searchRadius:
+          type: integer
+          example: 3
+          description: |
+            Per-axis pixel search window around each bubble's template 
+            position. The maximum fill found across the (2r+1)² candidate 
+            centres is used. Set to 3 to 5 to tolerate small printer/scanner 
+            misalignment.
+    QuestionOption:
+      description: |
+        Defines an option for a question (e.g., "A", "B", and "C" might be options
+        for a multiple-choice question).
+      type: object
+      required:
+        - label
+        - x
+        - y
+      properties:
+        label:
+          type: string
+          example: "A"
+        x:
+          type: integer
+          description: |
+            The x-coordinate of the question option on the sheet.
+          example: 72
+        y: 
+          type: integer
+          description: |
+            The y-coordinate of the question option on the sheet.
+          example: 473
+    Question:
+      description: |
+        Defines a question on the exam to be marked.
+      type: object
+      required:
+        - id
+        - bubbleWidth
+        - bubbleHeight
+        - options
+      properties:
+        id:
+          type: string
+          example: "Q1"
+          description: |
+            An identifier for the question. **Question IDs must begin with Q**. 
+            No two question IDs on a given template should be the same.
+        bubbleWidth:
+          type: integer
+          example: 26
+          description: |
+            The width of the bubbles for this question.
+        bubbleHeight:
+          type: integer
+          example: 26
+          description: |
+            The height of bubbles for this equation.
+        type: 
+          type: string
+          example: "multi"
+          description: |
+            Set this field to "multi" if you want the OMR to know that it's normal
+            for the question to have multiple selected answers. Omit it if only
+            a single answer should be expected.
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionOption"      
+    MarkingTemplate:
+      description: |
+        Describes the template used for marking a scan.
+      type: object
+      required:
+        - config
+        - pages
+      properties:
+        config:
+          $ref: "#/components/schemas/MarkingConfig"
+        pages:
+          type: array
+          items:
+            type: object
+            required:
+              - questions
+            properties:
+              questions:
+                type: array
+                items: 
+                  $ref: "#/components/schemas/Question"

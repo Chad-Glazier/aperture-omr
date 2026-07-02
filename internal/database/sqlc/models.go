@@ -4,115 +4,30 @@
 
 package sqlc
 
-import (
-	"github.com/jackc/pgx/v5/pgtype"
-)
-
-type Course struct {
-	ID       pgtype.UUID
-	Name     string
-	Semester string
+type Anchor struct {
+	ID          string
+	TemplateID  string
+	PageIndex   int64
+	AnchorIndex int64
 }
 
-type Enrolment struct {
-	ID       pgtype.UUID
-	UserID   pgtype.UUID
-	CourseID pgtype.UUID
-	Role     string
+type MarkingTemplate struct {
+	ID   string
+	Json string
 }
 
-type Exam struct {
-	ID           pgtype.UUID
-	CourseID     pgtype.UUID
-	CreatedBy    pgtype.UUID
-	Name         string
-	VersionLabel pgtype.Text
-	ExamDate     pgtype.Timestamptz
-	CreatedAt    pgtype.Timestamptz
-}
-
-type ExamGrade struct {
-	ID              pgtype.UUID
-	OmrMarkingID    pgtype.UUID
-	ExamTemplateID  pgtype.UUID
-	QuestionResults []byte
-	TotalScore      pgtype.Numeric
-	MaxScore        pgtype.Numeric
-	TemplateVersion pgtype.Int4
-	GradedAt        pgtype.Timestamptz
-}
-
-type ExamTemplate struct {
-	ID               pgtype.UUID
-	ExamID           pgtype.UUID
-	QuestionConfig   []byte
-	AnswerKey        []byte
-	ScoringRules     []byte
-	TotalQuestions   int32
-	Version          pgtype.Int4
-	OmrTemplateID    pgtype.UUID
-	GeneratedPdfPath pgtype.Text
-}
-
-type OmrDetectedMark struct {
-	ID              pgtype.UUID
-	MarkingID       pgtype.UUID
-	QuestionNumber  int32
-	DetectedValue   pgtype.Text
-	ConfidenceScore pgtype.Float4
-	NeedsReview     pgtype.Bool
-	X               pgtype.Int4
-	Y               pgtype.Int4
-	Width           pgtype.Int4
-	Height          pgtype.Int4
-}
-
-type OmrMarking struct {
-	ID            pgtype.UUID
-	ScanID        pgtype.UUID
-	OmrTemplateID pgtype.UUID
-	Status        pgtype.Text
-	ErrorMessage  pgtype.Text
-	CreatedAt     pgtype.Timestamptz
-	StartedAt     pgtype.Timestamptz
-	FinishedAt    pgtype.Timestamptz
-}
-
-type OmrTemplate struct {
-	ID               pgtype.UUID
-	Name             string
-	PageCount        int32
-	Version          pgtype.Int4
-	CreatedAt        pgtype.Timestamptz
-	ScanTemplatePath pgtype.Text
-	MarkTemplatePath pgtype.Text
-}
-
-type ReviewRequest struct {
-	ID                 pgtype.UUID
-	ExamGradeID        pgtype.UUID
-	StudentID          pgtype.UUID
-	QuestionNumber     pgtype.Text
-	StudentComment     pgtype.Text
-	Status             pgtype.Text
-	InstructorResponse pgtype.Text
-	CreatedAt          pgtype.Timestamptz
-	ResolvedAt         pgtype.Timestamptz
+type PreprocessingTemplate struct {
+	ID   string
+	Json string
 }
 
 type Scan struct {
-	ID             pgtype.UUID
-	ExamID         pgtype.UUID
-	UploaderUserID pgtype.UUID
-	Path           string
-	PageCount      pgtype.Int4
+	ID                      string
+	PreprocessingTemplateID string
 }
 
-type User struct {
-	ID           pgtype.UUID
-	Email        string
-	Name         string
-	PasswordHash string
-	Role         string
-	CreatedAt    pgtype.Timestamptz
+type ScanPage struct {
+	ID        string
+	PageIndex int64
+	ScanID    string
 }

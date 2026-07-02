@@ -23,7 +23,7 @@ func TestS3Store(t *testing.T) {
 		t.Error("error creating store: " + err.Error())
 	}
 
-	r, err := os.Open("./testdata/sample_image.tiff")
+	r, err := os.Open("./testdata/sample_image.png")
 	if err != nil {
 		t.Error("error reading test image: " + err.Error())
 	}
@@ -36,7 +36,7 @@ func TestS3Store(t *testing.T) {
 	// Testing
 	//
 
-	name := "sample.tiff"
+	name := "sample.png"
 
 	if store.ImgExists(name) {
 		t.Error("image already exists in store")
@@ -74,7 +74,7 @@ func TestS3Store(t *testing.T) {
 		t.Errorf("expected snippet height of %d, got %d", snippetSize, bounds.Dy())
 	}
 
-	err = store.PutImg("snippet.tiff", snippet)
+	err = store.PutImg("snippet.png", snippet)
 	if err != nil {
 		t.Error("error putting snippet: " + err.Error())
 	}
@@ -88,12 +88,12 @@ func TestS3Store(t *testing.T) {
 		t.Error("image exists after deletion")
 	}
 
-	err = store.DeleteImg("snippet.tiff")
+	err = store.DeleteImg("snippet.png")
 	if err != nil {
 		t.Error("error deleting image: " + err.Error())
 	}
 
-	if store.ImgExists("snippet.tiff") {
+	if store.ImgExists("snippet.png") {
 		t.Error("image exists after deletion")
 	}
 }

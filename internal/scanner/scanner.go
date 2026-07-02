@@ -75,10 +75,10 @@ type Config struct {
 	MinAnchorConfidence float32 `json:"minAnchorConfidence"`
 	// AdaptiveBlockSize is the neighbourhood size for adaptive thresholding
 	// (must be odd). Defaults to 91, which works well for 200–300 DPI scans.
-	AdaptiveBlockSize int     `json:"adaptiveBlockSize"`
+	AdaptiveBlockSize int `json:"adaptiveBlockSize"`
 	// AdaptiveC is subtracted from the local mean; negative values make the
 	// threshold more lenient and are needed to catch light pencil marks.
-	AdaptiveC         float32 `json:"adaptiveC"`
+	AdaptiveC float32 `json:"adaptiveC"`
 }
 
 // Scan runs each reader through the OMR preprocessing pipeline using the
@@ -129,7 +129,7 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 	}
 
 	ctx := &context{}
-	ctx.exec(func() error { return binarize(&data.Color, &data.Binary, &tmpl.Config) })
+	ctx.exec(func() error { return Binarize(&data.Color, &data.Binary, &tmpl.Config) })
 	ctx.exec(func() error { return warp(data, data, tmpl.Pages[idx].Anchors, tmpl.Width, tmpl.Height, tmpl.Config) })
 
 	if ctx.err != nil {
@@ -140,7 +140,7 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 	return data, nil
 }
 
-func binarize(src, dst *gocv.Mat, conf *Config) error {
+func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot binarize an empty image")
 	}
@@ -414,7 +414,7 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
 		anchorConf.AdaptiveBlockSize = bs
 	}
 
-	if err := binarize(&img, &img, &anchorConf); err != nil {
+	if err := Binarize(&img, &img, &anchorConf); err != nil {
 		img.Close()
 		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
 	}
