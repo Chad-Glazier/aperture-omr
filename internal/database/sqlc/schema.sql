@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS scans (
 
 CREATE TABLE IF NOT EXISTS scan_pages (
     id TEXT PRIMARY KEY,
+    color_image_key TEXT NOT NULL,
     page_index INT NOT NULL,
     scan_id TEXT NOT NULL,
     FOREIGN KEY(scan_id) REFERENCES scans(id)

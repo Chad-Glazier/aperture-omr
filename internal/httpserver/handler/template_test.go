@@ -287,8 +287,3 @@ func TestPostMarkingTemplate_OK(t *testing.T) {
 		t.Fatal("Preprocessing template not found in database")
 	}
 }
-
-//
-// There are a lot more error cases that could be tested, but for now I'm just
-// focusing on the normal path.
-//

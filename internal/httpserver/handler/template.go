@@ -16,6 +16,10 @@ func decodeImg(r io.Reader) (image.Image, error) {
 	return jpeg.Decode(r)
 }
 
+func encodeImg(w io.Writer, img image.Image) error {
+	return jpeg.Encode(w, img, nil)
+}
+
 const imgType = "image/jpeg"
 
 //

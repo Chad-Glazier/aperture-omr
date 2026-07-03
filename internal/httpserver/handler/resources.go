@@ -39,21 +39,34 @@ type AnchorSaveLoader interface {
 	LoadAnchor(templateId string, pageIdx, anchorIdx int) (image.Image, error)
 }
 
-type ScanSaver interface {
+type ScanSaveLoader interface {
 	// Saves a preprocessed scan via a slice of images where each image
 	// represents a page. The preprocessing template ID is also included for
 	// the sake of debugging. Returns an ID for the scan.
-	SaveScan(pages []image.Image, templateId string) (string, error)
+	SaveScan(
+		pages []image.Image,
+		colorPages []image.Image,
+		templateId string,
+	) (string, error)
 
 	// Loads a preprocessed scan's pages.
 	LoadScan(scanId string) ([]image.Image, error)
+
+	// Loads a preprocessed scan's color pages.
+	LoadColorScan(scanId string) ([]image.Image, error)
+}
+
+type SnippetLoader interface {
+	// Loads an image snippet that isolates a question on the given scan.
+	LoadSnippet(scanId, templateId, questionId string) (image.Image, error)
 }
 
 type ServerResources interface {
 	MarkingTemplateSaveLoader
 	PreprocessingTemplateSaveLoader
 	AnchorSaveLoader
-	ScanSaver
+	ScanSaveLoader
+	SnippetLoader
 }
 
 //

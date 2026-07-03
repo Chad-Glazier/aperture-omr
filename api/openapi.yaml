@@ -98,6 +98,18 @@ paths:
                 page0anchor3:
                   type: string
                   format: binary
+                page1anchor0:
+                  type: string
+                  format: binary
+                page1anchor1:
+                  type: string
+                  format: binary
+                page1anchor2:
+                  type: string
+                  format: binary
+                page1anchor3:
+                  type: string
+                  format: binary
             encoding:
               template:
                 contentType: application/json
@@ -428,105 +440,76 @@ paths:
                 type: string
                 description: |
                   A description of the error.
-    # get:
-    #   summary: Get marking results
-    #   tags:
-    #     - Marking
-    #   description: |
-    #     After posting a marking job, this endpoint can be used to get the current
-    #     status of the job or its results (if its done).
-    #   parameters:
-    #     - in: query
-    #       name: marking
-    #       required: true
-    #       schema:
-    #         type: string
-    #         description: |
-    #           The ID of the marking job to check.
-    #   responses:
-    #     200:
-    #       description: |
-    #         The marking job is complete. The marks are included in the response body.
-    #       content: 
-    #         application/json:
-    #           schema:
-    #             type: object
-    #             required:
-    #               - scans
-    #               - startTime
-    #               - endTime
-    #               - pagesMarked
-    #               - templateId
-    #             properties:
-    #               startTime:
-    #                 type: integer
-    #                 description: |
-    #                   A UNIX timestamp for the time when the job was initiated.
-    #               endTime:
-    #                 type: integer
-    #                 description: |
-    #                   A UNIX timestamp for the time when the job was completed.
-    #               pagesMarked:
-    #                 type: integer
-    #                 description: |
-    #                   The total number of pages processed.
-    #               templateId:
-    #                 type: string
-    #                 description: | 
-    #                   The ID of the marking template that was used.
-    #               scans:
-    #                 type: array
-    #                 items:
-    #                   type: object
-    #                   required: 
-    #                     - scanId
-    #                     - marks
-    #                   properties:
-    #                     scanId:
-    #                       type: string
-    #                       description: |
-    #                         The ID of the scan that was marked.
-    #                     marks:
-    #                       description: |
-    #                         A list of marked questions. The question IDs match the IDs given in 
-    #                         the marking template.
-    #                       type: array
-    #                       items:
-    #                         type: object
-    #                         required: 
-    #                           - questionId
-    #                           - flagged
-    #                           - selected
-    #                         properties:
-    #                           questionId:
-    #                             type: string
-    #                             description: |
-    #                               The ID of the question as defined by the template.
-    #                           flagged:
-    #                             type: boolean
-    #                             description: |
-    #                               Whether or not the question was flagged for manual review.
-    #                           selected:
-    #                             type: array
-    #                             items: 
-    #                               type: string
-    #                             description: |
-    #                               A list of selected options that were detected for the question.
-    #                               The options are named according to the marking template. For
-    #                               example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
-    #     202:
-    #       description: |
-    #         The marking job is in progress.
-    #     500:
-    #       description: |
-    #         There was some error in the marking. See the response body for details.
-    #       content:
-    #         text/plain:
-    #           schema:
-    #             type: string
-    #             description: |
-    #               A description of the marking error.
-
+  /snippet:
+    get:
+      summary: Get a question snippet
+      description: |
+        This endpoint lets you retrieve a cropped snippet of a question for
+        review purposes.
+      tags:
+        - Marking
+      parameters:
+        - in: query
+          name: template
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the marking template to use. This is required to
+              identify the location of the question.
+        - in: query
+          name: scan
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the scan.
+        - in: query
+          name: question
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the question to read. This ID must be the same as the
+              ID used on the template.
+      responses: 
+        200:
+          description: |
+            The snippet was successfully retrieved.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary 
+        400:
+          description: |
+            Something was missing from the request. See the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of what was wrong with the request.
+        404:
+          description: |
+            The identified template, ID, or scan could not be found.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's end. See the error message for
+            details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error. 
 
 components:
   schemas:
