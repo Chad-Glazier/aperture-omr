@@ -317,8 +317,10 @@ func (s *ServerResources) LoadSnippet(
 	if err != nil {
 		return nil, err
 	}
-	if len(scanRecords) < len(tmpl.Pages) {
-		return nil, fmt.Errorf("scan page(s) missing from database")
+	if len(scanRecords) != len(tmpl.Pages) {
+		return nil, fmt.Errorf(
+			"mismatch between template page count and scan page count",
+		)
 	}
 
 	//

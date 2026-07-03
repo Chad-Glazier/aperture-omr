@@ -239,4 +239,51 @@ func TestGetSnippet(t *testing.T) {
 
 		}
 	}
+
+	//
+	// Below, we test one more kind of error case: a snippet is requested for a 
+	// scan, but the template referenced has the wrong number of pages.
+	//
+
+	req, err = makeJsonRequest(t, "testdata/marking_template_single_page.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr = httptest.NewRecorder()
+	PostMarkingTemplate(s).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body%s", rr.Code, rr.Body.String())
+	}
+
+	v = make(map[string]string)
+	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
+		t.Fatalf("failed to parse JSON response: %s", err.Error())
+	}
+	singlePageMarkingTemplate, ok := v["templateId"]
+	if !ok {
+		t.Fatalf("templateId wasn't found in response body")
+	}
+
+	req, err = http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.URL.RawQuery = fmt.Sprintf(
+		"question=Q1&scan=%s&template=%s",
+		scanId, singlePageMarkingTemplate,
+	)
+	rr = httptest.NewRecorder()
+	GetSnippet(s).ServeHTTP(rr, req)
+
+	if rr.Code == http.StatusOK {
+		t.Fatalf(
+			"expected query %s to have bad response, got %d",
+			req.URL.RawQuery,
+			rr.Code,
+		)
+	}
+
 }
