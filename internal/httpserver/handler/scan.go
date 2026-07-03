@@ -223,6 +223,10 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 			pageImages[i] = img
 
+			//
+			// We also save the regular color version for generating snippets.
+			//
+
 			buf, err = gocv.IMEncode(gocv.PNGFileExt, data.Color)
 			if err != nil {
 				http.Error(

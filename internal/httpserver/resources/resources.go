@@ -1,4 +1,4 @@
-package handler
+package resources
 
 import (
 	"context"
@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"os"
-	"testing"
 	"ubco-team15/omr/internal/database"
 	"ubco-team15/omr/internal/database/sqlc"
 	"ubco-team15/omr/internal/fs"
@@ -17,51 +15,34 @@ import (
 )
 
 //
-// In this file, we implement a mock version of server resources. To use this
-// in a test you can allocate the resources with NewServerResources, then
-// defer the Cleanup method to remove any temporary files.
+// Below, we implement the ServerResources interface. This is how the database
+// and file storage are provided to the handler functions.
 //
 
-// An implementation of server resources for testing purposes. Use the Cleanup
-// method to remove any temporary files created.
-//
-// This implementation is fully functional, meaning that you can query its
-// database and image stores to verify that data was correctly stored.
-type res struct {
+type Resources struct {
 	DB    database.Querier
 	Store fs.Store
-	root  string
 }
 
-var _ ServerResources = (*res)(nil)
-
-func NewServerResources(t *testing.T) (*res, error) {
-	t.Helper()
-
-	db, err := database.Connect(":memory:")
+func NewServerResources() (*Resources, error) {
+	// In the future we can consider changing this to ":memory:" during
+	// testing in order to avoid a cleanup step. This only works for SQLite
+	// though.
+	db, err := database.Connect("data/database.sqlite3")
 	if err != nil {
 		return nil, err
 	}
 
-	root, err := os.MkdirTemp("", "omr_test_fs_*")
-	if err != nil {
-		return nil, err
-	}
-	store := fs.NewLocalStore(root)
+	store := fs.NewLocalStore("data/images")
 
-	res := &res{
+	res := &Resources{
 		DB:    db,
 		Store: store,
-		root:  root,
 	}
 	return res, nil
 }
 
-func (s *res) Cleanup() {
-	os.RemoveAll(s.root)
-}
-
-func (s res) SaveMarkingTemplate(
+func (s *Resources) SaveMarkingTemplate(
 	tmpl *dto.MarkingTemplate,
 ) (string, error) {
 	id := uuid.New()
@@ -84,7 +65,7 @@ func (s res) SaveMarkingTemplate(
 	return id.String(), nil
 }
 
-func (s res) LoadMarkingTemplate(
+func (s *Resources) LoadMarkingTemplate(
 	id string,
 ) (*dto.MarkingTemplate, error) {
 
@@ -101,7 +82,7 @@ func (s res) LoadMarkingTemplate(
 	return tmpl, nil
 }
 
-func (s res) SavePreprocessingTemplate(
+func (s *Resources) SavePreprocessingTemplate(
 	tmpl *dto.PreprocessingTemplate,
 ) (string, error) {
 	id := uuid.New()
@@ -124,7 +105,7 @@ func (s res) SavePreprocessingTemplate(
 	return id.String(), nil
 }
 
-func (s res) LoadPreprocessingTemplate(
+func (s *Resources) LoadPreprocessingTemplate(
 	id string,
 ) (*dto.PreprocessingTemplate, error) {
 
@@ -141,7 +122,7 @@ func (s res) LoadPreprocessingTemplate(
 	return tmpl, nil
 }
 
-func (s res) SaveAnchor(
+func (s *Resources) SaveAnchor(
 	img image.Image, templateId string, pageIdx, anchorIdx int,
 ) error {
 
@@ -167,7 +148,7 @@ func (s res) SaveAnchor(
 	return nil
 }
 
-func (s res) LoadAnchor(
+func (s *Resources) LoadAnchor(
 	templateId string, pageIdx, anchorIdx int,
 ) (image.Image, error) {
 
@@ -191,7 +172,7 @@ func (s res) LoadAnchor(
 	return img, nil
 }
 
-func (s res) SaveScan(
+func (s *Resources) SaveScan(
 	pages []image.Image,
 	colorPages []image.Image,
 	templateId string,
@@ -235,7 +216,7 @@ func (s res) SaveScan(
 	return scanId, nil
 }
 
-func (s res) LoadScan(scanId string) ([]image.Image, error) {
+func (s *Resources) LoadScan(scanId string) ([]image.Image, error) {
 	records, err := s.DB.GetScanPages(context.Background(), scanId)
 	if err != nil {
 		return nil, err
@@ -253,7 +234,7 @@ func (s res) LoadScan(scanId string) ([]image.Image, error) {
 	return images, nil
 }
 
-func (s res) LoadColorScan(scanId string) ([]image.Image, error) {
+func (s *Resources) LoadColorScan(scanId string) ([]image.Image, error) {
 	records, err := s.DB.GetScanPages(context.Background(), scanId)
 	if err != nil {
 		return nil, err
@@ -271,7 +252,7 @@ func (s res) LoadColorScan(scanId string) ([]image.Image, error) {
 	return images, nil
 }
 
-func (s res) LoadSnippet(
+func (s *Resources) LoadSnippet(
 	scanId,
 	templateId,
 	questionId string,
@@ -343,9 +324,9 @@ func (s res) LoadSnippet(
 	}
 
 	const padding = 10
-	minX = max(0, minX-padding)
+	minX -= padding
 	maxX += padding
-	minY = max(0, minY-padding)
+	minY -= padding
 	maxY += padding
 
 	//
@@ -354,9 +335,9 @@ func (s res) LoadSnippet(
 
 	return s.Store.ImgSnippet(
 		// Scan records are already ordered by page index.
-		scanRecords[targetPageIdx].ID,
+		scanRecords[targetPageIdx].ColorImageKey,
 		minX, minY,
-		maxY-minY, maxX-minX,
+		maxX-minX, maxY-minY,
 	)
 
 }

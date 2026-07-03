@@ -1,18 +1,17 @@
 package handler
 
 import (
-	"encoding/json"
 	"image"
-	"net/http"
 
 	"ubco-team15/omr/internal/httpserver/dto"
 )
 
 //
 // The ServerResources interface defines things that should be shared between
-// requests. E.g., access to data/file stores. Note that this package does not
-// implement the interface. It's expected that these resources are provided to
-// the handler functions, not the other way around.
+// requests. E.g., access to data/file stores. Note that we do not implement
+// the interface in this package; it is expected that the resources are
+// provided to the handlers where they are used (at the time of writing, that's
+// in the resources package).
 //
 
 type MarkingTemplateSaveLoader interface {
@@ -67,15 +66,4 @@ type ServerResources interface {
 	AnchorSaveLoader
 	ScanSaveLoader
 	SnippetLoader
-}
-
-//
-// General helper functions.
-//
-
-func sendJson(w http.ResponseWriter, v any) {
-	w.Header().Add("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "error writing response", http.StatusInternalServerError)
-	}
 }

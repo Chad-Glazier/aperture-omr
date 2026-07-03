@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 	"ubco-team15/omr/internal/httpserver/dto"
+	"ubco-team15/omr/internal/httpserver/resources"
 )
 
 //
@@ -15,7 +16,7 @@ import (
 
 func TestGetSnippet(t *testing.T) {
 
-	s, err := NewServerResources(t)
+	s, err := resources.NewTestingResources(t)
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
