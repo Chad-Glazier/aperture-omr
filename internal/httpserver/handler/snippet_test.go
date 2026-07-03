@@ -241,7 +241,7 @@ func TestGetSnippet(t *testing.T) {
 	}
 
 	//
-	// Below, we test one more kind of error case: a snippet is requested for a 
+	// Below, we test one more kind of error case: a snippet is requested for a
 	// scan, but the template referenced has the wrong number of pages.
 	//
 

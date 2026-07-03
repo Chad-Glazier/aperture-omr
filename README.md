@@ -85,3 +85,4 @@ The following is a list of known improvements that can be made to the system.
 - Logs are currently printed by directly calling `slog` functions that write to stdout. We should change this so that the logger is on the `ServerResources` struct instead. This way we could conveniently also log errors to a database, a log file, or whatever else.
 - The whole `config` package needs to be refactored or removed entirely. I don't know why I thought it would be a good idea.
 - The tests in `httpserver/handlers` cover the normal path, but they don't exhaust all of the bad inputs. We could make the test suite a little more comprehensive.
+  - Those tests also have a good amount of copy+pasted code, since some handlers depend on others for setup. This can probably be refactored.
