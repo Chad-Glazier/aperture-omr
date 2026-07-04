@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"ubco-team15/omr/internal/httpserver/resources"
 )
 
 //
@@ -93,7 +94,7 @@ func makeMultipartRequest(
 //
 
 func TestPostPreprocessingTemplate_OK(t *testing.T) {
-	s, err := NewServerResources(t)
+	s, err := resources.NewTestingResources(t)
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -170,7 +171,7 @@ func TestPostPreprocessingTemplate_BAD1(t *testing.T) {
 	// but the request only has enough anchors for one.
 	//
 
-	s, err := NewServerResources(t)
+	s, err := resources.NewTestingResources(t)
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -212,7 +213,7 @@ func TestPostPreprocessingTemplate_BAD2(t *testing.T) {
 	// the pages.
 	//
 
-	s, err := NewServerResources(t)
+	s, err := resources.NewTestingResources(t)
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -256,7 +257,7 @@ func TestPostPreprocessingTemplate_BAD2(t *testing.T) {
 
 func TestPostMarkingTemplate_OK(t *testing.T) {
 
-	s, err := NewServerResources(t)
+	s, err := resources.NewTestingResources(t)
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -287,8 +288,3 @@ func TestPostMarkingTemplate_OK(t *testing.T) {
 		t.Fatal("Preprocessing template not found in database")
 	}
 }
-
-//
-// There are a lot more error cases that could be tested, but for now I'm just
-// focusing on the normal path.
-//

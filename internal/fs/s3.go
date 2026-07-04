@@ -26,7 +26,6 @@ package fs
 import (
 	"bytes"
 	"context"
-	"errors"
 	"image"
 	"image/draw"
 	"log/slog"
@@ -166,15 +165,6 @@ func (s *s3Store) ImgSnippet(
 	img, err := s.GetImg(key)
 	if err != nil {
 		return nil, err
-	}
-
-	bounds := img.Bounds()
-
-	if x < bounds.Min.X ||
-		y < bounds.Min.Y ||
-		x+width > bounds.Max.X ||
-		y+height > bounds.Max.Y {
-		return nil, errors.New("requested region outside image bounds")
 	}
 
 	rect := image.Rect(0, 0, width, height)

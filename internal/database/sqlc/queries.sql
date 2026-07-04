@@ -69,9 +69,9 @@ VALUES
 
 -- name: CreateScanPage :exec
 INSERT INTO
-    scan_pages (id, page_index, scan_id)
+    scan_pages (id, color_image_key, page_index, scan_id)
 VALUES
-    (?, ?, ?);
+    (?, ?, ?, ?);
 
 -- name: CountScans :one
 SELECT
@@ -88,3 +88,5 @@ WHERE
     scan_id = ?
 ORDER BY
     page_index ASC;
+
+

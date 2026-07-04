@@ -51,6 +51,7 @@ In keeping with Go conventions, the top-level directories are as follows:
   - [`httpserver`](./internal/httpserver/) contains the handler functions and middleware that make up the HTTP API for the service. We are just using the standard [`net/http`](https://pkg.go.dev/net/http) library since the API should be relatively simple.
     - [`dto`](./internal/httpserver/dto/) contains the data transfer objects (DTOs) for the server. Any complex object that will be sent or received from the server is put there, along with relevant deserialization and validation functions.
     - [`handler`](./internal/httpserver/handler/) includes the bulk of the HTTP server's logic.
+    - [`resources`](./internal/httpserver/resources/) is a package that is solely concerned with implementing the [`ServerResources`](./internal/httpserver/handler/resources.go) interface. The package is very minimal and only exists separately to avoid cyclical dependencies.
   - [`fs`](./internal/fs/) exposes a simple interface for file storage, particularly images. Internally, it currently has two implementations; one wraps the local file system (suitable for testing) and the other wraps an S3 client.
 - [`config`](./config) wraps configuration data.
   - Conventionally, this folder would simply include `.env` files and stuff. However in this project we define it as an actual Go package that's responsible for wrapping configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This also allows us to set environment variables based on the runtime mode (development, production, or test) and validate them when the program starts, instead of postponing potential runtime errors.
@@ -85,3 +86,4 @@ The following is a list of known improvements that can be made to the system.
 - Logs are currently printed by directly calling `slog` functions that write to stdout. We should change this so that the logger is on the `ServerResources` struct instead. This way we could conveniently also log errors to a database, a log file, or whatever else.
 - The whole `config` package needs to be refactored or removed entirely. I don't know why I thought it would be a good idea.
 - The tests in `httpserver/handlers` cover the normal path, but they don't exhaust all of the bad inputs. We could make the test suite a little more comprehensive.
+  - Those tests also have a good amount of copy+pasted code, since some handlers depend on others for setup. This can probably be refactored.

@@ -197,6 +197,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		//
 
 		pageImages := make([]image.Image, pageCount)
+		pageColorImages := make([]image.Image, pageCount)
 		for i, data := range result {
 			buf, err := gocv.IMEncode(gocv.PNGFileExt, data.Binary)
 			if err != nil {
@@ -221,9 +222,37 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			}
 
 			pageImages[i] = img
+
+			//
+			// We also save the regular color version for generating snippets.
+			//
+
+			buf, err = gocv.IMEncode(gocv.PNGFileExt, data.Color)
+			if err != nil {
+				http.Error(
+					w,
+					"error encoding image: "+err.Error(),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+			defer buf.Close()
+
+			r = bytes.NewReader(buf.GetBytes())
+			img, err = png.Decode(r)
+			if err != nil {
+				http.Error(
+					w,
+					"error encoding image: "+err.Error(),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+
+			pageColorImages[i] = img
 		}
 
-		id, err := s.SaveScan(pageImages, templateId)
+		id, err := s.SaveScan(pageImages, pageColorImages, templateId)
 		if err != nil {
 			http.Error(
 				w,

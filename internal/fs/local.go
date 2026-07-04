@@ -5,7 +5,6 @@ package fs
 //
 
 import (
-	"errors"
 	"image"
 	"image/draw"
 	"os"
@@ -70,15 +69,6 @@ func (s *localStore) ImgSnippet(
 	img, err := s.GetImg(key)
 	if err != nil {
 		return nil, err
-	}
-
-	bounds := img.Bounds()
-
-	if x < bounds.Min.X ||
-		y < bounds.Min.Y ||
-		x+width > bounds.Max.X ||
-		y+height > bounds.Max.Y {
-		return nil, errors.New("requested region outside image bounds")
 	}
 
 	rect := image.Rect(0, 0, width, height)

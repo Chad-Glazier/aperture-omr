@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -16,7 +17,18 @@ func decodeImg(r io.Reader) (image.Image, error) {
 	return jpeg.Decode(r)
 }
 
+func encodeImg(w io.Writer, img image.Image) error {
+	return jpeg.Encode(w, img, nil)
+}
+
 const imgType = "image/jpeg"
+
+func sendJson(w http.ResponseWriter, v any) {
+	w.Header().Add("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		http.Error(w, "error writing response", http.StatusInternalServerError)
+	}
+}
 
 //
 // Marking templates
