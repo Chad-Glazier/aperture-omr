@@ -20,12 +20,13 @@ import (
 //
 // This implementation is fully functional, meaning that you can query its
 // database and image stores to verify that data was correctly stored.
-type TestingResources struct {
-	s    Resources
+type testingResources struct {
+	s    defaultResources
 	root string
 }
+var _ ServerResources = (*testingResources)(nil)
 
-func NewTestingResources(t *testing.T) (*TestingResources, error) {
+func NewTestingResources(t *testing.T) (*testingResources, error) {
 	t.Helper()
 
 	db, err := database.Connect(":memory:")
@@ -39,8 +40,8 @@ func NewTestingResources(t *testing.T) (*TestingResources, error) {
 	}
 	store := fs.NewLocalStore(root)
 
-	res := &TestingResources{
-		s: Resources{
+	res := &testingResources{
+		s: defaultResources{
 			DB:    db,
 			Store: store,
 		},
@@ -49,7 +50,7 @@ func NewTestingResources(t *testing.T) (*TestingResources, error) {
 	return res, nil
 }
 
-func (s *TestingResources) Cleanup() {
+func (s *testingResources) Cleanup() {
 	os.RemoveAll(s.root)
 }
 
@@ -57,31 +58,31 @@ func (s *TestingResources) Cleanup() {
 // Delegation calls.
 //
 
-func (r *TestingResources) SaveMarkingTemplate(
+func (r *testingResources) SaveMarkingTemplate(
 	tmpl *dto.MarkingTemplate,
 ) (string, error) {
 	return r.s.SaveMarkingTemplate(tmpl)
 }
 
-func (r *TestingResources) LoadMarkingTemplate(
+func (r *testingResources) LoadMarkingTemplate(
 	id string,
 ) (*dto.MarkingTemplate, error) {
 	return r.s.LoadMarkingTemplate(id)
 }
 
-func (r *TestingResources) SavePreprocessingTemplate(
+func (r *testingResources) SavePreprocessingTemplate(
 	tmpl *dto.PreprocessingTemplate,
 ) (string, error) {
 	return r.s.SavePreprocessingTemplate(tmpl)
 }
 
-func (r *TestingResources) LoadPreprocessingTemplate(
+func (r *testingResources) LoadPreprocessingTemplate(
 	id string,
 ) (*dto.PreprocessingTemplate, error) {
 	return r.s.LoadPreprocessingTemplate(id)
 }
 
-func (r *TestingResources) SaveAnchor(
+func (r *testingResources) SaveAnchor(
 	anchor image.Image,
 	templateId string,
 	pageIdx,
@@ -90,7 +91,7 @@ func (r *TestingResources) SaveAnchor(
 	return r.s.SaveAnchor(anchor, templateId, pageIdx, anchorIdx)
 }
 
-func (r *TestingResources) LoadAnchor(
+func (r *testingResources) LoadAnchor(
 	templateId string,
 	pageIdx,
 	anchorIdx int,
@@ -98,7 +99,7 @@ func (r *TestingResources) LoadAnchor(
 	return r.s.LoadAnchor(templateId, pageIdx, anchorIdx)
 }
 
-func (r *TestingResources) SaveScan(
+func (r *testingResources) SaveScan(
 	pages []image.Image,
 	colorPages []image.Image,
 	templateId string,
@@ -106,17 +107,17 @@ func (r *TestingResources) SaveScan(
 	return r.s.SaveScan(pages, colorPages, templateId)
 }
 
-func (r *TestingResources) LoadScan(scanId string) ([]image.Image, error) {
+func (r *testingResources) LoadScan(scanId string) ([]image.Image, error) {
 	return r.s.LoadScan(scanId)
 }
 
-func (r *TestingResources) LoadColorScan(
+func (r *testingResources) LoadColorScan(
 	scanId string,
 ) ([]image.Image, error) {
 	return r.s.LoadColorScan(scanId)
 }
 
-func (r *TestingResources) LoadSnippet(
+func (r *testingResources) LoadSnippet(
 	scanId,
 	templateId,
 	questionId string,

@@ -11,12 +11,13 @@ import (
 
 	"ubco-team15/omr/internal/fs"
 	"ubco-team15/omr/internal/httpserver/dto"
+	"ubco-team15/omr/internal/httpserver/resources"
 	"ubco-team15/omr/internal/marker"
 
 	"gocv.io/x/gocv"
 )
 
-func PostMarkingJob(s ServerResources) http.HandlerFunc {
+func PostMarkingJob(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		//

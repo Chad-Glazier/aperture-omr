@@ -1,8 +1,11 @@
 package handler
 
-import "net/http"
+import (
+	"net/http"
+	"ubco-team15/omr/internal/httpserver/resources"
+)
 
-func GetSnippet(s ServerResources) http.HandlerFunc {
+func GetSnippet(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		//

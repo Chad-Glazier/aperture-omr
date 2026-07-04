@@ -13,7 +13,7 @@ import (
 
 func Start() {
 
-	res, err := resources.NewServerResources()
+	res, err := resources.NewDefaultResources()
 	if err != nil {
 		slog.Error("error getting server resources", "err", err)
 		os.Exit(1)

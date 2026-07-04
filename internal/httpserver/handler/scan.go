@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"ubco-team15/omr/internal/fs"
+	"ubco-team15/omr/internal/httpserver/resources"
 	"ubco-team15/omr/internal/scanner"
 
 	"gocv.io/x/gocv"
@@ -20,7 +21,7 @@ import (
 // quirks later on.
 //
 
-func PostScan(s ServerResources) http.HandlerFunc {
+func PostScan(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		//
