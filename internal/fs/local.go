@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"compress/lzw"
 	"encoding/binary"
 	"image"
 	"image/draw"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pierrec/lz4/v4"
 	"gocv.io/x/gocv"
 )
 
@@ -113,8 +113,10 @@ func (s *localStore) ImgSnippet(
 //         │      └─────────────── the number of columns
 //         └────────────────────── the number of rows
 //
-// The integers are stored in little endian format. The bytes buffer is 
-// compressed with the LZW algorithm.
+// The integers are stored in little endian format.
+//
+// We could choose to compress the bytes buffer in order to save memory, at
+// the cost of speed, 
 //
 
 func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
@@ -128,10 +130,10 @@ func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
 		return err
 	}
 
-	prefix := make([]byte, 12)
-	binary.Encode(prefix[0:4], binary.LittleEndian, int32(mat.Rows()))
-	binary.Encode(prefix[4:8], binary.LittleEndian, int32(mat.Cols()))
-	binary.Encode(prefix[8:12], binary.LittleEndian, int32(mat.Type()))
+	header := make([]byte, 12)
+	binary.Encode(header[0:4], binary.LittleEndian, int32(mat.Rows()))
+	binary.Encode(header[4:8], binary.LittleEndian, int32(mat.Cols()))
+	binary.Encode(header[8:12], binary.LittleEndian, int32(mat.Type()))
 
 	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
@@ -139,14 +141,14 @@ func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
 	}
 	defer w.Close()
 
-	if _, err := w.Write(prefix); err != nil {
+	if _, err := w.Write(header); err != nil {
 		return err
 	}
 
-	lzwWriter := lzw.NewWriter(w, lzw.LSB, 8)
-	defer lzwWriter.Close()
+	compressedWriter := lz4.NewWriter(w)
+	defer compressedWriter.Close()
 
-	if _, err := lzwWriter.Write(buf); err != nil {
+	if _, err := compressedWriter.Write(buf); err != nil {
 		return err
 	}
 
@@ -161,19 +163,18 @@ func (s *localStore) MatLoad(key string) (*gocv.Mat, error) {
 	}
 	defer f.Close()
 
-	prefix := make([]byte, 12)
-	if _, err := f.Read(prefix); err != nil {
+	header := make([]byte, 12)
+	if _, err := f.Read(header); err != nil {
 		return nil, err
 	}
 	var rows, cols, mt int32
-	binary.Decode(prefix[0:4], binary.LittleEndian, &rows)
-	binary.Decode(prefix[4:8], binary.LittleEndian, &cols)
-	binary.Decode(prefix[8:12], binary.LittleEndian, &mt)
+	binary.Decode(header[0:4], binary.LittleEndian, &rows)
+	binary.Decode(header[4:8], binary.LittleEndian, &cols)
+	binary.Decode(header[8:12], binary.LittleEndian, &mt)
 
-	lzwReader := lzw.NewReader(f, lzw.LSB, 8)
-	defer lzwReader.Close()
+	compressedReader := lz4.NewReader(f)
 
-	buf, err := io.ReadAll(lzwReader)
+	buf, err := io.ReadAll(compressedReader)
 	if err != nil {
 		return nil, err
 	}

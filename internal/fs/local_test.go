@@ -146,3 +146,35 @@ func TestLocalMatSaveLoader(t *testing.T) {
 		}
 	}
 }
+
+//
+// Benchmarks
+//
+
+func BenchmarkLocalMatLoad(b *testing.B) {
+	s := NewLocalStore(b.TempDir())
+
+	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadGrayScale)
+	if mat.Empty() {
+		b.Fatal("failed to read source image")
+	}
+
+	s.MatSave("testkey", &mat)
+
+	for b.Loop() {
+		s.MatLoad("testkey")		
+	}	
+}
+
+func BenchmarkLocalMatSave(b *testing.B) {
+	s := NewLocalStore(b.TempDir())
+
+	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadGrayScale)
+	if mat.Empty() {
+		b.Fatal("failed to read source image")
+	}
+
+	for b.Loop() {
+		s.MatSave("testkey", &mat)	
+	}
+}
