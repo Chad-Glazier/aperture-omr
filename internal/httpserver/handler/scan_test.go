@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"ubco-team15/omr/internal/httpserver/resources"
 )
 
 func TestPostScan(t *testing.T) {
 
-	s, err := resources.NewTestingResources(t)
+	s, err := newTestingResources(t)
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}

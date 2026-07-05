@@ -1,4 +1,4 @@
-package resources
+package handler
 
 import (
 	"image"
@@ -11,7 +11,7 @@ import (
 
 //
 // In this file, we implement a mock version of server resources. To use this
-// in a test you can allocate the resources with NewTestingResources, then
+// in a test you can allocate the resources with newTestingResources, then
 // defer the Cleanup method to remove any temporary files.
 //
 
@@ -24,9 +24,10 @@ type testingResources struct {
 	s    defaultResources
 	root string
 }
+
 var _ ServerResources = (*testingResources)(nil)
 
-func NewTestingResources(t *testing.T) (*testingResources, error) {
+func newTestingResources(t *testing.T) (*testingResources, error) {
 	t.Helper()
 
 	db, err := database.Connect(":memory:")

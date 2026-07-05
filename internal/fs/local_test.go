@@ -4,6 +4,8 @@ import (
 	"image"
 	"os"
 	"testing"
+
+	"gocv.io/x/gocv"
 )
 
 func imageEqual(a, b image.Image) bool {
@@ -24,19 +26,13 @@ func imageEqual(a, b image.Image) bool {
 	return true
 }
 
-func TestLocalStore(t *testing.T) {
+func TestLocalStoreImg(t *testing.T) {
 
 	//
 	// Setup
 	//
 
-	root, err := os.MkdirTemp(".", "omr_test_fs_*")
-	if err != nil {
-		t.Errorf("error creating temporary directory")
-	}
-	defer os.RemoveAll(root)
-
-	store := NewLocalStore(root)
+	store := NewLocalStore(t.TempDir())
 
 	r, err := os.Open("./testdata/sample_image.png")
 	if err != nil {
@@ -101,5 +97,52 @@ func TestLocalStore(t *testing.T) {
 
 	if store.ImgExists(name) {
 		t.Error("image exists after deletion")
+	}
+}
+
+//
+// Test the MatSaveLoader implementation.
+//
+
+func TestLocalMatSaveLoader(t *testing.T) {
+	s := NewLocalStore(t.TempDir())
+
+	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadColor)
+	if mat.Empty() {
+		t.Fatal("failed to read source image")
+	}
+
+	s.MatSave("testkey", &mat)
+
+	loaded, err := s.MatLoad("testkey")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if loaded.Cols() != mat.Cols() {
+		t.Fatalf("expected %d columns, got %d", mat.Cols(), loaded.Cols())
+	}
+
+	if loaded.Rows() != mat.Rows() {
+		t.Fatalf("expected %d rows, got %d", mat.Rows(), loaded.Rows())
+	}
+
+	if loaded.Type() != mat.Type() {
+		t.Fatalf("expected matrix type %d, got %d", mat.Type(), loaded.Type())
+	}
+
+	for i := range mat.Rows() {
+		for j := range mat.Cols() {
+			for k := range mat.Channels() {
+				if mat.GetUCharAt3(i, j, k) != loaded.GetUCharAt3(i, j, k) {
+					t.Fatalf(
+						"expected (%d,%d,%d) to have %d, got %d",
+						i, j, k,
+						mat.GetUCharAt3(i, j, k),
+						loaded.GetUCharAt3(i, j, k),
+					)
+				}
+			}
+		}
 	}
 }

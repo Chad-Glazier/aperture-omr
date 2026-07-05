@@ -5,9 +5,10 @@ storage").
 package fs
 
 import (
+	"errors"
 	"image"
 
-	"github.com/google/uuid"
+	"gocv.io/x/gocv"
 )
 
 // Represents a file store, implementing a map-like interface to save and load
@@ -27,10 +28,18 @@ type Store interface {
 	ImgSnippet(key string, x, y, width, height int) (image.Image, error)
 }
 
-// Adds an image to the store with a newly-generated UUID which is then
-// returned.
-func PutWithUUID(store Store, img image.Image) (string, error) {
-	id := uuid.New().String()
-	err := store.PutImg(id, img)
-	return id, err
+type MatSaveLoader interface {
+	// Saves an OpenCV matrix under the given key. If a matrix already exists
+	// with the given key, it will be overwritten.
+	MatSave(key string, mat *gocv.Mat) error
+
+	// Loads an OpenCV matrix by the given key. If no matrix is associated with
+	// the key, then ErrNotFound is returned.
+	MatLoad(key string) (*gocv.Mat, error)
 }
+
+var (
+	// Represents an error accessing the underlying storage system.
+	ErrStorage  = errors.New("there was an issue accessing the file storage")
+	ErrNotFound = errors.New("the requested resource was not found")
+)

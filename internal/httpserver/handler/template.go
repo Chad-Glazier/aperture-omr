@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"ubco-team15/omr/internal/httpserver/dto"
-	"ubco-team15/omr/internal/httpserver/resources"
 )
 
 const maxUploadSize = 32 * 1024 * 1024 // 32 MB
@@ -35,7 +34,7 @@ func sendJson(w http.ResponseWriter, v any) {
 // Marking templates
 //
 
-func PostMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
+func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		defer r.Body.Close()
@@ -74,7 +73,7 @@ func PostMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
 // Preprocessing templates
 //
 
-func PostPreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
+func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		defer r.Body.Close()

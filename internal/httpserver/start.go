@@ -8,12 +8,11 @@ import (
 	"ubco-team15/omr/config"
 	"ubco-team15/omr/internal/httpserver/handler"
 	"ubco-team15/omr/internal/httpserver/middleware"
-	"ubco-team15/omr/internal/httpserver/resources"
 )
 
 func Start() {
 
-	res, err := resources.NewDefaultResources()
+	res, err := handler.NewDefaultResources()
 	if err != nil {
 		slog.Error("error getting server resources", "err", err)
 		os.Exit(1)
