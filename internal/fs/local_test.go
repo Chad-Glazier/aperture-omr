@@ -107,7 +107,7 @@ func TestLocalStoreImg(t *testing.T) {
 func TestLocalMatSaveLoader(t *testing.T) {
 	s := NewLocalStore(t.TempDir())
 
-	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadColor)
+	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadGrayScale)
 	if mat.Empty() {
 		t.Fatal("failed to read source image")
 	}

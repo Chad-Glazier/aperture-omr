@@ -39,7 +39,5 @@ type MatSaveLoader interface {
 }
 
 var (
-	// Represents an error accessing the underlying storage system.
-	ErrStorage  = errors.New("there was an issue accessing the file storage")
 	ErrNotFound = errors.New("the requested resource was not found")
 )

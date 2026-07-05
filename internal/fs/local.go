@@ -1,9 +1,11 @@
 package fs
 
 import (
+	"compress/lzw"
 	"encoding/binary"
 	"image"
 	"image/draw"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -100,18 +102,19 @@ func (s *localStore) ImgSnippet(
 // OpenCV matrices have the following data that needs to be stored in order to
 // recreate them:
 // - the rows and columns in the matrix,
-// - the (integer) type flag, and
+// - the matrix type flag, and
 // - the bytes that store the data.
 // In order to store this data, we will write the it into a binary file,
 // writing the values for the matrix in the order that they are listed above.
 //
 //        [int32][int32][int32][bytes...]
-//         │      │      │      └─ the bytes buffer for the matrix.
+//         │      │      │      └─ the bytes buffer for the matrix
 //         │      │      └──────── the matrix type flag
 //         │      └─────────────── the number of columns
 //         └────────────────────── the number of rows
 //
-// The int32's are stored in little endian format.
+// The integers are stored in little endian format. The bytes buffer is 
+// compressed with the LZW algorithm.
 //
 
 func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
@@ -132,15 +135,19 @@ func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
 
 	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
-		return ErrStorage
+		return err
 	}
 	defer w.Close()
 
 	if _, err := w.Write(prefix); err != nil {
-		return ErrStorage
+		return err
 	}
-	if _, err := w.Write(buf); err != nil {
-		return ErrStorage
+
+	lzwWriter := lzw.NewWriter(w, lzw.LSB, 8)
+	defer lzwWriter.Close()
+
+	if _, err := lzwWriter.Write(buf); err != nil {
+		return err
 	}
 
 	return nil
@@ -148,21 +155,34 @@ func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
 
 func (s *localStore) MatLoad(key string) (*gocv.Mat, error) {
 
-	buf, err := os.ReadFile(filepath.Join(s.root, key))
+	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
-		return nil, ErrStorage
+		return nil, err
 	}
+	defer f.Close()
 
+	prefix := make([]byte, 12)
+	if _, err := f.Read(prefix); err != nil {
+		return nil, err
+	}
 	var rows, cols, mt int32
-	binary.Decode(buf[0:4], binary.LittleEndian, &rows)
-	binary.Decode(buf[4:8], binary.LittleEndian, &cols)
-	binary.Decode(buf[8:12], binary.LittleEndian, &mt)
+	binary.Decode(prefix[0:4], binary.LittleEndian, &rows)
+	binary.Decode(prefix[4:8], binary.LittleEndian, &cols)
+	binary.Decode(prefix[8:12], binary.LittleEndian, &mt)
+
+	lzwReader := lzw.NewReader(f, lzw.LSB, 8)
+	defer lzwReader.Close()
+
+	buf, err := io.ReadAll(lzwReader)
+	if err != nil {
+		return nil, err
+	}
 
 	mat, err := gocv.NewMatFromBytes(
 		int(rows),
 		int(cols),
 		gocv.MatType(mt),
-		buf[12:],
+		buf,
 	)
 	if err != nil {
 		return nil, err
