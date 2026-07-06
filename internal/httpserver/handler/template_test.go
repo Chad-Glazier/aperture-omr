@@ -19,6 +19,19 @@ import (
 //go:embed testdata/*
 var testData embed.FS
 
+// assertErrorCode checks that rr holds a JSON error body (see errors.go)
+// with the given code.
+func assertErrorCode(t *testing.T, rr *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	var body errorBody
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("error response wasn't valid JSON: %s (body=%s)", err.Error(), rr.Body.String())
+	}
+	if body.Code != want {
+		t.Fatalf("error code=%q, want %q (message=%q)", body.Code, want, body.Message)
+	}
+}
+
 type multipartImage struct {
 	name     string
 	filename string

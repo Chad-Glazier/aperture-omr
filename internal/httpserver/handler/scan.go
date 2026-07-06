@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -29,19 +30,17 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		templateId := r.URL.Query().Get("template")
 		if templateId == "" {
-			http.Error(
-				w,
+			writeError(
+				w, http.StatusBadRequest, ErrCodeInvalidRequest,
 				"template query parameter is missing",
-				http.StatusBadRequest,
 			)
 			return
 		}
 		template, err := s.LoadPreprocessingTemplate(templateId)
 		if err != nil {
-			http.Error(
-				w,
+			writeError(
+				w, http.StatusNotFound, ErrCodeTemplateNotFound,
 				"template "+templateId+" not found",
-				http.StatusNotFound,
 			)
 			return
 		}
@@ -57,39 +56,36 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 				anchor, err := s.LoadAnchor(templateId, pageIdx, anchorIdx)
 				if err != nil {
-					http.Error(
-						w,
+					writeError(
+						w, http.StatusInternalServerError, ErrCodeInternal,
 						fmt.Sprintf(
 							"error loading anchor page%danchor%d for %s",
 							pageIdx, anchorIdx, templateId,
 						),
-						http.StatusInternalServerError,
 					)
 					return
 				}
 
 				buf := bytes.Buffer{}
 				if err := fs.EncodeImg(&buf, anchor); err != nil {
-					http.Error(
-						w,
+					writeError(
+						w, http.StatusInternalServerError, ErrCodeInternal,
 						fmt.Sprintf(
 							"error loading anchor page%danchor%d for %s",
 							pageIdx, anchorIdx, templateId,
 						),
-						http.StatusInternalServerError,
 					)
 					return
 				}
 
 				mat, err := gocv.IMDecode(buf.Bytes(), gocv.IMReadColor)
 				if err != nil {
-					http.Error(
-						w,
+					writeError(
+						w, http.StatusInternalServerError, ErrCodeInternal,
 						fmt.Sprintf(
 							"error decoding anchor page%danchor%d for %s",
 							pageIdx, anchorIdx, templateId,
 						),
-						http.StatusInternalServerError,
 					)
 					return
 				}
@@ -110,7 +106,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		defer r.Body.Close()
 		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-			http.Error(w, "invalid multipart form", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid multipart form")
 			return
 		}
 
@@ -118,14 +114,13 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		for pageIdx := range template.Pages {
 			f, _, err := r.FormFile(fmt.Sprintf("page%d", pageIdx))
 			if err != nil {
-				http.Error(
-					w,
+				writeError(
+					w, http.StatusBadRequest, ErrCodePageCountMismatch,
 					fmt.Sprintf(
 						"expected page%d on the request "+
 							"(the preprocessing template has %d pages)",
 						pageIdx, pageCount,
 					),
-					http.StatusBadRequest,
 				)
 				return
 			}
@@ -184,11 +179,18 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		result, err := scanner.Scan(pageScans, tmpl)
 		if err != nil {
-			http.Error(
-				w,
-				"error during preprocessing: "+err.Error(),
-				http.StatusInternalServerError,
-			)
+			var qerr *scanner.QualityError
+			if errors.As(err, &qerr) {
+				writeError(
+					w, http.StatusBadRequest, ErrCodeLowScanQuality,
+					"scan quality issue: "+err.Error(),
+				)
+			} else {
+				writeError(
+					w, http.StatusInternalServerError, ErrCodeInternal,
+					"error during preprocessing: "+err.Error(),
+				)
+			}
 			return
 		}
 
@@ -201,10 +203,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		for i, data := range result {
 			buf, err := gocv.IMEncode(gocv.PNGFileExt, data.Binary)
 			if err != nil {
-				http.Error(
-					w,
+				writeError(
+					w, http.StatusInternalServerError, ErrCodeInternal,
 					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
 				)
 				return
 			}
@@ -213,10 +214,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			r := bytes.NewReader(buf.GetBytes())
 			img, err := png.Decode(r)
 			if err != nil {
-				http.Error(
-					w,
+				writeError(
+					w, http.StatusInternalServerError, ErrCodeInternal,
 					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
 				)
 				return
 			}
@@ -229,10 +229,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 			buf, err = gocv.IMEncode(gocv.PNGFileExt, data.Color)
 			if err != nil {
-				http.Error(
-					w,
+				writeError(
+					w, http.StatusInternalServerError, ErrCodeInternal,
 					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
 				)
 				return
 			}
@@ -241,10 +240,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			r = bytes.NewReader(buf.GetBytes())
 			img, err = png.Decode(r)
 			if err != nil {
-				http.Error(
-					w,
+				writeError(
+					w, http.StatusInternalServerError, ErrCodeInternal,
 					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
 				)
 				return
 			}
@@ -254,10 +252,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		id, err := s.SaveScan(pageImages, pageColorImages, templateId)
 		if err != nil {
-			http.Error(
-				w,
+			writeError(
+				w, http.StatusInternalServerError, ErrCodeInternal,
 				"error saving preprocessed scans: "+err.Error(),
-				http.StatusInternalServerError,
 			)
 			return
 		}

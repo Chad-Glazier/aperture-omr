@@ -10,6 +10,20 @@ import (
 	"gocv.io/x/gocv"
 )
 
+// QualityError marks a failure caused by the scanned image itself — too
+// small, corrupt, misaligned, or too skewed/faint to find its anchors —
+// rather than a bug or bad template config. Callers use errors.As to tell
+// "ask for a rescan" apart from "something broke on our end".
+type QualityError struct {
+	msg string
+}
+
+func (e *QualityError) Error() string { return e.msg }
+
+func newQualityError(format string, args ...any) error {
+	return &QualityError{msg: fmt.Sprintf(format, args...)}
+}
+
 type ScanData struct {
 	Color  gocv.Mat
 	Binary gocv.Mat
@@ -112,15 +126,15 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 	}
 	img, err := gocv.IMDecode(buf, gocv.IMReadColor)
 	if err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
+		return nil, newQualityError("decode: %s", err.Error())
 	}
 	if img.Empty() {
 		img.Close()
-		return nil, fmt.Errorf("decoded image is empty")
+		return nil, newQualityError("decoded image is empty")
 	}
 	if img.Cols() <= 100 || img.Rows() <= 100 {
 		img.Close()
-		return nil, fmt.Errorf("image dimensions too small: %dx%d", img.Cols(), img.Rows())
+		return nil, newQualityError("image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
 	data := &ScanData{
@@ -245,7 +259,7 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	transform := gocv.EstimateAffine2D(srcVec, dstVec)
 	defer transform.Close()
 	if transform.Empty() {
-		return fmt.Errorf("could not estimate affine transform from anchor points")
+		return newQualityError("could not estimate affine transform from anchor points")
 	}
 
 	gocv.WarpAffine(src.Color, &warped.Color, transform, targetSize)
@@ -300,7 +314,7 @@ func findAnchorCenter(
 	}
 
 	if bestValue < minConfidence {
-		return image.Point{}, fmt.Errorf(
+		return image.Point{}, newQualityError(
 			"confidence %.2f below threshold %.2f", bestValue, minConfidence)
 	}
 
