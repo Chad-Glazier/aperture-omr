@@ -171,7 +171,7 @@ func TestPostPreprocessingTemplate_OK(t *testing.T) {
 			t.Fatalf(
 				"only found %d saved anchors for page %d, expected %d",
 				len(savedAnchors[i]), i, anchorsPerPage,
-			)		
+			)
 		}
 	}
 }

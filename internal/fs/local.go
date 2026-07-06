@@ -24,7 +24,7 @@ func NewLocalImageStore(rootDir string) (ImageStore, error) {
 		return nil, err
 	}
 
-	return &localImageStore{ root: rootDir },  nil
+	return &localImageStore{root: rootDir}, nil
 }
 
 func (s *localImageStore) Get(key string) (image.Image, error) {
@@ -78,13 +78,13 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 		return nil, err
 	}
 
-	return &localMatStore{ root: rootDir }, nil
+	return &localMatStore{root: rootDir}, nil
 }
 
 //
 // Rather than storing OpenCV matrices as images, which requires inefficient
-// encoding/decoding, we can store them a bit more neatly by just using the 
-// underlying byte buffer that OpenCV stores. The file format we use is 
+// encoding/decoding, we can store them a bit more neatly by just using the
+// underlying byte buffer that OpenCV stores. The file format we use is
 // described below.
 //
 // OpenCV matrices have the following data that needs to be stored in order to
@@ -92,7 +92,7 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 // - the rows and columns in the matrix,
 // - the matrix type flag, and
 // - the bytes that store the data.
-// In order to store this data, we will write it into a binary file that 
+// In order to store this data, we will write it into a binary file that
 // includes the dimensions and matrix type as part of a header.
 //
 //        [int32][int32][int32][bytes...]
@@ -101,7 +101,7 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 //         │      └─────────────── the number of columns
 //         └────────────────────── the number of rows
 //
-// The integers are stored in little endian format and the bytes buffer is 
+// The integers are stored in little endian format and the bytes buffer is
 // compressed with the LZ4 algorithm.
 //
 

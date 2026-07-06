@@ -121,9 +121,9 @@ func BenchmarkLocalMatLoad(b *testing.B) {
 	s.Set("testkey", &mat)
 
 	for b.Loop() {
-		mat, _ := s.Get("testkey")	
-		mat.Close()	
-	}	
+		mat, _ := s.Get("testkey")
+		mat.Close()
+	}
 }
 
 func BenchmarkLocalMatSave(b *testing.B) {
@@ -139,6 +139,6 @@ func BenchmarkLocalMatSave(b *testing.B) {
 	defer mat.Close()
 
 	for b.Loop() {
-		s.Set("testkey", &mat)	
+		s.Set("testkey", &mat)
 	}
 }

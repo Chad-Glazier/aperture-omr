@@ -152,7 +152,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 				if err != nil {
 					http.Error(
 						w,
-						"error preprocessing anchor " + fileKey + ": ",
+						"error preprocessing anchor "+fileKey+": ",
 						http.StatusInternalServerError,
 					)
 					return

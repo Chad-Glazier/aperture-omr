@@ -36,7 +36,7 @@ func (ctx *context) exec(op func() error) {
 }
 
 type Anchor struct {
-	Image  *gocv.Mat        `json:"-"`
+	Image  *gocv.Mat       `json:"-"`
 	Path   string          `json:"path"`
 	ROI    image.Rectangle `json:"roi"`
 	Center image.Point     `json:"center"`

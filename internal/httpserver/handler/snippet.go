@@ -156,9 +156,6 @@ package handler
 
 // 	// from the resource function
 
-
-
-
 // 	// from the test function
 
 // 	snippetSize := 400

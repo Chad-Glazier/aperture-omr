@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"io"
 	"bytes"
 	"context"
 	"encoding/json"
 	"image"
+	"io"
 
 	"ubco-team15/omr/internal/database"
 	"ubco-team15/omr/internal/database/sqlc"
@@ -161,7 +161,7 @@ func (s *defaultResources) LoadMarkingTemplate(
 	buf := bytes.NewReader(record.Json)
 	lz4Decoder := lz4.NewReader(buf)
 	jsonDecoder := json.NewDecoder(lz4Decoder)
-	
+
 	tmpl := &dto.MarkingTemplate{}
 	if err := jsonDecoder.Decode(tmpl); err != nil {
 		return nil, err
@@ -226,8 +226,8 @@ func (s *defaultResources) LoadPreprocessingTemplate(
 //
 
 func (s *defaultResources) SaveAnchor(
-	mat *gocv.Mat, 
-	templateId string, 
+	mat *gocv.Mat,
+	templateId string,
 	pageIdx, anchorIdx int,
 ) error {
 
@@ -289,7 +289,7 @@ func (s *defaultResources) LoadAnchors(
 //
 // Scans
 //
-// Scans used for processing are stored as matrices. Each scan also needs a 
+// Scans used for processing are stored as matrices. Each scan also needs a
 // matching colored image for producing snippets.
 //
 
@@ -362,14 +362,14 @@ func (s *defaultResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 }
 
 func (s *defaultResources) LoadColorScan(
-	scanId string, 
+	scanId string,
 	pageIdx int,
 ) (image.Image, error) {
 
 	page, err := s.DB.GetScanPage(
-		context.Background(), 
+		context.Background(),
 		sqlc.GetScanPageParams{
-			ScanID: scanId,
+			ScanID:    scanId,
 			PageIndex: int64(pageIdx),
 		},
 	)
@@ -381,6 +381,6 @@ func (s *defaultResources) LoadColorScan(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return img, nil
 }

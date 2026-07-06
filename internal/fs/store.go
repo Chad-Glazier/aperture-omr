@@ -15,7 +15,7 @@ var (
 	ErrNotFound = errors.New("the requested resource was not found")
 )
 
-// Represents an image store, implementing a map-like interface to save and 
+// Represents an image store, implementing a map-like interface to save and
 // load images to persistent storage.
 type ImageStore interface {
 	// Retrieves an image from the store with the given key.
@@ -24,15 +24,15 @@ type ImageStore interface {
 	// pre-existing image with the same key will be overwritten.
 	Set(key string, img image.Image) error
 	// Works the same as Set, except it stores the raw bytes and assumes that
-	// they represent an image that is correctly encoded with the format 
-	// specified by ImgContentType. It is strongly recommended that image 
+	// they represent an image that is correctly encoded with the format
+	// specified by ImgContentType. It is strongly recommended that image
 	// encoding is verified in some way before calling this function.
 	SetBytes(key string, buf []byte) error
 	// Deletes an image from the store.
 	Delete(key string) error
 }
 
-// Represents an OpenCV matrix store, implementing a map-like interface to 
+// Represents an OpenCV matrix store, implementing a map-like interface to
 // save and load matrices to/from persistent storage.
 type MatStore interface {
 	// Saves an OpenCV matrix under the given key. If a matrix already exists

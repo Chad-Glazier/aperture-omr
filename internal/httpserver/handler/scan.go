@@ -44,7 +44,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		if err != nil {
 			http.Error(
 				w,
-				"error retrieving anchors: " + err.Error(),
+				"error retrieving anchors: "+err.Error(),
 				http.StatusNotFound,
 			)
 		}
