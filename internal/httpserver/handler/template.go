@@ -9,6 +9,9 @@ import (
 	"net/http"
 
 	"ubco-team15/omr/internal/httpserver/dto"
+	"ubco-team15/omr/internal/scanner"
+
+	"gocv.io/x/gocv"
 )
 
 const maxUploadSize = 32 * 1024 * 1024 // 32 MB
@@ -93,10 +96,6 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		// Note: It's possible for the template to be saved and then later have
-		// the anchors fail. This isn't a major bug (it won't cause runtime
-		// errors), but it should be fixed later.
-
 		templateId, err := s.SavePreprocessingTemplate(tmpl)
 		if err != nil {
 			http.Error(
@@ -104,6 +103,14 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 				http.StatusInternalServerError,
 			)
 			return
+		}
+
+		binarizeConf := &scanner.Config{
+			BlurSize:            tmpl.Config.BlurSize,
+			MorphCloseSize:      tmpl.Config.MorphCloseSize,
+			MinAnchorConfidence: float32(tmpl.Config.MinAnchorConfidence),
+			AdaptiveBlockSize:   tmpl.Config.AdaptiveBlockSize,
+			AdaptiveC:           float32(tmpl.Config.AdaptiveC),
 		}
 
 		for i := range tmpl.Pages {
@@ -120,20 +127,38 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 				}
 				defer f.Close()
 
-				img, err := decodeImg(f)
+				buf, err := io.ReadAll(f)
 				if err != nil {
 					http.Error(
 						w,
-						fileKey+
-							" should be in "+
-							imgType+
-							" format",
-						http.StatusBadRequest,
+						"unexpected read error: "+err.Error(),
+						http.StatusInternalServerError,
 					)
 					return
 				}
 
-				if err := s.SaveAnchor(img, templateId, i, j); err != nil {
+				mat, err := gocv.IMDecode(buf, gocv.IMReadColor)
+				if err != nil {
+					http.Error(
+						w,
+						"failed to decode "+fileKey+" as an image",
+						http.StatusBadRequest,
+					)
+					return
+				}
+				defer mat.Close()
+
+				err = scanner.Binarize(&mat, &mat, binarizeConf)
+				if err != nil {
+					http.Error(
+						w,
+						"error preprocessing anchor " + fileKey + ": ",
+						http.StatusInternalServerError,
+					)
+					return
+				}
+
+				if err := s.SaveAnchor(&mat, templateId, i, j); err != nil {
 					http.Error(
 						w,
 						fmt.Sprintf(

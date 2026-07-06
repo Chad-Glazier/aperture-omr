@@ -40,9 +40,9 @@ colour-corrected first page before marking.`,
 			}
 		}()
 
-		binaries := make([]gocv.Mat, len(pages))
+		binaries := make([]*gocv.Mat, len(pages))
 		for i, p := range pages {
-			binaries[i] = p.Binary
+			binaries[i] = &p.Binary
 		}
 
 		result := doMark(binaries, markTmplPath)

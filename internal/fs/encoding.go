@@ -10,24 +10,27 @@ import (
 	"image"
 	"io"
 
-	"image/png"
+	"image/jpeg"
+
+	"gocv.io/x/gocv"
 )
 
 // The MIME type of the image encoding used by this package. This might be
 // useful if, for example, you want to pipe an image through an HTTP response
 // and you want to set the right Content-Type header.
-const ImgContentType = "image/png"
+const ImgContentType = "image/jpeg"
 
-const ImgFileExt = ".png"
+const ImgFileExt = ".jpg"
+const OpenCVImgExt gocv.FileExt = gocv.JPEGFileExt
 
 // Encodes an image and writes it to the given destination. The encoding
 // method matches the format specified by ImgContentType.
 func EncodeImg(w io.Writer, img image.Image) error {
-	return png.Encode(w, img)
+	return jpeg.Encode(w, img, nil)
 }
 
 // Decodes an image and returns it. The decoding method matches the image
 // format specified by ImgContentType.
 func DecodeImg(r io.Reader) (image.Image, error) {
-	return png.Decode(r)
+	return jpeg.Decode(r)
 }

@@ -1,24 +1,14 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
 	"image"
-	"image/png"
 	"io"
 	"net/http"
-	"ubco-team15/omr/internal/fs"
 	"ubco-team15/omr/internal/scanner"
 
 	"gocv.io/x/gocv"
 )
-
-//
-// NOTE: Some parts of this function are kind of hacky. I plan to fix this by
-// slightly refactoring the interface of the `scanner` package in a couple ways.
-// Also, ignore the excessive image encoding/decoding. I'm going to fix those
-// quirks later on.
-//
 
 func PostScan(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -50,58 +40,13 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		// Load the template's anchors.
 		//
 
-		pageCount := len(template.Pages)
-		anchors := make([][]gocv.Mat, pageCount)
-		for pageIdx := range template.Pages {
-			for anchorIdx := range template.Pages[pageIdx].Anchors {
-
-				anchor, err := s.LoadAnchor(templateId, pageIdx, anchorIdx)
-				if err != nil {
-					http.Error(
-						w,
-						fmt.Sprintf(
-							"error loading anchor page%danchor%d for %s",
-							pageIdx, anchorIdx, templateId,
-						),
-						http.StatusInternalServerError,
-					)
-					return
-				}
-
-				buf := bytes.Buffer{}
-				if err := fs.EncodeImg(&buf, anchor); err != nil {
-					http.Error(
-						w,
-						fmt.Sprintf(
-							"error loading anchor page%danchor%d for %s",
-							pageIdx, anchorIdx, templateId,
-						),
-						http.StatusInternalServerError,
-					)
-					return
-				}
-
-				mat, err := gocv.IMDecode(buf.Bytes(), gocv.IMReadColor)
-				if err != nil {
-					http.Error(
-						w,
-						fmt.Sprintf(
-							"error decoding anchor page%danchor%d for %s",
-							pageIdx, anchorIdx, templateId,
-						),
-						http.StatusInternalServerError,
-					)
-					return
-				}
-
-				scanner.Binarize(&mat, &mat, &scanner.Config{
-					BlurSize:            template.Config.BlurSize,
-					MorphCloseSize:      template.Config.MorphCloseSize,
-					MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
-				})
-
-				anchors[pageIdx] = append(anchors[pageIdx], mat)
-			}
+		anchors, err := s.LoadAnchors(templateId)
+		if err != nil {
+			http.Error(
+				w,
+				"error retrieving anchors: " + err.Error(),
+				http.StatusNotFound,
+			)
 		}
 
 		//
@@ -114,8 +59,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			return
 		}
 
+		pageCount := len(template.Pages)
 		pageScans := make([]io.Reader, pageCount)
-		for pageIdx := range template.Pages {
+		for pageIdx := range pageCount {
 			f, _, err := r.FormFile(fmt.Sprintf("page%d", pageIdx))
 			if err != nil {
 				http.Error(
@@ -196,60 +142,12 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		// Save the results.
 		//
 
-		pageImages := make([]image.Image, pageCount)
-		pageColorImages := make([]image.Image, pageCount)
+		pageImages := make([]*gocv.Mat, pageCount)
+		pageColorImages := make([]*gocv.Mat, pageCount)
 		for i, data := range result {
-			buf, err := gocv.IMEncode(gocv.PNGFileExt, data.Binary)
-			if err != nil {
-				http.Error(
-					w,
-					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
-				)
-				return
-			}
-			defer buf.Close()
-
-			r := bytes.NewReader(buf.GetBytes())
-			img, err := png.Decode(r)
-			if err != nil {
-				http.Error(
-					w,
-					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			pageImages[i] = img
-
-			//
-			// We also save the regular color version for generating snippets.
-			//
-
-			buf, err = gocv.IMEncode(gocv.PNGFileExt, data.Color)
-			if err != nil {
-				http.Error(
-					w,
-					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
-				)
-				return
-			}
-			defer buf.Close()
-
-			r = bytes.NewReader(buf.GetBytes())
-			img, err = png.Decode(r)
-			if err != nil {
-				http.Error(
-					w,
-					"error encoding image: "+err.Error(),
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			pageColorImages[i] = img
+			pageImages[i] = &data.Binary
+			pageColorImages[i] = &data.Color
+			defer data.Close()
 		}
 
 		id, err := s.SaveScan(pageImages, pageColorImages, templateId)

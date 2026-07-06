@@ -9,11 +9,11 @@ import (
 
 func TestPostScan(t *testing.T) {
 
-	s, err := newTestingResources(t)
+	s, err := NewDefaultResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
-	defer s.Cleanup()
+	defer s.Close()
 
 	//
 	// Uploading scans requires that we first have a preprocessing template.

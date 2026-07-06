@@ -93,11 +93,12 @@ func makeMultipartRequest(
 //
 
 func TestPostPreprocessingTemplate_OK(t *testing.T) {
-	s, err := newTestingResources(t)
+
+	s, err := NewDefaultResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
-	defer s.Cleanup()
+	defer s.Close()
 
 	req, err := makeMultipartRequest(
 		t,
@@ -151,14 +152,26 @@ func TestPostPreprocessingTemplate_OK(t *testing.T) {
 		t.Fatal("Preprocessing template not found in database")
 	}
 
+	savedAnchors, err := s.LoadAnchors(templateId)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	const pageCount = 2
 	const anchorsPerPage = 3
 
-	for i := range pageCount {
-		for j := range anchorsPerPage {
-			if _, err := s.LoadAnchor(templateId, i, j); err != nil {
-				t.Fatalf("expected page%danchor%d was not found", i, j)
-			}
+	if len(savedAnchors) != pageCount {
+		t.Fatalf(
+			"only found saved anchors for %d page(s), expected %d",
+			len(savedAnchors), pageCount,
+		)
+	}
+	for i := range savedAnchors {
+		if len(savedAnchors[i]) != anchorsPerPage {
+			t.Fatalf(
+				"only found %d saved anchors for page %d, expected %d",
+				len(savedAnchors[i]), i, anchorsPerPage,
+			)		
 		}
 	}
 }
@@ -170,11 +183,11 @@ func TestPostPreprocessingTemplate_BAD1(t *testing.T) {
 	// but the request only has enough anchors for one.
 	//
 
-	s, err := newTestingResources(t)
+	s, err := NewDefaultResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
-	defer s.Cleanup()
+	defer s.Close()
 
 	req, err := makeMultipartRequest(
 		t,
@@ -212,11 +225,11 @@ func TestPostPreprocessingTemplate_BAD2(t *testing.T) {
 	// the pages.
 	//
 
-	s, err := newTestingResources(t)
+	s, err := NewDefaultResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
-	defer s.Cleanup()
+	defer s.Close()
 
 	req, err := makeMultipartRequest(
 		t,
@@ -256,11 +269,11 @@ func TestPostPreprocessingTemplate_BAD2(t *testing.T) {
 
 func TestPostMarkingTemplate_OK(t *testing.T) {
 
-	s, err := newTestingResources(t)
+	s, err := NewDefaultResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
-	defer s.Cleanup()
+	defer s.Close()
 
 	req, err := makeJsonRequest(t, "testdata/marking_template.json")
 	if err != nil {
@@ -284,6 +297,7 @@ func TestPostMarkingTemplate_OK(t *testing.T) {
 	}
 
 	if _, err := s.LoadMarkingTemplate(templateId); err != nil {
+		t.Log(err)
 		t.Fatal("Preprocessing template not found in database")
 	}
 }

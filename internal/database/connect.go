@@ -26,18 +26,16 @@ func initialize(db *sql.DB) error {
 	return nil
 }
 
-func Connect(databaseFilepath string) (Querier, error) {
+func Connect(databaseFilepath string) (Querier, *sql.DB, error) {
 
 	db, err := sql.Open("sqlite", databaseFilepath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if !initialized || databaseFilepath == ":memory:" {
-		if err := initialize(db); err != nil {
-			return nil, err
-		}
+	if err := initialize(db); err != nil {
+		return nil, nil, err
 	}
 
-	return sqlc.New(db), nil
+	return sqlc.New(db), db, nil
 }

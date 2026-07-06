@@ -12,11 +12,12 @@ import (
 
 func Start() {
 
-	res, err := handler.NewDefaultResources()
+	res, err := handler.NewDefaultResources("data")
 	if err != nil {
 		slog.Error("error getting server resources", "err", err)
 		os.Exit(1)
 	}
+	defer res.Close()
 
 	mux := http.NewServeMux()
 
@@ -28,7 +29,7 @@ func Start() {
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
 	mux.HandleFunc("POST /scan", handler.PostScan(res))
 	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
-	mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
+	// mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
 
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Recovery(httpHandler)

@@ -1,75 +1,65 @@
 package handler
 
 import (
-	"image"
-
-	"ubco-team15/omr/internal/httpserver/dto"
-
+	"io"
+	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"math"
+	"image"
+
 	"ubco-team15/omr/internal/database"
 	"ubco-team15/omr/internal/database/sqlc"
 	"ubco-team15/omr/internal/fs"
+	"ubco-team15/omr/internal/httpserver/dto"
 
 	"github.com/google/uuid"
+	"github.com/pierrec/lz4/v4"
+	"gocv.io/x/gocv"
 )
 
-// A union interface that presents all resources that an HTTP handler should
-// have access to.
+// A interface that presents all resources that an HTTP handler should have
+// access to.
 type ServerResources interface {
-	MarkingTemplateSaveLoader
-	PreprocessingTemplateSaveLoader
-	AnchorSaveLoader
-	ScanSaveLoader
-	SnippetLoader
-}
+	// Closes all connections.
+	Close() error
 
-type MarkingTemplateSaveLoader interface {
 	// Saves a marking template and returns the new ID for it.
 	SaveMarkingTemplate(tmpl *dto.MarkingTemplate) (string, error)
 
 	// Loads a marking template and returns the new ID for it.
 	LoadMarkingTemplate(id string) (*dto.MarkingTemplate, error)
-}
 
-type PreprocessingTemplateSaveLoader interface {
 	// Saves a preprocessing template and returns the new ID for it.
 	SavePreprocessingTemplate(tmpl *dto.PreprocessingTemplate) (string, error)
 
 	// Loads a preprocessing template and returns the ID for it.
 	LoadPreprocessingTemplate(id string) (*dto.PreprocessingTemplate, error)
-}
 
-type AnchorSaveLoader interface {
-	// Saves an anchor image and returns the new ID for it.
-	SaveAnchor(anchor image.Image, templateId string, pageIdx, anchorIdx int) error
+	// Loads anchor matrices. To get the i-th page's j-th index, you would
+	// index [i][j] from the returned slice.
+	LoadAnchors(templateId string) ([][]*gocv.Mat, error)
 
-	// Loads an anchor image.
-	LoadAnchor(templateId string, pageIdx, anchorIdx int) (image.Image, error)
-}
+	// Saves the given anchor matrix.
+	SaveAnchor(
+		anchors *gocv.Mat,
+		templateId string,
+		pageIdx, anchorIdx int,
+	) error
 
-type ScanSaveLoader interface {
 	// Saves a preprocessed scan via a slice of images where each image
 	// represents a page. The preprocessing template ID is also included for
 	// the sake of debugging. Returns an ID for the scan.
 	SaveScan(
-		pages []image.Image,
-		colorPages []image.Image,
+		pages []*gocv.Mat,
+		colorPages []*gocv.Mat,
 		templateId string,
 	) (string, error)
 
 	// Loads a preprocessed scan's pages.
-	LoadScan(scanId string) ([]image.Image, error)
+	LoadScan(scanId string) ([]*gocv.Mat, error)
 
-	// Loads a preprocessed scan's color pages.
-	LoadColorScan(scanId string) ([]image.Image, error)
-}
-
-type SnippetLoader interface {
-	// Loads an image snippet that isolates a question on the given scan.
-	LoadSnippet(scanId, templateId, questionId string) (image.Image, error)
+	// Loads a page from a scan.
+	LoadColorScan(scanId string, pageIdx int) (image.Image, error)
 }
 
 //
@@ -77,47 +67,79 @@ type SnippetLoader interface {
 //
 
 type defaultResources struct {
-	DB    database.Querier
-	Store fs.Store
+	DBCnx  io.Closer
+	DB     database.Querier
+	Images fs.ImageStore
+	Mats   fs.MatStore
 }
 
 var _ ServerResources = (*defaultResources)(nil)
 
 // An implementation of ServerResources that uses a default SQLite database and
 // stores files locally. All data (i.e., the SQLite file and the root directory
-// for stored files) will be stored in ./data.
-func NewDefaultResources() (*defaultResources, error) {
-	// In the future we can consider changing this to ":memory:" during
-	// testing in order to avoid a cleanup step. This only works for SQLite
-	// though.
-	db, err := database.Connect("data/database.sqlite3")
+// for stored files) will be stored in the specified root.
+func NewDefaultResources(rootDir string) (*defaultResources, error) {
+
+	db, cnx, err := database.Connect(rootDir + "/database.sqlite3")
 	if err != nil {
 		return nil, err
 	}
 
-	store := fs.NewLocalStore("data/images")
+	images, err := fs.NewLocalImageStore(rootDir + "/images")
+	if err != nil {
+		return nil, err
+	}
+
+	mats, err := fs.NewLocalMatStore(rootDir + "/matrices")
+	if err != nil {
+		return nil, err
+	}
 
 	res := &defaultResources{
-		DB:    db,
-		Store: store,
+		DBCnx:  cnx,
+		DB:     db,
+		Images: images,
+		Mats:   mats,
 	}
 	return res, nil
 }
 
+func (s *defaultResources) Close() error {
+	return s.DBCnx.Close()
+}
+
+//
+// Marking Templates
+//
+// Marking templates are often very large (~150KB), primarily due to their JSON
+// format. We can save ~90% of this storage with minimal performance overhead
+// by using LZ4 compression.
+//
+
 func (s *defaultResources) SaveMarkingTemplate(
 	tmpl *dto.MarkingTemplate,
 ) (string, error) {
-	id := uuid.New()
-	jsonStr, err := json.Marshal(tmpl)
-	if err != nil {
+
+	buf := bytes.Buffer{}
+	lz4Encoder := lz4.NewWriter(&buf)
+	jsonEncoder := json.NewEncoder(lz4Encoder)
+
+	if err := jsonEncoder.Encode(tmpl); err != nil {
+		lz4Encoder.Close()
 		return "", err
 	}
 
-	err = s.DB.CreateMarkingTemplate(
+	if err := lz4Encoder.Close(); err != nil {
+		return "", err
+	}
+
+	id := uuid.New()
+
+	err := s.DB.CreateMarkingTemplate(
 		context.Background(),
 		sqlc.CreateMarkingTemplateParams{
 			ID:   id.String(),
-			Json: string(jsonStr),
+			Json: buf.Bytes(),
 		},
 	)
 	if err != nil {
@@ -136,17 +158,29 @@ func (s *defaultResources) LoadMarkingTemplate(
 		return nil, err
 	}
 
+	buf := bytes.NewReader(record.Json)
+	lz4Decoder := lz4.NewReader(buf)
+	jsonDecoder := json.NewDecoder(lz4Decoder)
+	
 	tmpl := &dto.MarkingTemplate{}
-	if err := json.Unmarshal([]byte(record.Json), tmpl); err != nil {
+	if err := jsonDecoder.Decode(tmpl); err != nil {
 		return nil, err
 	}
 
 	return tmpl, nil
 }
 
+//
+// Preprocessing Templates
+//
+// Unlike marking templates, preprocessing templates are a lot more modest in
+// size. We just store the uncompressed JSON.
+//
+
 func (s *defaultResources) SavePreprocessingTemplate(
 	tmpl *dto.PreprocessingTemplate,
 ) (string, error) {
+
 	id := uuid.New()
 	jsonStr, err := json.Marshal(tmpl)
 	if err != nil {
@@ -184,12 +218,21 @@ func (s *defaultResources) LoadPreprocessingTemplate(
 	return tmpl, nil
 }
 
+//
+// Anchors
+//
+// Anchors are stored as matrices. These methods just straightforwardly call
+// the MatStore methods.
+//
+
 func (s *defaultResources) SaveAnchor(
-	img image.Image, templateId string, pageIdx, anchorIdx int,
+	mat *gocv.Mat, 
+	templateId string, 
+	pageIdx, anchorIdx int,
 ) error {
 
-	id := uuid.New().String() + fs.ImgFileExt
-	if err := s.Store.PutImg(id, img); err != nil {
+	id := uuid.New().String() + ".m4t"
+	if err := s.Mats.Set(id, mat); err != nil {
 		return err
 	}
 
@@ -203,40 +246,56 @@ func (s *defaultResources) SaveAnchor(
 		},
 	)
 	if err != nil {
-		s.Store.DeleteImg(id)
+		s.Mats.Delete(id)
 		return err
 	}
 
 	return nil
 }
 
-func (s *defaultResources) LoadAnchor(
-	templateId string, pageIdx, anchorIdx int,
-) (image.Image, error) {
+func (s *defaultResources) LoadAnchors(
+	templateId string,
+) ([][]*gocv.Mat, error) {
 
-	anchor, err := s.DB.GetOneAnchorForTemplate(
+	anchorRecords, err := s.DB.GetAnchorsForTemplate(
 		context.Background(),
-		sqlc.GetOneAnchorForTemplateParams{
-			TemplateID:  templateId,
-			PageIndex:   int64(pageIdx),
-			AnchorIndex: int64(anchorIdx),
-		},
+		templateId,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	img, err := s.Store.GetImg(anchor.ID)
-	if err != nil {
-		return nil, err
+	mats := make([][]*gocv.Mat, 0, 2)
+	for _, record := range anchorRecords {
+
+		// The query will sort the anchors by ascending page index and then
+		// anchor index. That's the reason this loop works as intended.
+
+		anchor, err := s.Mats.Get(record.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if record.AnchorIndex == 0 {
+			mats = append(mats, make([]*gocv.Mat, 0, 4))
+		}
+		mats[record.PageIndex] = append(mats[record.PageIndex], anchor)
+
 	}
 
-	return img, nil
+	return mats, nil
 }
 
+//
+// Scans
+//
+// Scans used for processing are stored as matrices. Each scan also needs a 
+// matching colored image for producing snippets.
+//
+
 func (s *defaultResources) SaveScan(
-	pages []image.Image,
-	colorPages []image.Image,
+	pages []*gocv.Mat,
+	colorPages []*gocv.Mat,
 	templateId string,
 ) (string, error) {
 
@@ -251,13 +310,19 @@ func (s *defaultResources) SaveScan(
 
 	for i := range pages {
 
-		pageId := uuid.New().String() + fs.ImgFileExt
-		if err := s.Store.PutImg(pageId, pages[i]); err != nil {
+		pageId := uuid.New().String() + ".m4t"
+		if err := s.Mats.Set(pageId, pages[i]); err != nil {
 			return "", err
 		}
 
 		colorPageId := uuid.New().String() + fs.ImgFileExt
-		if err := s.Store.PutImg(colorPageId, colorPages[i]); err != nil {
+		colorPageBuf, err := gocv.IMEncode(fs.OpenCVImgExt, *colorPages[i])
+		if err != nil {
+			return "", err
+		}
+
+		err = s.Images.SetBytes(colorPageId, colorPageBuf.GetBytes())
+		if err != nil {
 			return "", err
 		}
 
@@ -278,128 +343,44 @@ func (s *defaultResources) SaveScan(
 	return scanId, nil
 }
 
-func (s *defaultResources) LoadScan(scanId string) ([]image.Image, error) {
+func (s *defaultResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 	records, err := s.DB.GetScanPages(context.Background(), scanId)
 	if err != nil {
 		return nil, err
 	}
 
-	images := make([]image.Image, len(records))
+	mats := make([]*gocv.Mat, len(records))
 	for i, record := range records {
-		img, err := s.Store.GetImg(record.ID)
+		mat, err := s.Mats.Get(record.ID)
 		if err != nil {
 			return nil, err
 		}
-		images[i] = img
+		mats[i] = mat
 	}
 
-	return images, nil
+	return mats, nil
 }
 
-func (s *defaultResources) LoadColorScan(scanId string) ([]image.Image, error) {
-	records, err := s.DB.GetScanPages(context.Background(), scanId)
-	if err != nil {
-		return nil, err
-	}
-
-	images := make([]image.Image, len(records))
-	for i, record := range records {
-		img, err := s.Store.GetImg(record.ColorImageKey)
-		if err != nil {
-			return nil, err
-		}
-		images[i] = img
-	}
-
-	return images, nil
-}
-
-func (s *defaultResources) LoadSnippet(
-	scanId,
-	templateId,
-	questionId string,
+func (s *defaultResources) LoadColorScan(
+	scanId string, 
+	pageIdx int,
 ) (image.Image, error) {
 
-	//
-	// Get the database records.
-	//
-
-	record, err := s.DB.GetMarkingTemplate(context.Background(), templateId)
+	page, err := s.DB.GetScanPage(
+		context.Background(), 
+		sqlc.GetScanPageParams{
+			ScanID: scanId,
+			PageIndex: int64(pageIdx),
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
-	tmpl, err := dto.ParseMarkingTemplate([]byte(record.Json))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing template from database")
-	}
 
-	scanRecords, err := s.DB.GetScanPages(context.Background(), scanId)
+	img, err := s.Images.Get(page.ColorImageKey)
 	if err != nil {
 		return nil, err
 	}
-	if len(scanRecords) != len(tmpl.Pages) {
-		return nil, fmt.Errorf(
-			"mismatch between template page count and scan page count",
-		)
-	}
-
-	//
-	// Find the question in the template.
-	//
-
-	var targetPageIdx int
-	var targetQuestion *dto.Question
-	for pageIdx := range tmpl.Pages {
-		for _, question := range tmpl.Pages[pageIdx].Questions {
-			if question.ID == questionId {
-				targetPageIdx = pageIdx
-				targetQuestion = &question
-				break
-			}
-		}
-	}
-	if targetQuestion == nil {
-		return nil, fmt.Errorf("question %s not found", questionId)
-	}
-
-	//
-	// Determine the question's bounds in terms of pixels.
-	//
-
-	var (
-		minX = math.MaxInt
-		minY = math.MaxInt
-		maxX = 0
-		maxY = 0
-	)
-	for _, option := range targetQuestion.Options {
-
-		// Note: the X,Y coordinates of an option define the center of it.
-		// In order to get its bounds, we need to add/subtract half of the
-		// bubble's respective dimension size.
-
-		minX = min(minX, option.X-targetQuestion.BubbleWidth/2)
-		minY = min(minY, option.Y-targetQuestion.BubbleHeight/2)
-		maxX = max(maxX, option.X+targetQuestion.BubbleWidth/2)
-		maxY = max(maxY, option.Y+targetQuestion.BubbleHeight/2)
-
-	}
-
-	const padding = 10
-	minX -= padding
-	maxX += padding
-	minY -= padding
-	maxY += padding
-
-	//
-	// Load the image for the page and build the snippet.
-	//
-
-	return s.Store.ImgSnippet(
-		// Scan records are already ordered by page index.
-		scanRecords[targetPageIdx].ColorImageKey,
-		minX, minY,
-		maxX-minX, maxY-minY,
-	)
-
+	
+	return img, nil
 }

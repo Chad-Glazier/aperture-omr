@@ -25,7 +25,7 @@ corrected and binarized (e.g. by the preprocess command), one per page in order.
 			return fmt.Errorf("resolve template path: %w", err)
 		}
 
-		imgs := make([]gocv.Mat, len(args)-1)
+		imgs := make([]*gocv.Mat, len(args)-1)
 		for i, p := range args[1:] {
 			resolved, err := resolve(p)
 			if err != nil {
@@ -34,7 +34,8 @@ corrected and binarized (e.g. by the preprocess command), one per page in order.
 				}
 				return fmt.Errorf("resolve image path: %w", err)
 			}
-			imgs[i] = gocv.IMRead(resolved, gocv.IMReadGrayScale)
+			mat := gocv.IMRead(resolved, gocv.IMReadGrayScale)
+			imgs[i] = &mat
 			if imgs[i].Empty() {
 				for j := 0; j < i; j++ {
 					imgs[j].Close()
@@ -57,7 +58,7 @@ func init() {
 }
 
 // doMark evaluates imgs against the mark template at tmplPath and prints the report.
-func doMark(imgs []gocv.Mat, tmplPath string) error {
+func doMark(imgs []*gocv.Mat, tmplPath string) error {
 	tmpl, err := loadMarkTemplate(tmplPath)
 	if err != nil {
 		return err

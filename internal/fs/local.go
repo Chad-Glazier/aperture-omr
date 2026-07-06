@@ -3,7 +3,6 @@ package fs
 import (
 	"encoding/binary"
 	"image"
-	"image/draw"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,30 +12,22 @@ import (
 )
 
 //
-// This file implements the Store interface by using local storage.
+// Local ImageStore implementation.
 //
 
-type localStore struct {
-	// The root directory of the storage.
-	root string
+type localImageStore struct {
+	root string // The path to the root directory of the store.
 }
 
-var _ Store = (*localStore)(nil)
-var _ MatSaveLoader = (*localStore)(nil)
-
-// Opens the named root directory as a local file store.
-func NewLocalStore(root string) *localStore {
-	return &localStore{
-		root: root,
+func NewLocalImageStore(rootDir string) (ImageStore, error) {
+	if err := os.MkdirAll(rootDir, 0755); err != nil {
+		return nil, err
 	}
+
+	return &localImageStore{ root: rootDir },  nil
 }
 
-func (s *localStore) ImgExists(key string) bool {
-	_, err := os.Stat(filepath.Join(s.root, key))
-	return err == nil
-}
-
-func (s *localStore) GetImg(key string) (image.Image, error) {
+func (s *localImageStore) Get(key string) (image.Image, error) {
 	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
 		return nil, err
@@ -51,11 +42,7 @@ func (s *localStore) GetImg(key string) (image.Image, error) {
 	return img, nil
 }
 
-func (s *localStore) PutImg(key string, img image.Image) error {
-	if err := os.MkdirAll(s.root, 0755); err != nil {
-		return err
-	}
-
+func (s *localImageStore) Set(key string, img image.Image) error {
 	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
 		return err
@@ -66,46 +53,47 @@ func (s *localStore) PutImg(key string, img image.Image) error {
 	return err
 }
 
-func (s *localStore) DeleteImg(key string) error {
+func (s *localImageStore) SetBytes(key string, buf []byte) error {
+	return os.WriteFile(
+		filepath.Join(s.root, key),
+		buf,
+		0755,
+	)
+}
+
+func (s *localImageStore) Delete(key string) error {
 	return os.Remove(filepath.Join(s.root, key))
 }
 
-func (s *localStore) ImgSnippet(
-	key string,
-	x, y, width, height int,
-) (image.Image, error) {
-	img, err := s.GetImg(key)
-	if err != nil {
+//
+// Local MatStore implementation.
+//
+
+type localMatStore struct {
+	root string // The path to the root directory of the store.
+}
+
+func NewLocalMatStore(rootDir string) (MatStore, error) {
+	if err := os.MkdirAll(rootDir, 0755); err != nil {
 		return nil, err
 	}
 
-	rect := image.Rect(0, 0, width, height)
-
-	cropped := image.NewRGBA(rect)
-
-	draw.Draw(
-		cropped,
-		rect,
-		img,
-		image.Point{X: x, Y: y},
-		draw.Src,
-	)
-
-	return cropped, nil
+	return &localMatStore{ root: rootDir }, nil
 }
 
 //
-// MatSaveLoader implementation.
-//
-
+// Rather than storing OpenCV matrices as images, which requires inefficient
+// encoding/decoding, we can store them a bit more neatly by just using the 
+// underlying byte buffer that OpenCV stores. The file format we use is 
+// described below.
 //
 // OpenCV matrices have the following data that needs to be stored in order to
 // recreate them:
 // - the rows and columns in the matrix,
 // - the matrix type flag, and
 // - the bytes that store the data.
-// In order to store this data, we will write the it into a binary file,
-// writing the values for the matrix in the order that they are listed above.
+// In order to store this data, we will write it into a binary file that 
+// includes the dimensions and matrix type as part of a header.
 //
 //        [int32][int32][int32][bytes...]
 //         │      │      │      └─ the bytes buffer for the matrix
@@ -113,17 +101,11 @@ func (s *localStore) ImgSnippet(
 //         │      └─────────────── the number of columns
 //         └────────────────────── the number of rows
 //
-// The integers are stored in little endian format.
-//
-// We could choose to compress the bytes buffer in order to save memory, at
-// the cost of speed, 
+// The integers are stored in little endian format and the bytes buffer is 
+// compressed with the LZ4 algorithm.
 //
 
-func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
-
-	if err := os.MkdirAll(s.root, 0755); err != nil {
-		return err
-	}
+func (s *localMatStore) Set(key string, mat *gocv.Mat) error {
 
 	buf, err := mat.DataPtrUint8()
 	if err != nil {
@@ -155,8 +137,7 @@ func (s *localStore) MatSave(key string, mat *gocv.Mat) error {
 	return nil
 }
 
-func (s *localStore) MatLoad(key string) (*gocv.Mat, error) {
-
+func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
 	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
 		return nil, err
@@ -190,4 +171,8 @@ func (s *localStore) MatLoad(key string) (*gocv.Mat, error) {
 	}
 
 	return &mat, nil
+}
+
+func (s *localMatStore) Delete(key string) error {
+	return os.Remove(filepath.Join(s.root, key))
 }

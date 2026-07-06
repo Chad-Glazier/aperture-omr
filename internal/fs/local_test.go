@@ -1,123 +1,79 @@
 package fs
 
 import (
-	"image"
 	"os"
 	"testing"
 
 	"gocv.io/x/gocv"
 )
 
-func imageEqual(a, b image.Image) bool {
-	bounds := a.Bounds()
+//
+// Tests
+//
 
-	if !bounds.Eq(b.Bounds()) {
-		return false
+func TestLocalImageStore(t *testing.T) {
+
+	store, err := NewLocalImageStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			if a.At(x, y) != b.At(x, y) {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func TestLocalStoreImg(t *testing.T) {
-
-	//
-	// Setup
-	//
-
-	store := NewLocalStore(t.TempDir())
-
-	r, err := os.Open("./testdata/sample_image.png")
+	r, err := os.Open("./testdata/sample_image.jpg")
 	if err != nil {
 		t.Error("error reading test image: " + err.Error())
 	}
+	defer r.Close()
+
 	srcImg, err := DecodeImg(r)
 	if err != nil {
 		t.Error("error decoding test image: " + err.Error())
 	}
 
-	//
-	// Testing
-	//
+	name := "sample.jpg"
 
-	name := "sample.png"
-
-	if store.ImgExists(name) {
+	if img, _ := store.Get(name); img != nil {
 		t.Error("image already exists in store")
 	}
 
-	err = store.PutImg(name, srcImg)
+	err = store.Set(name, srcImg)
 	if err != nil {
 		t.Error("error putting image: " + err.Error())
 	}
 
-	if !store.ImgExists(name) {
-		t.Error("image does not exist in store after being put")
-	}
-
-	img, err := store.GetImg(name)
-	if err != nil {
+	if _, err := store.Get(name); err != nil {
 		t.Error("error getting image: " + err.Error())
 	}
 
-	if !imageEqual(srcImg, img) {
-		t.Error("expected put image to equal source image")
-	}
-
-	snippetSize := 400
-	snippet, err := store.ImgSnippet(name, 20, 20, snippetSize, snippetSize)
-	if err != nil {
-		t.Error("error creating snippet: " + err.Error())
-	}
-
-	bounds := snippet.Bounds()
-	if bounds.Dx() != snippetSize {
-		t.Errorf("expected snippet width of %d, got %d", snippetSize, bounds.Dx())
-	}
-	if bounds.Dy() != snippetSize {
-		t.Errorf("expected snippet height of %d, got %d", snippetSize, bounds.Dy())
-	}
-
-	err = store.PutImg("snippet.png", snippet)
-	if err != nil {
-		t.Error("error putting snippet: " + err.Error())
-	}
-
-	err = store.DeleteImg(name)
+	err = store.Delete(name)
 	if err != nil {
 		t.Error("error deleting image: " + err.Error())
 	}
 
-	if store.ImgExists(name) {
+	if img, _ := store.Get(name); img != nil {
 		t.Error("image exists after deletion")
 	}
 }
 
-//
-// Test the MatSaveLoader implementation.
-//
+func TestLocalMatStore(t *testing.T) {
 
-func TestLocalMatSaveLoader(t *testing.T) {
-	s := NewLocalStore(t.TempDir())
-
-	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadGrayScale)
-	if mat.Empty() {
-		t.Fatal("failed to read source image")
-	}
-
-	s.MatSave("testkey", &mat)
-
-	loaded, err := s.MatLoad("testkey")
+	s, err := NewLocalMatStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	mat := gocv.IMRead("testdata/sample_image.jpg", gocv.IMReadGrayScale)
+	if mat.Empty() {
+		t.Fatal("failed to read source image")
+	}
+	defer mat.Close()
+
+	s.Set("testkey", &mat)
+
+	loaded, err := s.Get("testkey")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer loaded.Close()
 
 	if loaded.Cols() != mat.Cols() {
 		t.Fatalf("expected %d columns, got %d", mat.Cols(), loaded.Cols())
@@ -152,29 +108,37 @@ func TestLocalMatSaveLoader(t *testing.T) {
 //
 
 func BenchmarkLocalMatLoad(b *testing.B) {
-	s := NewLocalStore(b.TempDir())
+	s, err := NewLocalMatStore(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadGrayScale)
 	if mat.Empty() {
 		b.Fatal("failed to read source image")
 	}
 
-	s.MatSave("testkey", &mat)
+	s.Set("testkey", &mat)
 
 	for b.Loop() {
-		s.MatLoad("testkey")		
+		mat, _ := s.Get("testkey")	
+		mat.Close()	
 	}	
 }
 
 func BenchmarkLocalMatSave(b *testing.B) {
-	s := NewLocalStore(b.TempDir())
+	s, err := NewLocalMatStore(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	mat := gocv.IMRead("testdata/sample_image.png", gocv.IMReadGrayScale)
 	if mat.Empty() {
 		b.Fatal("failed to read source image")
 	}
+	defer mat.Close()
 
 	for b.Loop() {
-		s.MatSave("testkey", &mat)	
+		s.Set("testkey", &mat)	
 	}
 }

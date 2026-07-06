@@ -13,7 +13,7 @@ type Anchor struct {
 
 type MarkingTemplate struct {
 	ID   string
-	Json string
+	Json []byte
 }
 
 type PreprocessingTemplate struct {

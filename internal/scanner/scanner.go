@@ -36,7 +36,7 @@ func (ctx *context) exec(op func() error) {
 }
 
 type Anchor struct {
-	Image  gocv.Mat        `json:"-"`
+	Image  *gocv.Mat        `json:"-"`
 	Path   string          `json:"path"`
 	ROI    image.Rectangle `json:"roi"`
 	Center image.Point     `json:"center"`
@@ -283,7 +283,7 @@ func findAnchorCenter(
 		matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
 		rotated := gocv.NewMat()
 
-		gocv.WarpAffine(anchor.Image, &rotated, matrix, size)
+		gocv.WarpAffine(*anchor.Image, &rotated, matrix, size)
 		matrix.Close()
 
 		result := gocv.NewMat()
@@ -313,7 +313,7 @@ func findAnchorCenter(
 // scaleAnchorTemplate resizes the anchor PNG to the size it occupies in the
 // scanned image (src), given the template coordinate space (target). The caller
 // must Close the returned Mat.
-func scaleAnchorTemplate(tmpl gocv.Mat, src, target image.Point) gocv.Mat {
+func scaleAnchorTemplate(tmpl *gocv.Mat, src, target image.Point) *gocv.Mat {
 	newW := int(float64(tmpl.Cols())*float64(src.X)/float64(target.X) + 0.5)
 	newH := int(float64(tmpl.Rows())*float64(src.Y)/float64(target.Y) + 0.5)
 	if newW < 1 {
@@ -323,8 +323,8 @@ func scaleAnchorTemplate(tmpl gocv.Mat, src, target image.Point) gocv.Mat {
 		newH = 1
 	}
 	scaled := gocv.NewMat()
-	gocv.Resize(tmpl, &scaled, image.Pt(newW, newH), 0, 0, gocv.InterpolationLinear)
-	return scaled
+	gocv.Resize(*tmpl, &scaled, image.Pt(newW, newH), 0, 0, gocv.InterpolationLinear)
+	return &scaled
 }
 
 // ROI coordinates are defined relative to the target image so that they
@@ -381,17 +381,17 @@ func LoadTemplate(
 	return &tmpl, nil
 }
 
-func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
+func loadAnchorFromReader(r io.Reader, conf *Config) (*gocv.Mat, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return gocv.Mat{}, fmt.Errorf("read: %w", err)
+		return nil, fmt.Errorf("read: %w", err)
 	}
 	img, err := gocv.IMDecode(data, gocv.IMReadColor)
 	if err != nil {
-		return gocv.Mat{}, fmt.Errorf("decode: %w", err)
+		return nil, fmt.Errorf("decode: %w", err)
 	}
 	if img.Empty() {
-		return gocv.Mat{}, fmt.Errorf("decoded image is empty")
+		return nil, fmt.Errorf("decoded image is empty")
 	}
 
 	// Cap adaptive block size to below the anchor's smallest dimension.
@@ -416,7 +416,7 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
 
 	if err := Binarize(&img, &img, &anchorConf); err != nil {
 		img.Close()
-		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
+		return nil, fmt.Errorf("binarize: %w", err)
 	}
-	return img, nil
+	return &img, nil
 }

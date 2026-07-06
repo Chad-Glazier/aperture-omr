@@ -49,7 +49,10 @@ SELECT
 FROM
     anchors
 WHERE
-    template_id = ?;
+    template_id = ?
+ORDER BY
+    page_index ASC,
+    anchor_index ASC;
 
 -- name: GetOneAnchorForTemplate :one
 SELECT
@@ -89,4 +92,12 @@ WHERE
 ORDER BY
     page_index ASC;
 
-
+-- name: GetScanPage :one
+SELECT 
+    *
+FROM
+    scan_pages
+WHERE
+    scan_id = ? AND
+    page_index = ?
+LIMIT 1;

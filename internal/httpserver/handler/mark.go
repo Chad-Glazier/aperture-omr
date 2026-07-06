@@ -1,15 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
-	"image"
 	"io"
 	"net/http"
 	"sync"
 	"time"
 
-	"ubco-team15/omr/internal/fs"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/marker"
 
@@ -115,7 +112,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		wg := sync.WaitGroup{}
 		for i, scan := range scans {
 			wg.Go(func() {
-				marks, err := markScan(tmpl, &scan)
+				marks, err := markScan(tmpl, scan)
 				if err != nil {
 					results.Errors = append(
 						results.Errors,
@@ -148,7 +145,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 
 type scan struct {
 	id    string
-	pages []image.Image
+	pages []*gocv.Mat
 }
 
 type marks []struct {
@@ -157,7 +154,7 @@ type marks []struct {
 	selected   []string
 }
 
-func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
+func markScan(tmpl *dto.MarkingTemplate, scan scan) (marks, error) {
 
 	//
 	// Translate the template into the marker package's format.
@@ -191,27 +188,10 @@ func markScan(tmpl *dto.MarkingTemplate, scan *scan) (marks, error) {
 	}
 
 	//
-	// Translate the images into matrices.
-	//
-
-	mats := make([]gocv.Mat, len(scan.pages))
-	for i, img := range scan.pages {
-		buf := bytes.Buffer{}
-		if err := fs.EncodeImg(&buf, img); err != nil {
-			return nil, err
-		}
-		mat, err := gocv.IMDecode(buf.Bytes(), gocv.IMReadGrayScale)
-		if err != nil {
-			return nil, err
-		}
-		mats[i] = mat
-	}
-
-	//
 	// Do the marking.
 	//
 
-	result, err := marker.Evaluate(mats, &template)
+	result, err := marker.Evaluate(scan.pages, &template)
 	if err != nil {
 		return nil, err
 	}

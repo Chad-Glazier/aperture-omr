@@ -75,7 +75,7 @@ VALUES
 
 type CreateMarkingTemplateParams struct {
 	ID   string
-	Json string
+	Json []byte
 }
 
 func (q *Queries) CreateMarkingTemplate(ctx context.Context, arg CreateMarkingTemplateParams) error {
@@ -148,6 +148,9 @@ FROM
     anchors
 WHERE
     template_id = ?
+ORDER BY
+    page_index ASC,
+    anchor_index ASC
 `
 
 func (q *Queries) GetAnchorsForTemplate(ctx context.Context, templateID string) ([]Anchor, error) {
@@ -236,6 +239,34 @@ func (q *Queries) GetPreprocessingTemplate(ctx context.Context, id string) (Prep
 	row := q.db.QueryRowContext(ctx, getPreprocessingTemplate, id)
 	var i PreprocessingTemplate
 	err := row.Scan(&i.ID, &i.Json)
+	return i, err
+}
+
+const getScanPage = `-- name: GetScanPage :one
+SELECT 
+    id, color_image_key, page_index, scan_id
+FROM
+    scan_pages
+WHERE
+    scan_id = ? AND
+    page_index = ?
+LIMIT 1
+`
+
+type GetScanPageParams struct {
+	ScanID    string
+	PageIndex int64
+}
+
+func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanPage, error) {
+	row := q.db.QueryRowContext(ctx, getScanPage, arg.ScanID, arg.PageIndex)
+	var i ScanPage
+	err := row.Scan(
+		&i.ID,
+		&i.ColorImageKey,
+		&i.PageIndex,
+		&i.ScanID,
+	)
 	return i, err
 }
 
