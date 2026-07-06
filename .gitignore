@@ -5,3 +5,4 @@
 data/images/
 data/matrices/
 *.sqlite3
+*.prof

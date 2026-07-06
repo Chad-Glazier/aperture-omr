@@ -190,3 +190,9 @@ func TestPostScan(t *testing.T) {
 		t.Fatal("scan pages failed to load")
 	}
 }
+
+//
+// Benchmarks
+//
+
+

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"log"
 
 	"gocv.io/x/gocv"
+	"golang.org/x/sync/errgroup"
 )
 
 type ScanData struct {
@@ -90,26 +90,38 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 		return nil, fmt.Errorf("template has %d page(s), got %d image(s)", n, len(readers))
 	}
 	results := make([]*ScanData, n)
+	
+	wg := errgroup.Group{}
 	for i, r := range readers {
-		data, err := scanPage(r, tmpl, i)
-		if err != nil {
-			for j := range i {
-				results[j].Close()
+		wg.Go(func() error {
+			buf, err := io.ReadAll(r)
+			if err != nil {
+				for j := range i {
+					results[j].Close()
+				}
+				return fmt.Errorf("page %d: %w", i, err)
 			}
-			return nil, fmt.Errorf("page %d: %w", i, err)
-		}
-		results[i] = data
+			data, err := scanPage(buf, tmpl, i)
+			if err != nil {
+				for j := range i {
+					results[j].Close()
+				}
+				return fmt.Errorf("page %d: %w", i, err)
+			}
+			results[i] = data		
+			return nil	
+		})
 	}
+	if err := wg.Wait(); err != nil {
+		return nil, err
+	}
+	
 	return results, nil
 }
 
 // scanPage runs a single reader through the preprocessing pipeline using the
 // anchors for page idx.
-func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
-	}
+func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 	img, err := gocv.IMDecode(buf, gocv.IMReadColor)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
@@ -218,7 +230,6 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 		if err != nil {
 			return fmt.Errorf("anchor %d: %w", i, err)
 		}
-		log.Printf("anchor %d: found at %v → dst %v", i, pt, anchors[i].Center)
 
 		srcPts[i] = pt
 		dstPts[i] = anchors[i].Center
@@ -265,43 +276,83 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 }
 
 func findAnchorCenter(
-	binary gocv.Mat, anchor Anchor, minConfidence float32,
+	binary gocv.Mat, 
+	anchor Anchor, 
+	minConfidence float32,
 ) (image.Point, error) {
-	roi := binary.Region(anchor.ROI)
-	defer roi.Close()
 
-	mask := gocv.NewMat()
+	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())	
+
+	var (
+		center = image.Pt(size.X/2, size.Y/2)
+		bestValue float32
+		bestLocation image.Point	
+			
+		rotated = gocv.NewMat()
+		result = gocv.NewMat()
+		roi = binary.Region(anchor.ROI)
+		mask = gocv.NewMat()
+	)
+	defer rotated.Close()
+	defer result.Close()
+	defer roi.Close()
 	defer mask.Close()
 
-	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())
+	const (
+		earlyBreakConfidence = 0.99
+		coarseningIterations = 3
+		coarseningFactor     = 2.0
+		anglesPerIteration   = 3
+		initialMiddle        = 0.0
+		initialBreadth       = 10.0
+	)
 
-	var bestValue float32
-	var bestLocation image.Point
-	center := image.Pt(size.X/2, size.Y/2)
+	var (
+		middle  = initialMiddle
+		breadth = initialBreadth
+		angles  = [anglesPerIteration]float64{}
+	)
+	for range coarseningIterations {
 
-	for angle := -5.0; angle <= 5.0; angle += 0.5 {
-		matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
-		rotated := gocv.NewMat()
-
-		gocv.WarpAffine(*anchor.Image, &rotated, matrix, size)
-		matrix.Close()
-
-		result := gocv.NewMat()
-		gocv.MatchTemplate(roi, rotated, &result, gocv.TmCcoeffNormed, mask)
-		_, value, _, location := gocv.MinMaxLoc(result)
-
-		result.Close()
-		rotated.Close()
-
-		if value > bestValue {
-			bestValue = value
-			bestLocation = location
+		delta := breadth / float64(anglesPerIteration-1)
+		lo := middle - breadth/2
+		for i := range angles {
+			angles[i] = lo + float64(i) * delta
 		}
+		bestAngle := middle
+
+		for _, angle := range angles {
+			matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
+
+			gocv.WarpAffine(*anchor.Image, &rotated, matrix, size)
+			matrix.Close()
+
+			gocv.MatchTemplate(roi, rotated, &result, gocv.TmCcoeffNormed, mask)
+			_, value, _, location := gocv.MinMaxLoc(result)
+
+			if value > bestValue {
+				bestValue = value
+				bestLocation = location
+				bestAngle = angle
+			}
+
+			if value > earlyBreakConfidence {
+				bestValue = value
+				bestLocation = location
+				break
+			}
+		}
+
+		middle = bestAngle
+		breadth /= coarseningFactor		
 	}
 
 	if bestValue < minConfidence {
 		return image.Point{}, fmt.Errorf(
-			"confidence %.2f below threshold %.2f", bestValue, minConfidence)
+			"confidence %.2f below threshold %.2f", 
+			bestValue, 
+			minConfidence,
+		)
 	}
 
 	return image.Pt(

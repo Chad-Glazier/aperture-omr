@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"image"
@@ -13,7 +12,6 @@ import (
 	"ubco-team15/omr/internal/httpserver/dto"
 
 	"github.com/google/uuid"
-	"github.com/pierrec/lz4/v4"
 	"gocv.io/x/gocv"
 )
 
@@ -120,26 +118,18 @@ func (s *defaultResources) SaveMarkingTemplate(
 	tmpl *dto.MarkingTemplate,
 ) (string, error) {
 
-	buf := bytes.Buffer{}
-	lz4Encoder := lz4.NewWriter(&buf)
-	jsonEncoder := json.NewEncoder(lz4Encoder)
-
-	if err := jsonEncoder.Encode(tmpl); err != nil {
-		lz4Encoder.Close()
-		return "", err
-	}
-
-	if err := lz4Encoder.Close(); err != nil {
+	buf, err := json.Marshal(tmpl)
+	if err != nil {
 		return "", err
 	}
 
 	id := uuid.New()
 
-	err := s.DB.CreateMarkingTemplate(
+	err = s.DB.CreateMarkingTemplate(
 		context.Background(),
 		sqlc.CreateMarkingTemplateParams{
 			ID:   id.String(),
-			Json: buf.Bytes(),
+			Json: buf,
 		},
 	)
 	if err != nil {
@@ -158,12 +148,8 @@ func (s *defaultResources) LoadMarkingTemplate(
 		return nil, err
 	}
 
-	buf := bytes.NewReader(record.Json)
-	lz4Decoder := lz4.NewReader(buf)
-	jsonDecoder := json.NewDecoder(lz4Decoder)
-
 	tmpl := &dto.MarkingTemplate{}
-	if err := jsonDecoder.Decode(tmpl); err != nil {
+	if err := json.Unmarshal(record.Json, tmpl); err != nil {
 		return nil, err
 	}
 

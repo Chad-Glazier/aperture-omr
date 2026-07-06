@@ -3,6 +3,9 @@ package scanner
 import (
 	"image"
 	"image/color"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -198,5 +201,45 @@ func TestFindAnchorCenter(t *testing.T) {
 				t.Errorf("expected center %v, got %v", expectedCenter, pt)
 			}
 		})
+	}
+}
+
+//
+// Benchmarks
+//
+
+func BenchmarkScan(b *testing.B) {
+
+	f, err := os.Open("testdata/template.json")
+	if err != nil {
+		b.Fatalf("open template: %v", err)
+	}
+	defer f.Close()
+
+	tmpl, err := LoadTemplate(f, func(path string) (io.ReadCloser, error) {
+		return os.Open(filepath.Join("testdata", path))
+	})
+	if err != nil {
+		b.Fatalf("load template: %v", err)
+	}
+	defer tmpl.Close()
+
+	imgFile, err := os.Open("testdata/input.jpg")
+	if err != nil {
+		b.Fatalf("open image: %v", err)
+	}
+	defer imgFile.Close()
+	
+	buf, err := io.ReadAll(imgFile)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for b.Loop() {
+		results, err := scanPage(buf, tmpl, 0)
+		if err != nil {
+			b.Fatal(err)
+		}
+		results.Close()
 	}
 }

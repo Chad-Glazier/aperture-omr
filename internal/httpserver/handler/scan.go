@@ -61,6 +61,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		pageCount := len(template.Pages)
 		pageScans := make([]io.Reader, pageCount)
+
 		for pageIdx := range pageCount {
 			f, _, err := r.FormFile(fmt.Sprintf("page%d", pageIdx))
 			if err != nil {
