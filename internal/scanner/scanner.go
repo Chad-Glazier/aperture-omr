@@ -408,10 +408,21 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
 		return gocv.Mat{}, fmt.Errorf("decoded image is empty")
 	}
 
-	// Cap adaptive block size to below the anchor's smallest dimension.
-	// OpenCV degrades to a near-global threshold when blockSize ≥ min(w,h),
-	// producing binary stroke widths that differ from those in the full-scan
-	// binary and reduce template-match precision.
+	if err := BinarizeAnchor(&img, conf); err != nil {
+		img.Close()
+		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
+	}
+	return img, nil
+}
+
+// BinarizeAnchor binarizes an anchor image in place using conf, the same way
+// as the full-page scan (Binarize), but with AdaptiveBlockSize capped below
+// the anchor's smallest dimension. OpenCV degrades to a near-global threshold
+// when blockSize >= min(w,h), producing binary stroke widths that diverge
+// from the full-scan binary and reduce template-match precision — this bit
+// callers must not skip, since it's what makes anchor and page-scan
+// binarization comparable at matchTemplate time.
+func BinarizeAnchor(img *gocv.Mat, conf *Config) error {
 	anchorConf := *conf
 	minDim := img.Cols()
 	if img.Rows() < minDim {
@@ -427,10 +438,5 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (gocv.Mat, error) {
 		}
 		anchorConf.AdaptiveBlockSize = bs
 	}
-
-	if err := Binarize(&img, &img, &anchorConf); err != nil {
-		img.Close()
-		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
-	}
-	return img, nil
+	return Binarize(img, img, &anchorConf)
 }

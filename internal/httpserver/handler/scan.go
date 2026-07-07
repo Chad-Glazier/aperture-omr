@@ -90,11 +90,23 @@ func PostScan(s ServerResources) http.HandlerFunc {
 					return
 				}
 
-				scanner.Binarize(&mat, &mat, &scanner.Config{
+				anchorConf := scanner.Config{
 					BlurSize:            template.Config.BlurSize,
 					MorphCloseSize:      template.Config.MorphCloseSize,
 					MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
-				})
+					AdaptiveBlockSize:   template.Config.AdaptiveBlockSize,
+					AdaptiveC:           float32(template.Config.AdaptiveC),
+				}
+				if err := scanner.BinarizeAnchor(&mat, &anchorConf); err != nil {
+					writeError(
+						w, http.StatusInternalServerError, ErrCodeInternal,
+						fmt.Sprintf(
+							"error binarizing anchor page%danchor%d for %s",
+							pageIdx, anchorIdx, templateId,
+						),
+					)
+					return
+				}
 
 				anchors[pageIdx] = append(anchors[pageIdx], mat)
 			}
