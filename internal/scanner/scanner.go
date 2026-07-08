@@ -25,6 +25,24 @@ func newQualityError(format string, args ...any) error {
 	return &QualityError{msg: fmt.Sprintf(format, args...)}
 }
 
+// OrderError marks a failure where a page didn't match the anchors of its
+// expected slot but did match a different page in the template — evidence
+// that the pages were fed in the wrong order (e.g. the back page scanned
+// first), rather than a generic scan-quality problem. Callers use errors.As
+// to give a more specific "check your page order" message than a plain
+// QualityError would.
+type OrderError struct {
+	PageIndex         int
+	DetectedPageIndex int
+}
+
+func (e *OrderError) Error() string {
+	return fmt.Sprintf(
+		"page %d does not match its expected layout, but matches page %d instead — pages may be out of order",
+		e.PageIndex, e.DetectedPageIndex,
+	)
+}
+
 type ScanData struct {
 	Color  gocv.Mat
 	Binary gocv.Mat
@@ -145,6 +163,10 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
 		}
 		if rotErr := recoverUpsideDown(data, anchors, tmpl); rotErr != nil {
+			if detected, ok := detectMisplacedPage(data, tmpl, idx); ok {
+				data.Close()
+				return nil, &OrderError{PageIndex: idx, DetectedPageIndex: detected}
+			}
 			data.Close()
 			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
 		}
@@ -181,6 +203,36 @@ func recoverUpsideDown(data *ScanData, anchors []Anchor, tmpl *Template) error {
 	rotated.Color = gocv.NewMat()
 	rotated.Binary = gocv.NewMat()
 	return nil
+}
+
+// detectMisplacedPage checks data — in both its original and 180°-rotated
+// orientation — against every other page's anchors. warp doesn't care whose
+// anchors it's given, so this is the same match already used for idx, just
+// aimed at the rest of the template. A match on another page is strong
+// evidence this image was fed into the wrong slot, and reports which page
+// it actually looks like.
+func detectMisplacedPage(data *ScanData, tmpl *Template, idx int) (detected int, ok bool) {
+	rotated := &ScanData{Color: gocv.NewMat(), Binary: gocv.NewMat()}
+	defer rotated.Close()
+	rotatedOK := gocv.Rotate(data.Color, &rotated.Color, gocv.Rotate180Clockwise) == nil &&
+		gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise) == nil
+
+	probe := &ScanData{Color: gocv.NewMat(), Binary: gocv.NewMat()}
+	defer probe.Close()
+
+	for j := range tmpl.Pages {
+		if j == idx {
+			continue
+		}
+		otherAnchors := tmpl.Pages[j].Anchors
+		if warp(data, probe, otherAnchors, tmpl.Width, tmpl.Height, tmpl.Config) == nil {
+			return j, true
+		}
+		if rotatedOK && warp(rotated, probe, otherAnchors, tmpl.Width, tmpl.Height, tmpl.Config) == nil {
+			return j, true
+		}
+	}
+	return 0, false
 }
 
 func Binarize(src, dst *gocv.Mat, conf *Config) error {
