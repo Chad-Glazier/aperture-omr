@@ -16,8 +16,8 @@ type ScanData struct {
 	// but it will not be fully binarized. The "picture" is only meant for
 	// human viewing; all further marking/processing should be done on the
 	// binary matrix.
-	Picture  gocv.Mat
-	Binary gocv.Mat
+	Picture gocv.Mat
+	Binary  gocv.Mat
 }
 
 func (d *ScanData) Close() {
@@ -27,17 +27,6 @@ func (d *ScanData) Close() {
 
 func (d *ScanData) Empty() bool {
 	return d.Picture.Empty() || d.Binary.Empty()
-}
-
-type context struct {
-	err error
-}
-
-func (ctx *context) exec(op func() error) {
-	if ctx.err != nil {
-		return
-	}
-	ctx.err = op()
 }
 
 type Anchor struct {
@@ -95,7 +84,7 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 		return nil, fmt.Errorf("template has %d page(s), got %d image(s)", n, len(readers))
 	}
 	results := make([]*ScanData, n)
-	
+
 	wg := errgroup.Group{}
 	for i, r := range readers {
 		wg.Go(func() error {
@@ -107,8 +96,8 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 			if err != nil {
 				return fmt.Errorf("page %d: %w", i, err)
 			}
-			results[i] = data		
-			return nil	
+			results[i] = data
+			return nil
 		})
 	}
 	if err := wg.Wait(); err != nil {
@@ -119,44 +108,56 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 		}
 		return nil, err
 	}
-	
+
 	return results, nil
 }
 
 // scanPage runs a single reader through the preprocessing pipeline using the
 // anchors for page idx.
 func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
+
 	img, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
+
 	if img.Empty() {
 		img.Close()
 		return nil, fmt.Errorf("decoded image is empty")
 	}
+
 	if img.Cols() <= 100 || img.Rows() <= 100 {
 		img.Close()
 		return nil, fmt.Errorf("image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
 	data := &ScanData{
-		Picture:  img,
-		Binary: gocv.NewMat(),
+		Picture: img,
+		Binary:  gocv.NewMat(),
 	}
 
-	ctx := &context{}
-	ctx.exec(func() error { return Binarize(&data.Picture, &data.Binary, &tmpl.Config) })
-	ctx.exec(func() error { return warp(data, data, tmpl.Pages[idx].Anchors, tmpl.Width, tmpl.Height, tmpl.Config) })
-
-	if ctx.err != nil {
+	err = Binarize(&data.Picture, &data.Binary, &tmpl.Config)
+	if err != nil {
 		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+	}
+
+	err = warp(
+		data, data,
+		tmpl.Pages[idx].Anchors,
+		tmpl.Width,
+		tmpl.Height,
+		tmpl.Config,
+	)
+	if err != nil {
+		data.Close()
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
 	return data, nil
 }
 
-// Note: the given src matrix must be in GrayScale
+// Note: The given src matrix must be in GrayScale
 func Binarize(src, dst *gocv.Mat, conf *Config) error {
 
 	//
@@ -171,10 +172,14 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	}
 
 	blockSize := conf.AdaptiveBlockSize
-	if blockSize == 0 { blockSize = 91 }
-	
+	if blockSize == 0 {
+		blockSize = 91
+	}
+
 	adaptiveC := conf.AdaptiveC
-	if adaptiveC == 0 { adaptiveC = -15.0 }
+	if adaptiveC == 0 {
+		adaptiveC = -15.0
+	}
 
 	//
 	// Run through the binarization pipeline. The steps are as follows:
@@ -183,17 +188,17 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	//
 	// 2) Use adaptive thresholding to binarize the image.
 	//    <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3>
-	// 
+	//
 	// 3) Use a morphological close to close small gaps and make the lines
 	//    nicer.
 	//    <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#ga67493776e3ad1a3df63883829375201f>
 	//
 
 	var (
-		blur = gocv.NewMat()
+		blur   = gocv.NewMat()
 		thresh = gocv.NewMat()
 		kernel = gocv.GetStructuringElement(
-			gocv.MorphRect, 
+			gocv.MorphRect,
 			image.Pt(conf.MorphCloseSize, conf.MorphCloseSize),
 		)
 	)
@@ -202,22 +207,22 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	defer kernel.Close()
 
 	gocv.GaussianBlur(
-		*src, &blur, 
-		image.Pt(conf.BlurSize, conf.BlurSize), 
-		0, 0, 
+		*src, &blur,
+		image.Pt(conf.BlurSize, conf.BlurSize),
+		0, 0,
 		gocv.BorderDefault,
 	)
 	gocv.AdaptiveThreshold(
-		blur, &thresh, 
-		255, 
-		gocv.AdaptiveThresholdMean, 
-		gocv.ThresholdBinaryInv, 
-		blockSize, 
+		blur, &thresh,
+		255,
+		gocv.AdaptiveThresholdMean,
+		gocv.ThresholdBinaryInv,
+		blockSize,
 		adaptiveC,
 	)
 	gocv.MorphologyEx(
-		thresh, dst, 
-		gocv.MorphClose, 
+		thresh, dst,
+		gocv.MorphClose,
 		kernel,
 	)
 
@@ -278,8 +283,8 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	defer dstVec.Close()
 
 	warped := ScanData{
-		Picture:  gocv.NewMat(),
-		Binary: gocv.NewMat(),
+		Picture: gocv.NewMat(),
+		Binary:  gocv.NewMat(),
 	}
 
 	// EstimateAffine2D fits a least-squares affine from 3+ point pairs, so
@@ -307,48 +312,67 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 }
 
 func findAnchorCenter(
-	binary gocv.Mat, 
-	anchor Anchor, 
+	binary gocv.Mat,
+	anchor Anchor,
 	minConfidence float32,
 ) (image.Point, error) {
 
-	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())	
+	//
+	// We run an iterative refining search here:
+	//
+	// - We start by picking a specific middle point and a breadth.
+	// - Next, we select a few equidistant points in that search area and
+	//   iterate over all of them.
+	// - We take note of the one with the highest value and restart the search
+	//   with it as the new middle point, except that breadth has been shrunk
+	//   by some factor (the "refining factor").
+	//
+	// We could use a more sophisticated convex optimization method, but since
+	// we can't really guarantee the convex-ness (?) of the objective function
+	// I doubt that the risk of falling into a local maximum is worth the
+	// marginal efficiency boost.
+	//
 
+	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())
+
+	// Preallocate the matrices.
 	var (
-		center = image.Pt(size.X/2, size.Y/2)
-		bestValue float32
-		bestLocation image.Point	
-			
 		rotated = gocv.NewMat()
-		result = gocv.NewMat()
-		roi = binary.Region(anchor.ROI)
-		mask = gocv.NewMat()
+		result  = gocv.NewMat()
+		roi     = binary.Region(anchor.ROI)
+		mask    = gocv.NewMat()
 	)
 	defer rotated.Close()
 	defer result.Close()
 	defer roi.Close()
 	defer mask.Close()
 
+	// Define constants for the refining search.
 	const (
 		earlyBreakConfidence = 0.95
-		coarseningIterations = 3
-		coarseningFactor     = 2.0
+		refiningIterations   = 3
+		refiningFactor       = 2.0
 		anglesPerIteration   = 3
 		initialMiddle        = 0.0
 		initialBreadth       = 10.0
 	)
 
 	var (
+		center       = image.Pt(size.X/2, size.Y/2)
+		bestValue    float32
+		bestLocation image.Point
+
 		middle  = initialMiddle
 		breadth = initialBreadth
 		angles  = [anglesPerIteration]float64{}
 	)
-	for range coarseningIterations {
+
+	for range refiningIterations {
 
 		delta := breadth / float64(anglesPerIteration-1)
 		lo := middle - breadth/2
 		for i := range angles {
-			angles[i] = lo + float64(i) * delta
+			angles[i] = lo + float64(i)*delta
 		}
 		bestAngle := middle
 
@@ -375,13 +399,13 @@ func findAnchorCenter(
 		}
 
 		middle = bestAngle
-		breadth /= coarseningFactor		
+		breadth /= refiningFactor
 	}
 
 	if bestValue < minConfidence {
 		return image.Point{}, fmt.Errorf(
-			"confidence %.2f below threshold %.2f", 
-			bestValue, 
+			"confidence %.2f below threshold %.2f",
+			bestValue,
 			minConfidence,
 		)
 	}
