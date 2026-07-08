@@ -158,38 +158,68 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 
 // Note: the given src matrix must be in GrayScale
 func Binarize(src, dst *gocv.Mat, conf *Config) error {
-	if src.Empty() {
+
+	//
+	// Handle bad inputs and set defaults.
+	//
+
+	switch {
+	case src.Empty():
 		return fmt.Errorf("cannot binarize an empty image")
-	}
-	if conf.BlurSize%2 == 0 {
+	case conf.BlurSize%2 == 0:
 		return fmt.Errorf("blurSize must be odd, got %d", conf.BlurSize)
 	}
 
-	blur := gocv.NewMat()
+	blockSize := conf.AdaptiveBlockSize
+	if blockSize == 0 { blockSize = 91 }
+	
+	adaptiveC := conf.AdaptiveC
+	if adaptiveC == 0 { adaptiveC = -15.0 }
+
+	//
+	// Run through the binarization pipeline. The steps are as follows:
+	//
+	// 1) Blur the image.
+	//
+	// 2) Use adaptive thresholding to binarize the image.
+	//    <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3>
+	// 
+	// 3) Use a morphological close to close small gaps and make the lines
+	//    nicer.
+	//    <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#ga67493776e3ad1a3df63883829375201f>
+	//
+
+	var (
+		blur = gocv.NewMat()
+		thresh = gocv.NewMat()
+		kernel = gocv.GetStructuringElement(
+			gocv.MorphRect, 
+			image.Pt(conf.MorphCloseSize, conf.MorphCloseSize),
+		)
+	)
 	defer blur.Close()
-
-	thresh := gocv.NewMat()
 	defer thresh.Close()
-
-	kernelSize := image.Pt(conf.MorphCloseSize, conf.MorphCloseSize)
-	kernel := gocv.GetStructuringElement(gocv.MorphRect, kernelSize)
 	defer kernel.Close()
 
-	blurSize := image.Pt(conf.BlurSize, conf.BlurSize)
-	gocv.GaussianBlur(*src, &blur, blurSize, 0, 0, gocv.BorderDefault)
-
-	blockSize := conf.AdaptiveBlockSize
-	if blockSize == 0 {
-		blockSize = 91
-	}
-	adaptiveC := conf.AdaptiveC
-	if adaptiveC == 0 {
-		adaptiveC = float32(-15)
-	}
-	// Adaptive threshold compares each pixel to its local neighbourhood mean,
-	// so light pencil marks (which global Otsu misses) are reliably detected.
-	gocv.AdaptiveThreshold(blur, &thresh, 255, gocv.AdaptiveThresholdGaussian, gocv.ThresholdBinaryInv, blockSize, adaptiveC)
-	gocv.MorphologyEx(thresh, dst, gocv.MorphClose, kernel)
+	gocv.GaussianBlur(
+		*src, &blur, 
+		image.Pt(conf.BlurSize, conf.BlurSize), 
+		0, 0, 
+		gocv.BorderDefault,
+	)
+	gocv.AdaptiveThreshold(
+		blur, &thresh, 
+		255, 
+		gocv.AdaptiveThresholdMean, 
+		gocv.ThresholdBinaryInv, 
+		blockSize, 
+		adaptiveC,
+	)
+	gocv.MorphologyEx(
+		thresh, dst, 
+		gocv.MorphClose, 
+		kernel,
+	)
 
 	return nil
 }
