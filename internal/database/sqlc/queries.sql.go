@@ -119,22 +119,22 @@ func (q *Queries) CreateScan(ctx context.Context, arg CreateScanParams) error {
 
 const createScanPage = `-- name: CreateScanPage :exec
 INSERT INTO
-    scan_pages (id, color_image_key, page_index, scan_id)
+    scan_pages (id, picture_key, page_index, scan_id)
 VALUES
     (?, ?, ?, ?)
 `
 
 type CreateScanPageParams struct {
-	ID            string
-	ColorImageKey string
-	PageIndex     int64
-	ScanID        string
+	ID         string
+	PictureKey string
+	PageIndex  int64
+	ScanID     string
 }
 
 func (q *Queries) CreateScanPage(ctx context.Context, arg CreateScanPageParams) error {
 	_, err := q.db.ExecContext(ctx, createScanPage,
 		arg.ID,
-		arg.ColorImageKey,
+		arg.PictureKey,
 		arg.PageIndex,
 		arg.ScanID,
 	)
@@ -244,7 +244,7 @@ func (q *Queries) GetPreprocessingTemplate(ctx context.Context, id string) (Prep
 
 const getScanPage = `-- name: GetScanPage :one
 SELECT 
-    id, color_image_key, page_index, scan_id
+    id, picture_key, page_index, scan_id
 FROM
     scan_pages
 WHERE
@@ -263,7 +263,7 @@ func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanP
 	var i ScanPage
 	err := row.Scan(
 		&i.ID,
-		&i.ColorImageKey,
+		&i.PictureKey,
 		&i.PageIndex,
 		&i.ScanID,
 	)
@@ -272,7 +272,7 @@ func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanP
 
 const getScanPages = `-- name: GetScanPages :many
 SELECT 
-    id, color_image_key, page_index, scan_id
+    id, picture_key, page_index, scan_id
 FROM
     scan_pages
 WHERE
@@ -292,7 +292,7 @@ func (q *Queries) GetScanPages(ctx context.Context, scanID string) ([]ScanPage, 
 		var i ScanPage
 		if err := rows.Scan(
 			&i.ID,
-			&i.ColorImageKey,
+			&i.PictureKey,
 			&i.PageIndex,
 			&i.ScanID,
 		); err != nil {

@@ -4,7 +4,8 @@
 	"config": {
 		"blurSize": 5,
 		"morphCloseSize": 3,
-		"minAnchorConfidence": 0.5
+		"minAnchorConfidence": 0.5,
+		"adaptiveBlockSize": 91
 	},
 	"pages": [
 		{

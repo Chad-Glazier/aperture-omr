@@ -5,7 +5,7 @@
     "blurSize": 3,
     "morphCloseSize": 3,
     "minAnchorConfidence": 0.5,
-    "adaptiveBlockSize": 121,
+    "adaptiveBlockSize": 91,
     "adaptiveC": -5
   },
   "pages": [

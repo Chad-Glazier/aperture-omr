@@ -27,8 +27,8 @@ type Scan struct {
 }
 
 type ScanPage struct {
-	ID            string
-	ColorImageKey string
-	PageIndex     int64
-	ScanID        string
+	ID         string
+	PictureKey string
+	PageIndex  int64
+	ScanID     string
 }

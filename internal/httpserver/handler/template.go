@@ -137,7 +137,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 					return
 				}
 
-				mat, err := gocv.IMDecode(buf, gocv.IMReadColor)
+				mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 				if err != nil {
 					http.Error(
 						w,

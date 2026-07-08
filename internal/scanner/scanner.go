@@ -11,17 +11,22 @@ import (
 )
 
 type ScanData struct {
-	Color  gocv.Mat
+	// The picture of a scan is only partially processed. It will be aligned
+	// and scaled to have the same coordinate system as the "Binary" version,
+	// but it will not be fully binarized. The "picture" is only meant for
+	// human viewing; all further marking/processing should be done on the
+	// binary matrix.
+	Picture  gocv.Mat
 	Binary gocv.Mat
 }
 
 func (d *ScanData) Close() {
-	d.Color.Close()
+	d.Picture.Close()
 	d.Binary.Close()
 }
 
 func (d *ScanData) Empty() bool {
-	return d.Color.Empty() || d.Binary.Empty()
+	return d.Picture.Empty() || d.Binary.Empty()
 }
 
 type context struct {
@@ -96,16 +101,10 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 		wg.Go(func() error {
 			buf, err := io.ReadAll(r)
 			if err != nil {
-				for j := range i {
-					results[j].Close()
-				}
 				return fmt.Errorf("page %d: %w", i, err)
 			}
 			data, err := scanPage(buf, tmpl, i)
 			if err != nil {
-				for j := range i {
-					results[j].Close()
-				}
 				return fmt.Errorf("page %d: %w", i, err)
 			}
 			results[i] = data		
@@ -113,6 +112,11 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 		})
 	}
 	if err := wg.Wait(); err != nil {
+		for i := range results {
+			if results[i] != nil {
+				results[i].Close()
+			}
+		}
 		return nil, err
 	}
 	
@@ -122,7 +126,7 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 // scanPage runs a single reader through the preprocessing pipeline using the
 // anchors for page idx.
 func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
-	img, err := gocv.IMDecode(buf, gocv.IMReadColor)
+	img, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
@@ -136,12 +140,12 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 	}
 
 	data := &ScanData{
-		Color:  img,
+		Picture:  img,
 		Binary: gocv.NewMat(),
 	}
 
 	ctx := &context{}
-	ctx.exec(func() error { return Binarize(&data.Color, &data.Binary, &tmpl.Config) })
+	ctx.exec(func() error { return Binarize(&data.Picture, &data.Binary, &tmpl.Config) })
 	ctx.exec(func() error { return warp(data, data, tmpl.Pages[idx].Anchors, tmpl.Width, tmpl.Height, tmpl.Config) })
 
 	if ctx.err != nil {
@@ -152,6 +156,7 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 	return data, nil
 }
 
+// Note: the given src matrix must be in GrayScale
 func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot binarize an empty image")
@@ -159,9 +164,6 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	if conf.BlurSize%2 == 0 {
 		return fmt.Errorf("blurSize must be odd, got %d", conf.BlurSize)
 	}
-
-	gray := gocv.NewMat()
-	defer gray.Close()
 
 	blur := gocv.NewMat()
 	defer blur.Close()
@@ -173,9 +175,8 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	kernel := gocv.GetStructuringElement(gocv.MorphRect, kernelSize)
 	defer kernel.Close()
 
-	gocv.CvtColor(*src, &gray, gocv.ColorBGRToGray)
 	blurSize := image.Pt(conf.BlurSize, conf.BlurSize)
-	gocv.GaussianBlur(gray, &blur, blurSize, 0, 0, gocv.BorderDefault)
+	gocv.GaussianBlur(*src, &blur, blurSize, 0, 0, gocv.BorderDefault)
 
 	blockSize := conf.AdaptiveBlockSize
 	if blockSize == 0 {
@@ -247,7 +248,7 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	defer dstVec.Close()
 
 	warped := ScanData{
-		Color:  gocv.NewMat(),
+		Picture:  gocv.NewMat(),
 		Binary: gocv.NewMat(),
 	}
 
@@ -259,7 +260,7 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 		return fmt.Errorf("could not estimate affine transform from anchor points")
 	}
 
-	gocv.WarpAffine(src.Color, &warped.Color, transform, targetSize)
+	gocv.WarpAffine(src.Picture, &warped.Picture, transform, targetSize)
 	gocv.WarpAffine(src.Binary, &warped.Binary, transform, targetSize)
 
 	// Bilinear interpolation produces intermediate gray values at edges; re-snap
@@ -269,7 +270,7 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	// Since we are modifying dst in-place,
 	// we must close the old mats before overwriting.
 	dst.Close()
-	dst.Color = warped.Color
+	dst.Picture = warped.Picture
 	dst.Binary = warped.Binary
 
 	return nil
@@ -437,7 +438,7 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (*gocv.Mat, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read: %w", err)
 	}
-	img, err := gocv.IMDecode(data, gocv.IMReadColor)
+	img, err := gocv.IMDecode(data, gocv.IMReadGrayScale)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}

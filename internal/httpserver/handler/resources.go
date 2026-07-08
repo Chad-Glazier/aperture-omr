@@ -49,15 +49,17 @@ type ServerResources interface {
 	// the sake of debugging. Returns an ID for the scan.
 	SaveScan(
 		pages []*gocv.Mat,
-		colorPages []*gocv.Mat,
+		pagePictures []*gocv.Mat,
 		templateId string,
 	) (string, error)
 
 	// Loads a preprocessed scan's pages.
 	LoadScan(scanId string) ([]*gocv.Mat, error)
 
-	// Loads a page from a scan.
-	LoadColorScan(scanId string, pageIdx int) (image.Image, error)
+	// Loads a picture from a scan. The "picture" of a scan is the version that
+	// is maintained for human viewers. (Preprocessing leaves the main scan 
+	// a little ugly).
+	LoadScanPicture(scanId string, pageIdx int) (image.Image, error)
 }
 
 //
@@ -276,12 +278,12 @@ func (s *defaultResources) LoadAnchors(
 // Scans
 //
 // Scans used for processing are stored as matrices. Each scan also needs a
-// matching colored image for producing snippets.
+// matching human-viewable picture for producing snippets.
 //
 
 func (s *defaultResources) SaveScan(
 	pages []*gocv.Mat,
-	colorPages []*gocv.Mat,
+	pagePictures []*gocv.Mat,
 	templateId string,
 ) (string, error) {
 
@@ -301,13 +303,13 @@ func (s *defaultResources) SaveScan(
 			return "", err
 		}
 
-		colorPageId := uuid.New().String() + fs.ImgFileExt
-		colorPageBuf, err := gocv.IMEncode(fs.OpenCVImgExt, *colorPages[i])
+		pictureId := uuid.New().String() + fs.ImgFileExt
+		pictureBuf, err := gocv.IMEncode(fs.OpenCVImgExt, *pagePictures[i])
 		if err != nil {
 			return "", err
 		}
 
-		err = s.Images.SetBytes(colorPageId, colorPageBuf.GetBytes())
+		err = s.Images.SetBytes(pictureId, pictureBuf.GetBytes())
 		if err != nil {
 			return "", err
 		}
@@ -316,7 +318,7 @@ func (s *defaultResources) SaveScan(
 			context.Background(),
 			sqlc.CreateScanPageParams{
 				ID:            pageId,
-				ColorImageKey: colorPageId,
+				PictureKey: pictureId,
 				PageIndex:     int64(i),
 				ScanID:        scanId,
 			},
@@ -347,7 +349,7 @@ func (s *defaultResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 	return mats, nil
 }
 
-func (s *defaultResources) LoadColorScan(
+func (s *defaultResources) LoadScanPicture(
 	scanId string,
 	pageIdx int,
 ) (image.Image, error) {
@@ -363,7 +365,7 @@ func (s *defaultResources) LoadColorScan(
 		return nil, err
 	}
 
-	img, err := s.Images.Get(page.ColorImageKey)
+	img, err := s.Images.Get(page.PictureKey)
 	if err != nil {
 		return nil, err
 	}

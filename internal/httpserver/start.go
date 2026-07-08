@@ -29,7 +29,7 @@ func Start() {
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
 	mux.HandleFunc("POST /scan", handler.PostScan(res))
 	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
-	// mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
+	mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
 
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Recovery(httpHandler)

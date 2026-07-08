@@ -40,8 +40,8 @@ func TestScan(t *testing.T) {
 	}
 	defer results[0].Close()
 
-	if results[0].Color.Cols() != tmpl.Width || results[0].Color.Rows() != tmpl.Height {
+	if results[0].Picture.Cols() != tmpl.Width || results[0].Picture.Rows() != tmpl.Height {
 		t.Errorf("expected output %dx%d, got %dx%d",
-			tmpl.Width, tmpl.Height, results[0].Color.Cols(), results[0].Color.Rows())
+			tmpl.Width, tmpl.Height, results[0].Picture.Cols(), results[0].Picture.Rows())
 	}
 }

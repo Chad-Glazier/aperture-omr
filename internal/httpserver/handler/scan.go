@@ -144,14 +144,14 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		//
 
 		pageImages := make([]*gocv.Mat, pageCount)
-		pageColorImages := make([]*gocv.Mat, pageCount)
+		pagePictures := make([]*gocv.Mat, pageCount)
 		for i, data := range result {
 			pageImages[i] = &data.Binary
-			pageColorImages[i] = &data.Color
+			pagePictures[i] = &data.Picture
 			defer data.Close()
 		}
 
-		id, err := s.SaveScan(pageImages, pageColorImages, templateId)
+		id, err := s.SaveScan(pageImages, pagePictures, templateId)
 		if err != nil {
 			http.Error(
 				w,
