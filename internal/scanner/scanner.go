@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -36,17 +37,6 @@ func (d *ScanData) Close() {
 
 func (d *ScanData) Empty() bool {
 	return d.Color.Empty() || d.Binary.Empty()
-}
-
-type context struct {
-	err error
-}
-
-func (ctx *context) exec(op func() error) {
-	if ctx.err != nil {
-		return
-	}
-	ctx.err = op()
 }
 
 type Anchor struct {
@@ -142,16 +132,55 @@ func scanPage(r io.Reader, tmpl *Template, idx int) (*ScanData, error) {
 		Binary: gocv.NewMat(),
 	}
 
-	ctx := &context{}
-	ctx.exec(func() error { return Binarize(&data.Color, &data.Binary, &tmpl.Config) })
-	ctx.exec(func() error { return warp(data, data, tmpl.Pages[idx].Anchors, tmpl.Width, tmpl.Height, tmpl.Config) })
-
-	if ctx.err != nil {
+	if err := Binarize(&data.Color, &data.Binary, &tmpl.Config); err != nil {
 		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", ctx.err)
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+	}
+
+	anchors := tmpl.Pages[idx].Anchors
+	if err := warp(data, data, anchors, tmpl.Width, tmpl.Height, tmpl.Config); err != nil {
+		var qerr *QualityError
+		if !errors.As(err, &qerr) {
+			data.Close()
+			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		}
+		if rotErr := recoverUpsideDown(data, anchors, tmpl); rotErr != nil {
+			data.Close()
+			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		}
 	}
 
 	return data, nil
+}
+
+// recoverUpsideDown retries the anchor match against a copy of data rotated
+// 180°: a page fed in upside-down moves every anchor out of its expected
+// ROI, which warp's own ±5° skew tolerance can't recover from, so the whole
+// frame needs to be rotated back before re-matching. On success it replaces
+// data's Color/Binary with the corrected, warped result in place. On
+// failure data is left untouched and the caller should report the original
+// error.
+func recoverUpsideDown(data *ScanData, anchors []Anchor, tmpl *Template) error {
+	rotated := &ScanData{Color: gocv.NewMat(), Binary: gocv.NewMat()}
+	defer rotated.Close()
+
+	if err := gocv.Rotate(data.Color, &rotated.Color, gocv.Rotate180Clockwise); err != nil {
+		return err
+	}
+	if err := gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise); err != nil {
+		return err
+	}
+
+	if err := warp(rotated, rotated, anchors, tmpl.Width, tmpl.Height, tmpl.Config); err != nil {
+		return err
+	}
+
+	data.Close()
+	data.Color = rotated.Color
+	data.Binary = rotated.Binary
+	rotated.Color = gocv.NewMat()
+	rotated.Binary = gocv.NewMat()
+	return nil
 }
 
 func Binarize(src, dst *gocv.Mat, conf *Config) error {
