@@ -300,7 +300,7 @@ func findAnchorCenter(
 	defer mask.Close()
 
 	const (
-		earlyBreakConfidence = 0.99
+		earlyBreakConfidence = 0.95
 		coarseningIterations = 3
 		coarseningFactor     = 2.0
 		anglesPerIteration   = 3

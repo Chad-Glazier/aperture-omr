@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pierrec/lz4/v4"
 	"gocv.io/x/gocv"
 )
 
@@ -100,7 +101,8 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 //         │      └─────────────── the number of columns
 //         └────────────────────── the number of rows
 //
-// The integers are stored in little endian format.
+// The integers are stored in little endian format and the bytes buffer is
+// compressed with the LZ4 algorithm.
 //
 
 func (s *localMatStore) Set(key string, mat *gocv.Mat) error {
@@ -125,7 +127,10 @@ func (s *localMatStore) Set(key string, mat *gocv.Mat) error {
 		return err
 	}
 
-	if _, err := w.Write(buf); err != nil {
+	compressedWriter := lz4.NewWriter(w)
+	defer compressedWriter.Close()
+
+	if _, err := compressedWriter.Write(buf); err != nil {
 		return err
 	}
 
@@ -148,7 +153,9 @@ func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
 	binary.Decode(header[4:8], binary.LittleEndian, &cols)
 	binary.Decode(header[8:12], binary.LittleEndian, &mt)
 
-	buf, err := io.ReadAll(f)
+	compressedReader := lz4.NewReader(f)
+
+	buf, err := io.ReadAll(compressedReader)
 	if err != nil {
 		return nil, err
 	}
