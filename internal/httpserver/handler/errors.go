@@ -13,6 +13,7 @@ const (
 	ErrCodeScanNotFound      = "scan_not_found"
 	ErrCodePageCountMismatch = "page_count_mismatch"
 	ErrCodeLowScanQuality    = "low_scan_quality"
+	ErrCodePageOutOfOrder    = "page_out_of_order"
 	ErrCodeInternal          = "internal_error"
 )
 

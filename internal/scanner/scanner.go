@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -22,6 +23,24 @@ func (e *QualityError) Error() string { return e.msg }
 
 func newQualityError(format string, args ...any) error {
 	return &QualityError{msg: fmt.Sprintf(format, args...)}
+}
+
+// OrderError marks a failure where a page didn't match the anchors of its
+// expected slot but did match a different page in the template — evidence
+// that the pages were fed in the wrong order (e.g. the back page scanned
+// first), rather than a generic scan-quality problem. Callers use errors.As
+// to give a more specific "check your page order" message than a plain
+// QualityError would.
+type OrderError struct {
+	PageIndex         int
+	DetectedPageIndex int
+}
+
+func (e *OrderError) Error() string {
+	return fmt.Sprintf(
+		"page %d does not match its expected layout, but matches page %d instead — pages may be out of order",
+		e.PageIndex, e.DetectedPageIndex,
+	)
 }
 
 type ScanData struct {
@@ -157,21 +176,131 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 	}
 
 	err = warp(
-		data, data,
-		tmpl.Pages[idx].Anchors,
-		tmpl.Width,
-		tmpl.Height,
+		data, data, 
+		tmpl.Pages[idx].Anchors, 
+		tmpl.Width, 
+		tmpl.Height, 
 		tmpl.Config,
 	)
 	if err != nil {
-		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		var qerr *QualityError
+		if !errors.As(err, &qerr) {
+			data.Close()
+			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		}
+		rotErr := recoverUpsideDown(data, tmpl.Pages[idx].Anchors, tmpl)
+		if rotErr != nil {
+			if detected, ok := detectMisplacedPage(data, tmpl, idx); ok {
+				data.Close()
+				return nil, &OrderError{PageIndex: idx, DetectedPageIndex: detected}
+			}
+			data.Close()
+			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		}
 	}
 
 	return data, nil
 }
 
-// Note: The given src matrix must be in GrayScale
+// recoverUpsideDown retries the anchor match against a copy of data rotated
+// 180°: a page fed in upside-down moves every anchor out of its expected
+// ROI, which warp's own ±5° skew tolerance can't recover from, so the whole
+// frame needs to be rotated back before re-matching. On success it replaces
+// data's Picture/Binary with the corrected, warped result in place. On
+// failure data is left untouched and the caller should report the original
+// error.
+func recoverUpsideDown(
+	data *ScanData, 
+	anchors []Anchor, 
+	tmpl *Template,
+) error {
+	rotated := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
+	defer rotated.Close()
+
+	err := gocv.Rotate(data.Picture, &rotated.Picture, gocv.Rotate180Clockwise)
+	if err != nil {
+		return err
+	}
+
+	err = gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise)
+	if err != nil {
+		return err
+	}
+
+	err = warp(
+		rotated, rotated, 
+		anchors, 
+		tmpl.Width, tmpl.Height, 
+		tmpl.Config,
+	)
+	if err != nil {
+		return err
+	}
+
+	data.Close()
+	data.Picture = rotated.Picture
+	data.Binary = rotated.Binary
+	rotated.Picture = gocv.NewMat()
+	rotated.Binary = gocv.NewMat()
+	return nil
+}
+
+// detectMisplacedPage checks data — in both its original and 180°-rotated
+// orientation — against every other page's anchors. warp doesn't care whose
+// anchors it's given, so this is the same match already used for idx, just
+// aimed at the rest of the template. A match on another page is strong
+// evidence this image was fed into the wrong slot, and reports which page
+// it actually looks like.
+func detectMisplacedPage(
+	data *ScanData, 
+	tmpl *Template, 
+	idx int,
+) (detected int, ok bool) {
+
+	rotated := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
+	defer rotated.Close()
+
+	rotatedOK := 
+		gocv.Rotate(data.Picture, &rotated.Picture, gocv.Rotate180Clockwise) == nil &&
+		gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise) == nil
+
+	probe := &ScanData{ Picture: gocv.NewMat(), Binary: gocv.NewMat() }
+	defer probe.Close()
+
+	for j := range tmpl.Pages {
+		if j == idx {
+			continue
+		}
+
+		otherAnchors := tmpl.Pages[j].Anchors
+
+		err := warp(
+			data, 
+			probe, 
+			otherAnchors, 
+			tmpl.Width, tmpl.Height, 
+			tmpl.Config,
+		)
+		if err == nil {
+			return j, true
+		}
+
+		err = warp(
+			rotated, 
+			probe, 
+			otherAnchors, 
+			tmpl.Width, tmpl.Height, 
+			tmpl.Config,
+		)
+		if rotatedOK && err == nil {
+			return j, true
+		}
+	}
+	
+	return 0, false
+}
+
+// Note: the given matrix must be in grayscale.
 func Binarize(src, dst *gocv.Mat, conf *Config) error {
 
 	//
@@ -194,6 +323,18 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	if adaptiveC == 0 {
 		adaptiveC = -15.0
 	}
+
+	//
+	// Adjust the block size to be smaller than the minimum dimension size of
+	// the image. Block sizes that don't fit inside the target image are
+	// inefficient and, in extreme cases, degrade performance. We then have to
+	// ensure that the adjusted value is still valid (i.e., that it is odd and
+	// positive. Like Weird Al Yankovic.)
+	//
+
+	blockSize = min(blockSize, src.Rows(), src.Cols())
+	if blockSize%2 == 0 { blockSize-- }
+	if blockSize < 3 { blockSize = 3 }
 
 	//
 	// Run through the binarization pipeline. The steps are as follows:
@@ -416,7 +557,7 @@ func findAnchorCenter(
 	}
 
 	if bestValue < minConfidence {
-		return image.Point{}, fmt.Errorf(
+		return image.Point{}, newQualityError(
 			"confidence %.2f below threshold %.2f",
 			bestValue,
 			minConfidence,

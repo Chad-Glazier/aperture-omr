@@ -129,13 +129,20 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		result, err := scanner.Scan(pageScans, tmpl)
 		if err != nil {
+			var oerr *scanner.OrderError
 			var qerr *scanner.QualityError
-			if errors.As(err, &qerr) {
+			switch {
+			case errors.As(err, &oerr):
+				writeError(
+					w, http.StatusBadRequest, ErrCodePageOutOfOrder,
+					"pages may be out of order: "+err.Error(),
+				)
+			case errors.As(err, &qerr):
 				writeError(
 					w, http.StatusBadRequest, ErrCodeLowScanQuality,
 					"scan quality issue: "+err.Error(),
 				)
-			} else {
+			default:
 				writeError(
 					w, http.StatusInternalServerError, ErrCodeInternal,
 					"error during preprocessing: "+err.Error(),
