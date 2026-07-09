@@ -12,7 +12,7 @@ import (
 
 func TestPostMark(t *testing.T) {
 
-	s, err := NewDefaultResources(t.TempDir())
+	s, err := NewLocalResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}

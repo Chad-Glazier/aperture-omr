@@ -84,7 +84,7 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 //
 // Rather than storing OpenCV matrices as images, which requires inefficient
 // encoding/decoding, we can store them a bit more neatly by just using the
-// underlying byte buffer that OpenCV stores. The file format we use is
+// underlying byte buffer that OpenCV maintains. The file format we use is
 // described below.
 //
 // OpenCV matrices have the following data that needs to be stored in order to

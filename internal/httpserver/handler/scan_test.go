@@ -9,7 +9,7 @@ import (
 
 func TestPostScan(t *testing.T) {
 
-	s, err := NewDefaultResources(t.TempDir())
+	s, err := NewLocalResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -190,7 +190,3 @@ func TestPostScan(t *testing.T) {
 		t.Fatal("scan pages failed to load")
 	}
 }
-
-//
-// Benchmarks
-//

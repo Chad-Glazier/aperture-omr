@@ -94,7 +94,7 @@ func makeMultipartRequest(
 
 func TestPostPreprocessingTemplate_OK(t *testing.T) {
 
-	s, err := NewDefaultResources(t.TempDir())
+	s, err := NewLocalResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -183,7 +183,7 @@ func TestPostPreprocessingTemplate_BAD1(t *testing.T) {
 	// but the request only has enough anchors for one.
 	//
 
-	s, err := NewDefaultResources(t.TempDir())
+	s, err := NewLocalResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -225,7 +225,7 @@ func TestPostPreprocessingTemplate_BAD2(t *testing.T) {
 	// the pages.
 	//
 
-	s, err := NewDefaultResources(t.TempDir())
+	s, err := NewLocalResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}
@@ -269,7 +269,7 @@ func TestPostPreprocessingTemplate_BAD2(t *testing.T) {
 
 func TestPostMarkingTemplate_OK(t *testing.T) {
 
-	s, err := NewDefaultResources(t.TempDir())
+	s, err := NewLocalResources(t.TempDir())
 	if err != nil {
 		t.Fatal("error initializing server resources: " + err.Error())
 	}

@@ -7,10 +7,6 @@ import (
 	"net/http"
 )
 
-// Note: in the production build, we can just embed the YAML file instead of
-// serving it from the filesystem. I'm leaving it like this for now so that I
-// can update the spec without having to restart the server.
-
 // Sends the OpenAPI specification in YAML format.
 func OpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-yaml")

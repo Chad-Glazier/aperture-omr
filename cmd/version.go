@@ -6,8 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"gocv.io/x/gocv"
-	"ubco-team15/omr/config"
 )
+
+const version = "0.0.1"
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
@@ -17,7 +18,7 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		s := "\n"
 		s += "  OMR version           \u001B[96m" +
-			config.Version + "\u001B[0m\n"
+			version + "\u001B[0m\n"
 		s += "  ─┬─\n"
 		s += fmt.Sprintf("   ├──runtime           %s\n", runtime.Version())
 		s += fmt.Sprintf("   ├──gocv version      %s\n", gocv.Version())

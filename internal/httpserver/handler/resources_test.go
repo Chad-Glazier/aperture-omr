@@ -1,5 +1,5 @@
 package handler
 
 //
-// TODO: Implement tests for the NewDefaultResources resources.
+// TODO: Implement tests for the NewLocalResources resources.
 //

@@ -9,7 +9,6 @@ package fs
 import (
 	"image"
 	"io"
-
 	"image/jpeg"
 
 	"gocv.io/x/gocv"

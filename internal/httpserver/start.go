@@ -5,14 +5,13 @@ import (
 	"net/http"
 	"os"
 
-	"ubco-team15/omr/config"
 	"ubco-team15/omr/internal/httpserver/handler"
 	"ubco-team15/omr/internal/httpserver/middleware"
 )
 
-func Start() {
+func Start(hostname, port string) {
 
-	res, err := handler.NewDefaultResources("data")
+	res, err := handler.NewLocalResources("data")
 	if err != nil {
 		slog.Error("error getting server resources", "err", err)
 		os.Exit(1)
@@ -36,10 +35,10 @@ func Start() {
 	httpHandler = middleware.Logger(httpHandler)
 
 	server := &http.Server{
-		Addr:    ":" + config.Port,
+		Addr:    ":" + port,
 		Handler: httpHandler,
 	}
 
-	slog.Info("starting server at http://" + config.Host + ":" + config.Port)
+	slog.Info("starting server at http://" + hostname + ":" + port)
 	server.ListenAndServe()
 }

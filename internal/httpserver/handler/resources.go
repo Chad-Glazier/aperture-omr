@@ -15,8 +15,8 @@ import (
 	"gocv.io/x/gocv"
 )
 
-// A interface that presents all resources that an HTTP handler should have
-// access to.
+// A interface that presents all resources an HTTP handler should have access
+// to.
 type ServerResources interface {
 	// Closes all connections.
 	Close() error
@@ -33,7 +33,7 @@ type ServerResources interface {
 	// Loads a preprocessing template and returns the ID for it.
 	LoadPreprocessingTemplate(id string) (*dto.PreprocessingTemplate, error)
 
-	// Loads anchor matrices. To get the i-th page's j-th index, you would
+	// Loads anchor matrices. To get the i-th page's j-th anchor, you would
 	// index [i][j] from the returned slice.
 	LoadAnchors(templateId string) ([][]*gocv.Mat, error)
 
@@ -44,16 +44,18 @@ type ServerResources interface {
 		pageIdx, anchorIdx int,
 	) error
 
-	// Saves a preprocessed scan via a slice of images where each image
-	// represents a page. The preprocessing template ID is also included for
-	// the sake of debugging. Returns an ID for the scan.
+	// Saves a preprocessed scan via two slices of matrices: the first
+	// represents the binarized images we will use for marking, and the second
+	// represents the grayscaled image we will use to make human-readable
+	// snippets. The template ID refers to the preprocessing template used to
+	// produce these scans.
 	SaveScan(
 		pages []*gocv.Mat,
 		pagePictures []*gocv.Mat,
 		templateId string,
 	) (string, error)
 
-	// Loads a preprocessed scan's pages.
+	// Loads a preprocessed scan's binarized pages.
 	LoadScan(scanId string) ([]*gocv.Mat, error)
 
 	// Loads a picture from a scan. The "picture" of a scan is the version that
@@ -78,7 +80,7 @@ var _ ServerResources = (*defaultResources)(nil)
 // An implementation of ServerResources that uses a default SQLite database and
 // stores files locally. All data (i.e., the SQLite file and the root directory
 // for stored files) will be stored in the specified root.
-func NewDefaultResources(rootDir string) (*defaultResources, error) {
+func NewLocalResources(rootDir string) (*defaultResources, error) {
 
 	db, cnx, err := database.Connect(rootDir + "/database.sqlite3")
 	if err != nil {
@@ -111,9 +113,10 @@ func (s *defaultResources) Close() error {
 //
 // Marking Templates
 //
-// Marking templates are often very large (~150KB), primarily due to their JSON
-// format. We can save ~90% of this storage with minimal performance overhead
-// by using LZ4 compression.
+// Marking templates are just big JSON things. We could compress the JSON if we
+// want to, but it would be more efficient to create the proper tables for them
+// instead of storing the raw JSON as bytes. However, we will put that off
+// until we're sure that the template shape won't change dramatically.
 //
 
 func (s *defaultResources) SaveMarkingTemplate(

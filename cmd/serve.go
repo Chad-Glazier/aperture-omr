@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"ubco-team15/omr/config"
 	"ubco-team15/omr/internal/httpserver"
 
 	"github.com/spf13/cobra"
@@ -29,8 +28,7 @@ which should be set to one of
 Alternatively, you can use a flag to indicate the mode.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		config.LogMode()
-		httpserver.Start()
+		httpserver.Start("localhost", port)
 	},
 }
 
