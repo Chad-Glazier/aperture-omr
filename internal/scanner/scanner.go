@@ -335,19 +335,6 @@ func findAnchorCenter(
 
 	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())
 
-	// Preallocate the matrices.
-	var (
-		rotated = gocv.NewMat()
-		result  = gocv.NewMat()
-		roi     = binary.Region(anchor.ROI)
-		mask    = gocv.NewMat()
-	)
-	defer rotated.Close()
-	defer result.Close()
-	defer roi.Close()
-	defer mask.Close()
-
-	// Define constants for the refining search.
 	const (
 		earlyBreakConfidence = 0.95
 		refiningIterations   = 3
@@ -366,6 +353,18 @@ func findAnchorCenter(
 		breadth = initialBreadth
 		angles  = [anglesPerIteration]float64{}
 	)
+
+	// Preallocate the matrices.
+	var (
+		rotated = gocv.NewMat()
+		result  = gocv.NewMat()
+		roi     = binary.Region(anchor.ROI)
+		mask    = gocv.NewMat()
+	)
+	defer rotated.Close()
+	defer result.Close()
+	defer roi.Close()
+	defer mask.Close()
 
 	for range refiningIterations {
 

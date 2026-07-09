@@ -1,6 +1,7 @@
 package marker
 
 import (
+	"embed"
 	"image"
 	"image/color"
 	"strings"
@@ -8,6 +9,10 @@ import (
 
 	"gocv.io/x/gocv"
 )
+
+//
+// Helper functions
+//
 
 func ptr(f float64) *float64 { return &f }
 func intPtr(i int) *int      { return &i }
@@ -56,6 +61,10 @@ func stringSlicesEqual(a, b []string) bool {
 	}
 	return true
 }
+
+//
+// Tests
+//
 
 func TestLoadTemplate(t *testing.T) {
 	validJSON := `{
@@ -350,5 +359,44 @@ func TestEvaluate(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+//
+// Benchmarks
+//
+
+//go:embed testdata/*
+var testData embed.FS
+
+func BenchmarkEvaluate(b *testing.B) {
+
+	buf, err := testData.ReadFile("testdata/preprocessed.png")
+	if err != nil {
+		b.Fatal("failed to read testdata/preprocessed.png")
+	}
+
+	img, err  := gocv.IMDecode(buf, gocv.IMReadGrayScale)
+	if err != nil || img.Empty() {
+		b.Fatal("could not read preprocessed image")
+	}
+	defer img.Close()
+
+	r, err := testData.Open("testdata/mark.json")
+	if err != nil {
+		b.Fatalf("open mark template: %v", err)
+	}
+	defer r.Close()
+
+	tmpl, err := LoadTemplate(r)
+	if err != nil {
+		b.Fatalf("load mark template: %v", err)
+	}
+
+	for b.Loop() {
+		_, err = Evaluate([]*gocv.Mat{&img}, tmpl)
+		if err != nil {
+			b.Fatalf("evaluate: %v", err)
+		}		
 	}
 }
