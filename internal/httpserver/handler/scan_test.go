@@ -5,7 +5,33 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"ubco-team15/omr/internal/httpserver/dto"
 )
+
+//
+// Helper functions
+//
+
+// Fails the test unless the response is an error with the specified reason.
+func assertError(
+	t *testing.T, 
+	rr *httptest.ResponseRecorder, 
+	e dto.ErrReason,
+) {
+	t.Helper()
+
+	body := make(map[string]string)
+	json.Unmarshal(rr.Body.Bytes(), &body)
+
+	if reason := body["code"]; reason != string(e) {
+		t.Fatalf("expected error reason %v, got %s", e, reason)
+	}
+}
+
+//
+// Tests
+//
 
 func TestPostScan(t *testing.T) {
 
@@ -92,7 +118,7 @@ func TestPostScan(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	assertErrorCode(t, rr, ErrCodePageCountMismatch)
+	assertError(t, rr, dto.ErrPageCountMismatch)
 
 	//
 	// 400: Wrong number of pages.
@@ -117,7 +143,7 @@ func TestPostScan(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	assertErrorCode(t, rr, ErrCodePageCountMismatch)
+	assertError(t, rr, dto.ErrPageCountMismatch)
 
 	//
 	// 404: Unrecognized template.
@@ -146,7 +172,7 @@ func TestPostScan(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	assertErrorCode(t, rr, ErrCodeTemplateNotFound)
+	assertError(t, rr, dto.ErrTemplateNotFound)
 
 	//
 	// 200: Normal path.

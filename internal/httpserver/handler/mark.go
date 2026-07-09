@@ -23,8 +23,10 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		defer r.Body.Close()
 		jsonBuf, err := io.ReadAll(r.Body)
 		if err != nil {
-			writeError(
-				w, http.StatusBadRequest, ErrCodeInvalidRequest,
+			dto.SendError(
+				w, 
+				http.StatusBadRequest, 
+				dto.ErrInvalidRequest,
 				"error reading body: "+err.Error(),
 			)
 			return
@@ -32,8 +34,10 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 
 		markingJob, err := dto.ParseMarkingJobRequest(jsonBuf)
 		if err != nil {
-			writeError(
-				w, http.StatusBadRequest, ErrCodeInvalidRequest,
+			dto.SendError(
+				w, 
+				http.StatusBadRequest, 
+				dto.ErrInvalidRequest,
 				"error parsing body: "+err.Error(),
 			)
 			return
@@ -50,8 +54,10 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 
 		tmpl, err := s.LoadMarkingTemplate(markingJob.TemplateId)
 		if err != nil {
-			writeError(
-				w, http.StatusNotFound, ErrCodeTemplateNotFound,
+			dto.SendError(
+				w, 
+				http.StatusNotFound, 
+				dto.ErrTemplateNotFound,
 				"error retrieving template: "+err.Error(),
 			)
 			return
@@ -61,15 +67,19 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		for i, scanId := range markingJob.ScanIds {
 			pages, err := s.LoadScan(scanId)
 			if err != nil {
-				writeError(
-					w, http.StatusNotFound, ErrCodeScanNotFound,
+				dto.SendError(
+					w, 
+					http.StatusNotFound, 
+					dto.ErrScanNotFound,
 					"error loading scan "+scanId+": "+err.Error(),
 				)
 				return
 			}
 			if len(pages) != len(tmpl.Pages) {
-				writeError(
-					w, http.StatusBadRequest, ErrCodePageCountMismatch,
+				dto.SendError(
+					w, 
+					http.StatusBadRequest, 
+					dto.ErrPageCountMismatch,
 					fmt.Sprintf(
 						"page count %d for scan %s does not match "+
 							"page count %d of template %s",

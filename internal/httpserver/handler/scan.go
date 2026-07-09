@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"io"
 	"net/http"
+	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/scanner"
 
 	"gocv.io/x/gocv"
@@ -20,16 +20,21 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		templateId := r.URL.Query().Get("template")
 		if templateId == "" {
-			writeError(
-				w, http.StatusBadRequest, ErrCodeInvalidRequest,
+			dto.SendError(
+				w,
+				http.StatusBadRequest, 
+				dto.ErrInvalidRequest,
 				"template query parameter is missing",
 			)
 			return
 		}
+
 		template, err := s.LoadPreprocessingTemplate(templateId)
 		if err != nil {
-			writeError(
-				w, http.StatusNotFound, ErrCodeTemplateNotFound,
+			dto.SendError(
+				w, 
+				http.StatusNotFound, 
+				dto.ErrTemplateNotFound,
 				"template "+templateId+" not found",
 			)
 			return
@@ -41,11 +46,13 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		anchors, err := s.LoadAnchors(templateId)
 		if err != nil {
-			http.Error(
+			dto.SendError(
 				w,
-				"error retrieving anchors: "+err.Error(),
 				http.StatusNotFound,
+				dto.ErrMissingAnchor,
+				err.Error(),
 			)
+			return
 		}
 
 		//
@@ -54,7 +61,12 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		defer r.Body.Close()
 		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-			writeError(w, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid multipart form")
+			dto.SendError(
+				w, 
+				http.StatusBadRequest, 
+				dto.ErrInvalidRequest, 
+				"invalid multipart form",
+			)
 			return
 		}
 
@@ -64,8 +76,10 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		for pageIdx := range pageCount {
 			f, _, err := r.FormFile(fmt.Sprintf("page%d", pageIdx))
 			if err != nil {
-				writeError(
-					w, http.StatusBadRequest, ErrCodePageCountMismatch,
+				dto.SendError(
+					w, 
+					http.StatusBadRequest, 
+					dto.ErrPageCountMismatch,
 					fmt.Sprintf(
 						"expected page%d on the request "+
 							"(the preprocessing template has %d pages)",
@@ -129,25 +143,12 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		result, err := scanner.Scan(pageScans, tmpl)
 		if err != nil {
-			var oerr *scanner.OrderError
-			var qerr *scanner.QualityError
-			switch {
-			case errors.As(err, &oerr):
-				writeError(
-					w, http.StatusBadRequest, ErrCodePageOutOfOrder,
-					"pages may be out of order: "+err.Error(),
-				)
-			case errors.As(err, &qerr):
-				writeError(
-					w, http.StatusBadRequest, ErrCodeLowScanQuality,
-					"scan quality issue: "+err.Error(),
-				)
-			default:
-				writeError(
-					w, http.StatusInternalServerError, ErrCodeInternal,
-					"error during preprocessing: "+err.Error(),
-				)
-			}
+			dto.SendError(
+				w, 
+				http.StatusInternalServerError, 
+				dto.ErrInternal,
+				"error during preprocessing: "+err.Error(),
+			)
 			return
 		}
 
@@ -165,8 +166,10 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 		id, err := s.SaveScan(pageImages, pagePictures, templateId)
 		if err != nil {
-			writeError(
-				w, http.StatusInternalServerError, ErrCodeInternal,
+			dto.SendError(
+				w, 
+				http.StatusInternalServerError, 
+				dto.ErrInternal,
 				"error saving preprocessed scans: "+err.Error(),
 			)
 			return
