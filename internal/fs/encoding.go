@@ -8,8 +8,8 @@ package fs
 
 import (
 	"image"
-	"io"
 	"image/jpeg"
+	"io"
 
 	"gocv.io/x/gocv"
 )

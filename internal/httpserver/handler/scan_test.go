@@ -15,8 +15,8 @@ import (
 
 // Fails the test unless the response is an error with the specified reason.
 func assertError(
-	t *testing.T, 
-	rr *httptest.ResponseRecorder, 
+	t *testing.T,
+	rr *httptest.ResponseRecorder,
 	e dto.ErrReason,
 ) {
 	t.Helper()
@@ -215,6 +215,10 @@ func TestPostScan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan wasn't saved: %s", err.Error())
 	}
+	for i := range pages {
+		pages[i].Close()
+	}
+
 	if len(pages) != 2 {
 		t.Fatal("scan pages failed to load")
 	}

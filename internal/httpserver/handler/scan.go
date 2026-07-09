@@ -22,7 +22,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		if templateId == "" {
 			dto.SendError(
 				w,
-				http.StatusBadRequest, 
+				http.StatusBadRequest,
 				dto.ErrInvalidRequest,
 				"template query parameter is missing",
 			)
@@ -32,8 +32,8 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		template, err := s.LoadPreprocessingTemplate(templateId)
 		if err != nil {
 			dto.SendError(
-				w, 
-				http.StatusNotFound, 
+				w,
+				http.StatusNotFound,
 				dto.ErrTemplateNotFound,
 				"template "+templateId+" not found",
 			)
@@ -62,9 +62,9 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		defer r.Body.Close()
 		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 			dto.SendError(
-				w, 
-				http.StatusBadRequest, 
-				dto.ErrInvalidRequest, 
+				w,
+				http.StatusBadRequest,
+				dto.ErrInvalidRequest,
 				"invalid multipart form",
 			)
 			return
@@ -77,8 +77,8 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			f, _, err := r.FormFile(fmt.Sprintf("page%d", pageIdx))
 			if err != nil {
 				dto.SendError(
-					w, 
-					http.StatusBadRequest, 
+					w,
+					http.StatusBadRequest,
 					dto.ErrPageCountMismatch,
 					fmt.Sprintf(
 						"expected page%d on the request "+
@@ -144,8 +144,8 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		result, err := scanner.Scan(pageScans, tmpl)
 		if err != nil {
 			dto.SendError(
-				w, 
-				http.StatusInternalServerError, 
+				w,
+				http.StatusInternalServerError,
 				dto.ErrInternal,
 				"error during preprocessing: "+err.Error(),
 			)
@@ -167,8 +167,8 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		id, err := s.SaveScan(pageImages, pagePictures, templateId)
 		if err != nil {
 			dto.SendError(
-				w, 
-				http.StatusInternalServerError, 
+				w,
+				http.StatusInternalServerError,
 				dto.ErrInternal,
 				"error saving preprocessed scans: "+err.Error(),
 			)

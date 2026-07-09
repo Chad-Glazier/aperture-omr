@@ -1,4 +1,3 @@
-
 package scanner
 
 import (

@@ -18,12 +18,12 @@ const (
 	ErrMissingAnchor     ErrReason = "missing_anchor"
 )
 
-// Sends a JSON error response with a classifier (reason) so that the client 
-// can distinguish between different types of errors. 
+// Sends a JSON error response with a classifier (reason) so that the client
+// can distinguish between different types of errors.
 func SendError(
-	w http.ResponseWriter, 
-	status int, 
-	reason ErrReason, 
+	w http.ResponseWriter,
+	status int,
+	reason ErrReason,
 	message string,
 ) {
 	w.Header().Set("Content-Type", "application/json")
@@ -31,7 +31,7 @@ func SendError(
 	enc := json.NewEncoder(w)
 	resp := map[string]string{
 		// I'd like to change this to "reason" in the future.
-		"code": string(reason),
+		"code":    string(reason),
 		"message": message,
 	}
 	if err := enc.Encode(resp); err != nil {

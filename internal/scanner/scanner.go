@@ -176,10 +176,10 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 	}
 
 	err = warp(
-		data, data, 
-		tmpl.Pages[idx].Anchors, 
-		tmpl.Width, 
-		tmpl.Height, 
+		data, data,
+		tmpl.Pages[idx].Anchors,
+		tmpl.Width,
+		tmpl.Height,
 		tmpl.Config,
 	)
 	if err != nil {
@@ -210,8 +210,8 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 // failure data is left untouched and the caller should report the original
 // error.
 func recoverUpsideDown(
-	data *ScanData, 
-	anchors []Anchor, 
+	data *ScanData,
+	anchors []Anchor,
 	tmpl *Template,
 ) error {
 	rotated := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
@@ -228,9 +228,9 @@ func recoverUpsideDown(
 	}
 
 	err = warp(
-		rotated, rotated, 
-		anchors, 
-		tmpl.Width, tmpl.Height, 
+		rotated, rotated,
+		anchors,
+		tmpl.Width, tmpl.Height,
 		tmpl.Config,
 	)
 	if err != nil {
@@ -252,19 +252,19 @@ func recoverUpsideDown(
 // evidence this image was fed into the wrong slot, and reports which page
 // it actually looks like.
 func detectMisplacedPage(
-	data *ScanData, 
-	tmpl *Template, 
+	data *ScanData,
+	tmpl *Template,
 	idx int,
 ) (detected int, ok bool) {
 
 	rotated := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
 	defer rotated.Close()
 
-	rotatedOK := 
+	rotatedOK :=
 		gocv.Rotate(data.Picture, &rotated.Picture, gocv.Rotate180Clockwise) == nil &&
-		gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise) == nil
+			gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise) == nil
 
-	probe := &ScanData{ Picture: gocv.NewMat(), Binary: gocv.NewMat() }
+	probe := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
 	defer probe.Close()
 
 	for j := range tmpl.Pages {
@@ -275,10 +275,10 @@ func detectMisplacedPage(
 		otherAnchors := tmpl.Pages[j].Anchors
 
 		err := warp(
-			data, 
-			probe, 
-			otherAnchors, 
-			tmpl.Width, tmpl.Height, 
+			data,
+			probe,
+			otherAnchors,
+			tmpl.Width, tmpl.Height,
 			tmpl.Config,
 		)
 		if err == nil {
@@ -286,17 +286,17 @@ func detectMisplacedPage(
 		}
 
 		err = warp(
-			rotated, 
-			probe, 
-			otherAnchors, 
-			tmpl.Width, tmpl.Height, 
+			rotated,
+			probe,
+			otherAnchors,
+			tmpl.Width, tmpl.Height,
 			tmpl.Config,
 		)
 		if rotatedOK && err == nil {
 			return j, true
 		}
 	}
-	
+
 	return 0, false
 }
 
@@ -333,8 +333,12 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	//
 
 	blockSize = min(blockSize, src.Rows(), src.Cols())
-	if blockSize%2 == 0 { blockSize-- }
-	if blockSize < 3 { blockSize = 3 }
+	if blockSize%2 == 0 {
+		blockSize--
+	}
+	if blockSize < 3 {
+		blockSize = 3
+	}
 
 	//
 	// Run through the binarization pipeline. The steps are as follows:

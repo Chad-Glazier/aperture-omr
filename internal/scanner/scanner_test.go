@@ -204,7 +204,6 @@ func TestFindAnchorCenter(t *testing.T) {
 	}
 }
 
-
 // marker returns a small template: a white square inset by 5px on a black
 // background, the same shape TestFindAnchorCenter uses, so it has a
 // non-zero standard deviation for TmCcoeffNormed to divide by.
