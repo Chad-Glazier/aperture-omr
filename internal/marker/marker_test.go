@@ -376,7 +376,7 @@ func BenchmarkEvaluate(b *testing.B) {
 		b.Fatal("failed to read testdata/preprocessed.png")
 	}
 
-	img, err  := gocv.IMDecode(buf, gocv.IMReadGrayScale)
+	img, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 	if err != nil || img.Empty() {
 		b.Fatal("could not read preprocessed image")
 	}
@@ -397,6 +397,6 @@ func BenchmarkEvaluate(b *testing.B) {
 		_, err = Evaluate([]*gocv.Mat{&img}, tmpl)
 		if err != nil {
 			b.Fatalf("evaluate: %v", err)
-		}		
+		}
 	}
 }

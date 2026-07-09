@@ -152,7 +152,7 @@ func detectAnswers(
 	n := len(q.Options)
 	w, h := q.BubbleWidth, q.BubbleHeight
 	r := min(w, h) / 2
-	
+
 	innerR := int(float64(r) * inset)
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	qMask := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8U)

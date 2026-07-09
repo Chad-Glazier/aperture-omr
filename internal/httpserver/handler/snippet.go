@@ -52,7 +52,7 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		if err != nil {
 			http.Error(
 				w,
-				"error loading: " + err.Error(),
+				"error loading: "+err.Error(),
 				http.StatusNotFound,
 			)
 			return
@@ -86,7 +86,7 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		if err != nil {
 			http.Error(
 				w,
-				"error retrieving scan image: " + err.Error(),
+				"error retrieving scan image: "+err.Error(),
 				http.StatusNotFound,
 			)
 			return
@@ -106,7 +106,7 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		for _, option := range targetQuestion.Options {
 
 			// Note: the X,Y coordinates of an option define the center of it's
-			// bubble. In order to get its bounds, we need to add/subtract half 
+			// bubble. In order to get its bounds, we need to add/subtract half
 			// of the bubble's respective dimension size.
 
 			minX = min(minX, option.X-targetQuestion.BubbleWidth/2)
@@ -122,13 +122,13 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		minY -= padding
 		maxY += padding
 
-		rect := image.Rect(0, 0, maxX - minX, maxY - minY)
+		rect := image.Rect(0, 0, maxX-minX, maxY-minY)
 		snippet := image.NewRGBA(rect)
 		draw.Draw(
 			snippet,
 			rect,
 			scan,
-			image.Point{ X: minX, Y: minY },
+			image.Point{X: minX, Y: minY},
 			draw.Src,
 		)
 

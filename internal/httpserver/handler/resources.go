@@ -57,7 +57,7 @@ type ServerResources interface {
 	LoadScan(scanId string) ([]*gocv.Mat, error)
 
 	// Loads a picture from a scan. The "picture" of a scan is the version that
-	// is maintained for human viewers. (Preprocessing leaves the main scan 
+	// is maintained for human viewers. (Preprocessing leaves the main scan
 	// a little ugly).
 	LoadScanPicture(scanId string, pageIdx int) (image.Image, error)
 }
@@ -317,10 +317,10 @@ func (s *defaultResources) SaveScan(
 		err = s.DB.CreateScanPage(
 			context.Background(),
 			sqlc.CreateScanPageParams{
-				ID:            pageId,
+				ID:         pageId,
 				PictureKey: pictureId,
-				PageIndex:     int64(i),
-				ScanID:        scanId,
+				PageIndex:  int64(i),
+				ScanID:     scanId,
 			},
 		)
 		if err != nil {

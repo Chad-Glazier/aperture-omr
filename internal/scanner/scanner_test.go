@@ -229,7 +229,7 @@ func BenchmarkScan(b *testing.B) {
 		b.Fatalf("open image: %v", err)
 	}
 	defer imgFile.Close()
-	
+
 	buf, err := io.ReadAll(imgFile)
 	if err != nil {
 		b.Fatal(err)

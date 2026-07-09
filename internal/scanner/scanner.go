@@ -330,7 +330,7 @@ func findAnchorCenter(
 	// We could use a more sophisticated convex optimization method, but since
 	// we can't really guarantee the convex-ness (?) of the objective function
 	// I doubt that the risk of falling into a local maximum is worth the
-	// marginal efficiency boost.
+	// marginal performance boost.
 	//
 
 	size := image.Pt(anchor.Image.Cols(), anchor.Image.Rows())
@@ -339,7 +339,7 @@ func findAnchorCenter(
 		earlyBreakConfidence = 0.95
 		refiningIterations   = 3
 		refiningFactor       = 2.0
-		anglesPerIteration   = 3
+		anglesPerIteration   = 4
 		initialMiddle        = 0.0
 		initialBreadth       = 10.0
 	)
