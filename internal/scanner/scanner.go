@@ -10,6 +10,20 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// QualityError marks a failure caused by the scanned image itself — too
+// small, corrupt, misaligned, or too skewed/faint to find its anchors —
+// rather than a bug or bad template config. Callers use errors.As to tell
+// "ask for a rescan" apart from "something broke on our end".
+type QualityError struct {
+	msg string
+}
+
+func (e *QualityError) Error() string { return e.msg }
+
+func newQualityError(format string, args ...any) error {
+	return &QualityError{msg: fmt.Sprintf(format, args...)}
+}
+
 type ScanData struct {
 	// The picture of a scan is only partially processed. It will be aligned
 	// and scaled to have the same coordinate system as the "Binary" version,
@@ -118,17 +132,17 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 
 	img, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 	if err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
+		return nil, newQualityError("decode: %s", err.Error())
 	}
 
 	if img.Empty() {
 		img.Close()
-		return nil, fmt.Errorf("decoded image is empty")
+		return nil, newQualityError("decoded image is empty")
 	}
 
 	if img.Cols() <= 100 || img.Rows() <= 100 {
 		img.Close()
-		return nil, fmt.Errorf("image dimensions too small: %dx%d", img.Cols(), img.Rows())
+		return nil, newQualityError("image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
 	data := &ScanData{
@@ -292,7 +306,7 @@ func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) 
 	transform := gocv.EstimateAffine2D(srcVec, dstVec)
 	defer transform.Close()
 	if transform.Empty() {
-		return fmt.Errorf("could not estimate affine transform from anchor points")
+		return newQualityError("could not estimate affine transform from anchor points")
 	}
 
 	gocv.WarpAffine(src.Picture, &warped.Picture, transform, targetSize)
@@ -499,10 +513,21 @@ func loadAnchorFromReader(r io.Reader, conf *Config) (*gocv.Mat, error) {
 		return nil, fmt.Errorf("decoded image is empty")
 	}
 
-	// Cap adaptive block size to below the anchor's smallest dimension.
-	// OpenCV degrades to a near-global threshold when blockSize ≥ min(w,h),
-	// producing binary stroke widths that differ from those in the full-scan
-	// binary and reduce template-match precision.
+	if err := BinarizeAnchor(&img, conf); err != nil {
+		img.Close()
+		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
+	}
+	return img, nil
+}
+
+// BinarizeAnchor binarizes an anchor image in place using conf, the same way
+// as the full-page scan (Binarize), but with AdaptiveBlockSize capped below
+// the anchor's smallest dimension. OpenCV degrades to a near-global threshold
+// when blockSize >= min(w,h), producing binary stroke widths that diverge
+// from the full-scan binary and reduce template-match precision — this bit
+// callers must not skip, since it's what makes anchor and page-scan
+// binarization comparable at matchTemplate time.
+func BinarizeAnchor(img *gocv.Mat, conf *Config) error {
 	anchorConf := *conf
 	minDim := img.Cols()
 	if img.Rows() < minDim {

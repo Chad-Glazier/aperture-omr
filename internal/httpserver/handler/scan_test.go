@@ -92,6 +92,7 @@ func TestPostScan(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
+	assertErrorCode(t, rr, ErrCodePageCountMismatch)
 
 	//
 	// 400: Wrong number of pages.
@@ -116,6 +117,7 @@ func TestPostScan(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
+	assertErrorCode(t, rr, ErrCodePageCountMismatch)
 
 	//
 	// 404: Unrecognized template.
@@ -144,6 +146,7 @@ func TestPostScan(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
+	assertErrorCode(t, rr, ErrCodeTemplateNotFound)
 
 	//
 	// 200: Normal path.
