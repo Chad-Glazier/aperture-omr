@@ -120,7 +120,13 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 
 	wg := errgroup.Group{}
 	for i, r := range readers {
-		wg.Go(func() error {
+		wg.Go(func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("page %d: panic: %v", i, r)
+				}
+			}()
+
 			buf, err := io.ReadAll(r)
 			if err != nil {
 				return fmt.Errorf("page %d: %w", i, err)

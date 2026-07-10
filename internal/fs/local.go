@@ -145,7 +145,7 @@ func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
 	defer f.Close()
 
 	header := make([]byte, 12)
-	if _, err := f.Read(header); err != nil {
+	if _, err := io.ReadFull(f, header); err != nil {
 		return nil, err
 	}
 	var rows, cols, mt int32
