@@ -1,4 +1,4 @@
-package magick
+package pdf
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestPdfPageCount(t *testing.T) {
-	count, err := PdfPageCount("testdata/sample.pdf")
+	count, err := pdfPageCount("testdata/sample.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestPdfPageCount(t *testing.T) {
 func TestPdfPageToGray(t *testing.T) {
 	const sampleImagePath = "testdata/sample.pdf"
 
-	page, err := PdfPageToGray(sampleImagePath, 0)
+	page, err := pdfPageToGray(sampleImagePath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,6 +31,7 @@ func TestPdfPageToGray(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer mat.Close()
 
 	// This test cannot guarantee that a rendered image is "correct" without
 	// manual inspection but using IMEncode at least guarantees that the
@@ -46,7 +47,7 @@ func TestPdfPageToGray(t *testing.T) {
 	const pageCount = 5
 
 	for i := range pageCount {
-		if _, err := PdfPageToGray(sampleImagePath, i); err != nil {
+		if _, err := pdfPageToGray(sampleImagePath, i); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -56,8 +57,8 @@ func TestPdfPageToGray(t *testing.T) {
 	//
 
 	for i := pageCount; i < pageCount+100; i++ {
-		_, err := PdfPageToGray(sampleImagePath, i)
-		if err != ErrIndexOutOfBounds {
+		_, err := pdfPageToGray(sampleImagePath, i)
+		if err != errIndexOutOfBounds {
 			t.Fatal(err)
 		}
 	}
@@ -67,7 +68,7 @@ func TestPdfToGrayPages(t *testing.T) {
 
 	const sampleImagePath = "testdata/sample_large.pdf"
 
-	pages, err := PdfToGrayPages(sampleImagePath)
+	pages, err := pdfToGrayPages(sampleImagePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +78,7 @@ func TestPdfToGrayPages(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer mat.Close()
 
 		if _, err := gocv.IMEncode(gocv.PNGFileExt, mat); err != nil {
 			t.Fatal(err)

@@ -56,15 +56,15 @@ PdfStatus pdf_file_page_to_gray(
         char *msg = MagickGetException(wand, &severity);
 
         //
-        // Note: Previously, we had an exception handler to check whether
-        // the error is actually an out-of-bounds index. However, that doesn't
-        // work on Linux because the delegated call to ghostscript does not
-        // yield capturable output, instead it just prints it right to stderr.
-        // This leads to the approach of simply assuming that any failure in
-        // loading the PDF is an index out-of-bounds error. This isn't ideal,
-        // but it works as long as we dont get a malformed PDF. (Notably, a
-        // malformed PDF can still be detected if the total number of pages 
-        // rendered is zero.)
+        // Previously, we had an exception handler to check whether the error 
+        // is actually an out-of-bounds index. However, that doesn't work on 
+        // Linux because the delegated call to ghostscript does not yield 
+        // capturable output, instead it just prints it right to stderr. This 
+        // leads to the approach of simply assuming that any failure in loading
+        // the PDF is an index out-of-bounds error. This isn't ideal, but it 
+        // works as long as we dont get a malformed PDF. (Notably, a malformed 
+        // PDF can still be detected if the total number of pages rendered is 
+        // zero.)
         //
         // We could use the `pdf_get_page_count` function, but the cost of 
         // getting metadata from the PDF is still significant--in my testing,
@@ -76,6 +76,15 @@ PdfStatus pdf_file_page_to_gray(
         DestroyMagickWand(wand);
 
         return PDF_PAGE_NOT_FOUND;
+    }
+
+    char *format = MagickGetImageFormat(wand);
+    if (strcmp(format, "PDF") != 0) {
+
+        MagickRelinquishMemory(format);
+        DestroyMagickWand(wand);
+
+        return PDF_LOADING_ERROR;
     }
 
     assert(MagickGetNumberImages(wand) == 1);

@@ -58,9 +58,6 @@ In keeping with Go conventions, the top-level directories are as follows:
     - [`dto`](./internal/httpserver/dto/) contains the data transfer objects (DTOs) for the server. Any complex object that will be sent or received from the server is put there, along with relevant deserialization and validation functions.
     - [`handler`](./internal/httpserver/handler/) includes the bulk of the HTTP server's logic.
   - [`fs`](./internal/fs/) exposes a simple interface for file storage, particularly images. Internally, it currently has two implementations; one wraps the local file system (suitable for testing) and the other wraps an S3 client.
-- [`config`](./config) wraps configuration data.
-  - Conventionally, this folder would simply include `.env` files and stuff. However in this project we define it as an actual Go package that's responsible for wrapping configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This also allows us to set environment variables based on the runtime mode (development, production, or test) and validate them when the program starts, instead of postponing potential runtime errors.
-  - We expect environment variables to be set outside of the application (e.g., by a Docker configuration or in the command line).
 
 For more info about the top-level directory naming standards, refer to [this document](https://github.com/golang-standards/project-layout). This is not an "official" project setup, but it is a popular one.
 

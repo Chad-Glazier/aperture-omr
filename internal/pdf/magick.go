@@ -1,7 +1,4 @@
-/*
-This package wraps the ImageMagick library to perform PDF to image conversion.
-*/
-package magick
+package pdf
 
 // #cgo pkg-config: MagickWand
 //
@@ -22,8 +19,8 @@ import (
 )
 
 var (
-	ErrIndexOutOfBounds = errors.New("page index out of bounds")
-	ErrUnknown          = errors.New("unknown error rendering pdf")
+	errIndexOutOfBounds = errors.New("page index out of bounds")
+	errUnkown          = errors.New("unknown error rendering pdf")
 )
 
 // Determines the dots per inch (DPI) when rendering the PDF. Lower values are
@@ -31,7 +28,9 @@ var (
 // very high resolution while 74 DPI would be very low resolution.
 const density = 200
 
-func PdfPageCount(path string) (int, error) {
+// Counts the number of pages in a PDF without rendering it. This function is
+// still noticeably slow; don't use it unless necessary.
+func pdfPageCount(path string) (int, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 	
@@ -44,8 +43,8 @@ func PdfPageCount(path string) (int, error) {
 	return pageCount, nil
 }
 
-// Renders a single page from a PDF file to a grayscale image.
-func PdfPageToGray(path string, page int) (*image.Gray, error) {
+// Renders a single page from a PDF file to a grayscale OpenCV matrix.
+func pdfPageToGray(path string, page int) (*image.Gray, error) {
 
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -60,9 +59,11 @@ func PdfPageToGray(path string, page int) (*image.Gray, error) {
 	if status != C.PDF_OK {
 		switch status {
 		case C.PDF_PAGE_NOT_FOUND:
-			return nil, ErrIndexOutOfBounds
+			return nil, errIndexOutOfBounds
+		case C.PDF_LOADING_ERROR:
+			return nil, ErrMalformedPdf
 		default:
-			return nil, ErrUnknown
+			return nil, errUnkown
 		}
 	}
 
@@ -86,7 +87,7 @@ func PdfPageToGray(path string, page int) (*image.Gray, error) {
 // Renders all pages from a PDF file into a slice of grayscale images, each of
 // which represents a page. The order of pages in the slice matches the order
 // that they appear in the PDF.
-func PdfToGrayPages(path string) ([]*image.Gray, error) {
+func pdfToGrayPages(path string) ([]*image.Gray, error) {
 	workers := runtime.NumCPU()
 
 	var nextPage atomic.Int64
@@ -106,8 +107,8 @@ func PdfToGrayPages(path string) ([]*image.Gray, error) {
 
 				page := int(nextPage.Add(1) - 1)
 
-				img, err := PdfPageToGray(path, page)
-				if err == ErrIndexOutOfBounds {
+				img, err := pdfPageToGray(path, page)
+				if err == errIndexOutOfBounds {
 					finished.Store(true)
 					return nil
 				}
