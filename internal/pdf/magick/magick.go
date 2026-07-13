@@ -28,8 +28,21 @@ var (
 
 // Determines the dots per inch (DPI) when rendering the PDF. Lower values are
 // much faster to compute but lead to poorer quality images. 300 DPI would be
-// very high resolution while 74 DPI would be low resolution.
+// very high resolution while 74 DPI would be very low resolution.
 const density = 200
+
+func PdfPageCount(path string) (int, error) {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+	
+	pageCount := int(C.pdf_file_page_count(cPath))
+
+	if pageCount == -1 {
+		return 0, errors.New("error loading file")
+	}
+
+	return pageCount, nil
+}
 
 // Renders a single page from a PDF file to a grayscale image.
 func PdfPageToGray(path string, page int) (*image.Gray, error) {
@@ -70,7 +83,10 @@ func PdfPageToGray(path string, page int) (*image.Gray, error) {
 	}, nil
 }
 
-func PdfToGrayPages(path string) (map[int]*image.Gray, error) {
+// Renders all pages from a PDF file into a slice of grayscale images, each of
+// which represents a page. The order of pages in the slice matches the order
+// that they appear in the PDF.
+func PdfToGrayPages(path string) ([]*image.Gray, error) {
 	workers := runtime.NumCPU()
 
 	var nextPage atomic.Int64
@@ -79,10 +95,10 @@ func PdfToGrayPages(path string) (map[int]*image.Gray, error) {
 	results := make(map[int]*image.Gray)
 	var mu sync.Mutex
 
-	g, _ := errgroup.WithContext(context.Background())
+	wg, _ := errgroup.WithContext(context.Background())
 
-	for i := 0; i < workers; i++ {
-		g.Go(func() error {
+	for range workers {
+		wg.Go(func() error {
 			for {
 				if finished.Load() {
 					return nil
@@ -91,8 +107,7 @@ func PdfToGrayPages(path string) (map[int]*image.Gray, error) {
 				page := int(nextPage.Add(1) - 1)
 
 				img, err := PdfPageToGray(path, page)
-
-				if errors.Is(err, ErrIndexOutOfBounds) {
+				if err == ErrIndexOutOfBounds {
 					finished.Store(true)
 					return nil
 				}
@@ -108,9 +123,14 @@ func PdfToGrayPages(path string) (map[int]*image.Gray, error) {
 		})
 	}
 
-	if err := g.Wait(); err != nil {
+	if err := wg.Wait(); err != nil {
 		return nil, err
 	}
 
-	return results, nil
+	pages := make([]*image.Gray, len(results))
+	for idx, img := range results {
+		pages[idx] = img
+	}
+
+	return pages, nil
 }

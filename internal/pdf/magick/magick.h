@@ -3,9 +3,14 @@
 
 #include <stddef.h>
 
+// Gets the number of pages in a PDF file (without rendering it). Returns -1 if
+// the file could not be loaded.
+int pdf_file_page_count(const char *file_name);
+
 // Represents a return status for the PDF rendering functions.
 typedef enum {
     PDF_OK = 0,         // The rendering was successful.
+    PDF_LOADING_ERROR,  // The PDF file was not loaded properly.
     PDF_PAGE_NOT_FOUND, // The requested page was out of the PDF's bounds.
     PDF_RENDER_ERROR,   // There was some rendering error.
     PDF_OUT_OF_MEMORY,  // The rendering failed because a malloc failed.

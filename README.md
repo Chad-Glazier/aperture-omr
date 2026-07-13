@@ -16,7 +16,7 @@ Since we use OpenCV as a dependency the program takes a while to build. Refer to
 Once the image is built, you can run the app via docker:
 
 ```sh
-docker run --rm -p 3000:3000 omr_server
+docker run --rm -p 3000:3000 --name omr omr_server
 ```
 
 This will log a URL to the documentation on startup. Follow that link to view details about the endpoints.
@@ -24,14 +24,20 @@ This will log a URL to the documentation on startup. Follow that link to view de
 If you want the container to persist and maintain its stored data (volume), instead run:
 
 ```sh
-docker run -p 3000:3000 -v omr-data:/app/data omr_server
+docker run -p 3000:3000 -v omr-data:/app/data --name omr omr_server
 ```
 
 >The Go version set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
 
+If you want to run tests in a running container (named `omr` in this case), run
+
+```sh
+docker exec -t omr sh -c "go test ./..."
+```
+
 ## Setting Up a Local Environment
 
-In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/) and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
+In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/),  and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
 
 ```sh
 go run .
@@ -69,6 +75,9 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 - [Cobra](https://cobra.dev/) is used to set up the command-line interface. It's only used in the [cmd](./cmd) package.
 - [sqlc](https://sqlc.dev/) is used to generate Go functions from SQL queries (read more [here](./internal/database/sqlc/README.md)). sqlc is strictly for code generation; it is not a runtime dependency.
 - [lz4](https://github.com/pierrec/lz4/v4) is used to compress OpenCV matrices when we save them to persistent storage.
+- [ImageMagick6](https://legacy.imagemagick.org/#gsc.tab=0) is used to convert PDFs to images. 
+- [ghostscript](https://www.ghostscript.com/) is a required dependency for ImageMagick to render PDFs. 
+  - Since we're only using ImageMagick to render PDFs (at the time of writing), we could remove ImageMagick and just use the ghostscript API directly. However, the API is OS-specific and the overhead from ImageMagick is negligible. It's just not worth the effort at this time.
 
 ## Development Notes
 
@@ -77,9 +86,8 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 The following is a list of known improvements that can be made to the system.
 - The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to implement a version for Postgres.
   - More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
-- The API spec assumes the domain and port are `localhost:3000`. However, we could rewrite it as a template and have those values populated at runtime.
 - The service, in its current form, manages its own database and file storage. If this is the approach we want to stick with, we should include endpoints to manage that data (e.g., delete old data, compress unused images periodically, etc). It would also be feasible to make a small web UI to expose that functionality.
 - Logs are currently printed by directly calling `slog` functions that write to stdout. We should change this so that the logger is on the `ServerResources` struct instead. This way we could conveniently also log errors to a database, a log file, or whatever else.
-- The whole `config` package needs to be refactored or removed entirely. I don't know why I thought it would be a good idea.
 - The tests in `httpserver/handlers` cover the normal path, but they don't exhaust all of the bad inputs. We could make the test suite a little more comprehensive.
   - Those tests also have a good amount of copy+pasted code, since some handlers depend on others for setup. This can probably be refactored.
+- **More testing**

@@ -6,6 +6,19 @@ import (
 	"gocv.io/x/gocv"
 )
 
+func TestPdfPageCount(t *testing.T) {
+	count, err := PdfPageCount("testdata/sample.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 5 {
+		t.Fatalf(
+			"expected page count to be %d, got %d",
+			5, count,
+		)
+	}
+}
+
 func TestPdfPageToGray(t *testing.T) {
 	const sampleImagePath = "testdata/sample.pdf"
 
@@ -19,13 +32,14 @@ func TestPdfPageToGray(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// This test cannot guarantee that a rendered image is "correct", but using
-	// IMEncode at least guarantees that the matrix is well-formed.
+	// This test cannot guarantee that a rendered image is "correct" without
+	// manual inspection but using IMEncode at least guarantees that the
+	// matrix is well-formed.
 	if _, err := gocv.IMEncode(gocv.PNGFileExt, mat); err != nil {
 		t.Fatal(err)
 	}
 
-	// 
+	//
 	// Test that all valid indices work.
 	//
 
@@ -37,6 +51,10 @@ func TestPdfPageToGray(t *testing.T) {
 		}
 	}
 
+	//
+	// Test that a bunch of invalid indices don't work.
+	//
+
 	for i := pageCount; i < pageCount+100; i++ {
 		_, err := PdfPageToGray(sampleImagePath, i)
 		if err != ErrIndexOutOfBounds {
@@ -44,7 +62,6 @@ func TestPdfPageToGray(t *testing.T) {
 		}
 	}
 }
-
 
 func TestPdfToGrayPages(t *testing.T) {
 
@@ -65,5 +82,4 @@ func TestPdfToGrayPages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
 }
