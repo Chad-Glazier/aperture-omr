@@ -20,7 +20,7 @@ import (
 
 var (
 	errIndexOutOfBounds = errors.New("page index out of bounds")
-	errUnkown          = errors.New("unknown error rendering pdf")
+	errUnkown           = errors.New("unknown error rendering pdf")
 )
 
 // Determines the dots per inch (DPI) when rendering the PDF. Lower values are
@@ -33,7 +33,7 @@ const density = 200
 func pdfPageCount(path string) (int, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
-	
+
 	pageCount := int(C.pdf_file_page_count(cPath))
 
 	if pageCount == -1 {

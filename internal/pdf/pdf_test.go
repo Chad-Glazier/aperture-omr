@@ -41,14 +41,13 @@ func TestRenderPageMats(t *testing.T) {
 }
 
 func TestRenderPageMatsWithMalformedData(t *testing.T) {
-	
+
 	//
 	// This test checks how the renderer handles non-PDF data being passed to
 	// it.
 	//
 
-
-	// Check a text file. This should not be parseable at all by the PDF 
+	// Check a text file. This should not be parseable at all by the PDF
 	// renderer.
 
 	r, err := testData.Open("testdata/not_a_pdf.txt")
@@ -60,8 +59,8 @@ func TestRenderPageMatsWithMalformedData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check an image file. The MagickWand library is able to handle all kinds 
-	// of images, so it's conceivable that would fail silently. We need to 
+	// Check an image file. The MagickWand library is able to handle all kinds
+	// of images, so it's conceivable that would fail silently. We need to
 	// ensure that it doesn't.
 
 	r, err = testData.Open("testdata/not_a_pdf.jpg")

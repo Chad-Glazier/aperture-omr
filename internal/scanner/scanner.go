@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"sync"
 
 	"gocv.io/x/gocv"
 	"golang.org/x/sync/errgroup"
@@ -106,6 +107,179 @@ type Config struct {
 	// AdaptiveC is subtracted from the local mean; negative values make the
 	// threshold more lenient and are needed to catch light pencil marks.
 	AdaptiveC float32 `json:"adaptiveC"`
+}
+
+// Contains the preprocessed and ordered pages of a single scanned exam.
+type ExamData struct {
+	Pages []*ScanData
+}
+
+// Closes each page's matrices for this exam.
+func (e *ExamData) Close() {
+	for i := range e.Pages {
+		e.Pages[i].Close()
+	}
+}
+
+// Accepts an arbitrary number of scanned pages (as grayscale OpenCV matrices)
+// and preprocesses them. The number of scanned pages must be divisible by the
+// number of pages in the preprocessing template.
+//
+// In the case that one or more pages are out of order--i.e., if the template
+// expects two pages per exam but the given matrices are ordered such that the
+// second page appears before the first--then this function will silently
+// attempt to resolve the issue and will shuffle the output to have the correct
+// ordering. Even though this issue is recoverable, it should be noted that
+// many out-of-order pages can dramatically increase the time it takes to
+// preprocess the pages.
+//
+// The returned matrices are linked to the originals. That means that you
+// should not close the original pages after this operation; instead
+func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
+
+	nPagesPerExam := len(tmpl.Pages)
+	nPages := len(pages)
+	nExams := nPages / nPagesPerExam
+
+	if nPages%nPagesPerExam != 0 {
+		return nil, fmt.Errorf(
+			"given %d pages, which is incompatible with a template "+
+				"expecting %d pages",
+			nPages, nPagesPerExam,
+		)
+	}
+
+	results := make([]ExamData, nExams)
+
+	wg := errgroup.Group{}
+	for i := range nExams {
+		wg.Go(func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("exam %d: panic: %v", i, r)
+				}
+			}()
+
+			exam, err := scanExamMats(
+				pages[i*nPagesPerExam:(i+1)*nPagesPerExam],
+				tmpl,
+			)
+			if err != nil {
+				return err
+			}
+			results[i] = exam
+
+			return nil
+		})
+	}
+	if err := wg.Wait(); err != nil {
+		for i := range results {
+			results[i].Close()
+		}
+		return nil, err
+	}
+
+	return results, nil
+}
+
+// Preprocesses an exam's pages. If any page is out of order this function
+// will attempt to resolve the issue by shuffling the order around. In any
+// case, the returned exam will have its pages in the correct order to match
+// the template.
+func scanExamMats(
+	pages []*gocv.Mat,
+	tmpl *Template,
+) (ExamData, error) {
+
+	n := len(pages)
+	result := ExamData{}
+	result.Pages = make([]*ScanData, n)
+	mutexes := make([]sync.Mutex, n)
+
+	wg := errgroup.Group{}
+	for i, page := range pages {
+		wg.Go(func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("exam page %d: panic: %v", i, r)
+				}
+			}()
+
+			//
+			// Iterate over the possible page indices, starting with expected
+			// one.
+			//
+
+			for j := range n {
+				idx := (i + j) % n
+
+				scan, err := scanPageMat(page, tmpl, idx)
+				if err == nil {
+					mutexes[idx].Lock()
+					if result.Pages[i] != nil {
+						mutexes[idx].Unlock()
+						return errors.New("duplicate pages in an exam")
+					}
+					result.Pages[i] = scan
+					mutexes[idx].Unlock()
+					return nil
+				}
+			}
+
+			return fmt.Errorf("unrecognizable page %d", i)
+		})
+	}
+	if err := wg.Wait(); err != nil {
+		result.Close()
+		return ExamData{}, err
+	}
+
+	return result, nil
+}
+
+// Preprocesses a single page as a grayscale OpenCV matrix.
+func scanPageMat(
+	page *gocv.Mat,
+	tmpl *Template,
+	pageIdx int,
+) (*ScanData, error) {
+
+	data := &ScanData{
+		Picture: *page,
+		Binary:  gocv.NewMat(),
+	}
+
+	err := Binarize(page, &data.Binary, &tmpl.Config)
+	if err != nil {
+		data.Close()
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+	}
+
+	err = warp(
+		data, data,
+		tmpl.Pages[pageIdx].Anchors,
+		tmpl.Width,
+		tmpl.Height,
+		tmpl.Config,
+	)
+	if err != nil {
+		var qerr *QualityError
+		if !errors.As(err, &qerr) {
+			data.Close()
+			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		}
+		rotErr := recoverUpsideDown(data, tmpl.Pages[pageIdx].Anchors, tmpl)
+		if rotErr != nil {
+			if detected, ok := detectMisplacedPage(data, tmpl, pageIdx); ok {
+				data.Close()
+				return nil, &OrderError{PageIndex: pageIdx, DetectedPageIndex: detected}
+			}
+			data.Close()
+			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		}
+	}
+
+	return data, nil
 }
 
 // Scan runs each reader through the OMR preprocessing pipeline using the
@@ -485,12 +659,12 @@ func findAnchorCenter(
 	//
 	// We run an iterative refining search here:
 	//
-	// - We start by picking a specific middle point and a breadth.
-	// - Next, we select a few equidistant points in that search area and
-	//   iterate over all of them.
-	// - We take note of the one with the highest value and restart the search
-	//   with it as the new middle point, except that breadth has been shrunk
-	//   by some factor (the "refining factor").
+	// 1) We start by picking a specific middle point and a breadth.
+	// 2) We select a few equidistant points in that search area and
+	//    iterate over all of them.
+	// 3) We take note of the one with the highest value and restart the search
+	//    with it as the new middle point, except that breadth has been shrunk
+	//    by some factor (the "refining factor").
 	//
 	// We could use a more sophisticated convex optimization method, but since
 	// we can't really guarantee the convex-ness (?) of the objective function

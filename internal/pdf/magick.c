@@ -39,7 +39,7 @@ PdfStatus pdf_file_page_to_gray(
 
     memset(result, 0, sizeof(*result));
 
-    MagickWand *wand = NewMagickWand();
+    MagickWand *wand = NewMagickWand(); // <https://youtu.be/mdCyzJT59nw?si=gp8CU9qG2sbTp081>
     MagickSetResolution(wand, density, density);
 
     char spec[4096];

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"image"
 	"io"
 	"net/http"
 	"ubco-team15/omr/internal/httpserver/dto"
@@ -94,50 +93,18 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		}
 
 		//
-		// Below, we convert the data into a format that the scanner package
-		// understands.
-		//
-
-		pages := make([]scanner.ScanPage, pageCount)
-		for pageIdx := range pageCount {
-			nAnchors := len(template.Pages[pageIdx].Anchors)
-			pages[pageIdx].Anchors = make([]scanner.Anchor, nAnchors)
-			for anchorIdx := range nAnchors {
-				pages[pageIdx].Anchors[anchorIdx] = scanner.Anchor{
-					Image: anchors[pageIdx][anchorIdx],
-					ROI: image.Rectangle{
-						Min: image.Point{
-							X: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Min.X,
-							Y: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Min.Y,
-						},
-						Max: image.Point{
-							X: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Max.X,
-							Y: template.Pages[pageIdx].Anchors[anchorIdx].Roi.Max.Y,
-						},
-					},
-					Center: image.Point{
-						X: template.Pages[pageIdx].Anchors[anchorIdx].Center.X,
-						Y: template.Pages[pageIdx].Anchors[anchorIdx].Center.Y,
-					},
-				}
-			}
-		}
-
-		//
 		// Preprocess the scan.
 		//
 
-		tmpl := &scanner.Template{
-			Width:  template.Width,
-			Height: template.Height,
-			Config: scanner.Config{
-				BlurSize:            template.Config.BlurSize,
-				MorphCloseSize:      template.Config.MorphCloseSize,
-				MinAnchorConfidence: float32(template.Config.MinAnchorConfidence),
-				AdaptiveBlockSize:   template.Config.AdaptiveBlockSize,
-				AdaptiveC:           float32(template.Config.AdaptiveC),
-			},
-			Pages: pages,
+		tmpl, err := dto.AdaptScannerTemplate(template, anchors)
+		if err != nil {
+			dto.SendError(
+				w,
+				http.StatusInternalServerError,
+				dto.ErrInternal,
+				err.Error(),
+			)
+			return
 		}
 		defer tmpl.Close()
 

@@ -288,6 +288,77 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /scan/pdf:
+    post:
+      summary: Upload a PDF scan
+      description: |
+        This endpoint lets you upload a scan in PDF format. The OMR will 
+        perform any preprocessing according to the specified template and store
+        the scans for marking.
+      tags:
+        - Preprocessing
+      requestBody:
+        description: |
+          The PDF containing the scanned exam(s).
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                pdf:
+                  type: string
+                  format: binary
+                  description: |
+                    The PDF file containing the scanned exams.
+                preprocessingTemplate:
+                  type: string
+                  description: |
+                    The ID of the preprocessing template to use.
+              required:
+                - pdf
+                - preprocessingTemplate
+      responses: 
+        200:
+          description: |
+            The scan(s) were successfully preprocessed and stored.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: |
+                  A list of IDs for the newly uploaded scans.
+                items:
+                  type: string
+        400:
+          description: |
+            The request was missing something or the PDF was malformed. Check 
+            the error message for details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        404:
+          description: |
+            The requested preprocessing template could not be found.
+          content: 
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
   /mark:
     post:
       summary: Run a marking job

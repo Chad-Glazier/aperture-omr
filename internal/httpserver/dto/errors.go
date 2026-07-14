@@ -16,6 +16,7 @@ const (
 	ErrPageOutOfOrder    ErrReason = "page_out_of_order"
 	ErrInternal          ErrReason = "internal_error"
 	ErrMissingAnchor     ErrReason = "missing_anchor"
+	ErrMalformedPdf      ErrReason = "malformed_pdf"
 )
 
 // Sends a JSON error response with a classifier (reason) so that the client

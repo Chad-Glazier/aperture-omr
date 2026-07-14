@@ -27,6 +27,7 @@ func Start(hostname, port string) {
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(res))
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
 	mux.HandleFunc("POST /scan", handler.PostScan(res))
+	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdf(res))
 	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
 	mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
 

@@ -66,6 +66,6 @@ func RenderPageMats(r io.Reader) ([]*gocv.Mat, error) {
 		}
 		mats[i] = &mat
 	}
-	
+
 	return mats, nil
 }
