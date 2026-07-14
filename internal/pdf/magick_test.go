@@ -36,9 +36,11 @@ func TestPdfPageToGray(t *testing.T) {
 	// This test cannot guarantee that a rendered image is "correct" without
 	// manual inspection but using IMEncode at least guarantees that the
 	// matrix is well-formed.
-	if _, err := gocv.IMEncode(gocv.PNGFileExt, mat); err != nil {
+	buf, err := gocv.IMEncode(gocv.PNGFileExt, mat)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer buf.Close()
 
 	//
 	// Test that all valid indices work.
