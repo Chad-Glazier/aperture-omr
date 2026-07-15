@@ -10,11 +10,12 @@ import (
 )
 
 //
-// This file contains functions used for scanning matrices directly, rather
+// This file contains functions used for scanning matrices directly rather
 // than scanning images.
 //
 
-// Contains the preprocessed and ordered pages of a single scanned exam.
+// Contains the preprocessed and ordered pages of a single scanned exam. Use
+// the Close method to close all nested matrices when you're done.
 type ExamData struct {
 	Pages []*ScanData
 }
@@ -23,7 +24,8 @@ type ExamData struct {
 func (e *ExamData) Close() {
 	for i := range e.Pages {
 		if e.Pages[i] != nil {
-			e.Pages[i].Close()
+			e.Pages[i].Binary.Close()
+			e.Pages[i].Picture.Close()
 		}
 	}
 }
@@ -40,8 +42,8 @@ func (e *ExamData) Close() {
 // many out-of-order pages can dramatically increase the time it takes to
 // preprocess the pages.
 //
-// The returned matrices are linked to the originals. That means that you
-// should not close the original pages after this operation; instead
+// The returned matrices are not linked to the originals. That means that you
+// can safely close the original pages after this operation.
 func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 
 	nPagesPerExam := len(tmpl.Pages)
@@ -54,6 +56,15 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 				"expecting %d pages",
 			nPages, nPagesPerExam,
 		)
+	}
+
+	for i := range pages {
+		if pages[i] == nil {
+			return nil, fmt.Errorf(
+				"ScanMats cannot operate on nil matrices (page %d is nil)",
+				i,
+			)
+		}
 	}
 
 	results := make([]ExamData, nExams)
@@ -114,8 +125,8 @@ func scanExamMats(
 			}()
 
 			//
-			// Iterate over the possible page indices, starting with expected
-			// one.
+			// Iterate over the possible page indices, starting with the order
+			// that the matrices are given.
 			//
 
 			for j := range n {
@@ -123,8 +134,7 @@ func scanExamMats(
 
 				scan, err := scanPageMat(page, tmpl, idx)
 				if err != nil {
-					fmt.Println("scanning error", err)
-					continue // try the next index
+					continue
 				}
 
 				mutexes[idx].Lock()
@@ -189,4 +199,3 @@ func scanPageMat(
 
 	return data, nil
 }
-
