@@ -20,11 +20,11 @@ func loadExamBatch(t *testing.T) ([]*gocv.Mat, *Template) {
 	t.Helper()
 
 	const (
-		nExams = 2
+		nExams        = 2
 		nPagesPerExam = 2
 	)
 
-	mats := make([]*gocv.Mat, nExams * nPagesPerExam)
+	mats := make([]*gocv.Mat, nExams*nPagesPerExam)
 	for i := range nExams {
 		for j := range nPagesPerExam {
 
@@ -37,10 +37,10 @@ func loadExamBatch(t *testing.T) ([]*gocv.Mat, *Template) {
 
 			mat, err := gocv.IMDecode(img, gocv.IMReadGrayScale)
 			if err != nil {
-				t.Fatal(err)	
+				t.Fatal(err)
 			}
 
-			mats[i*nPagesPerExam + j] = &mat
+			mats[i*nPagesPerExam+j] = &mat
 
 		}
 	}
@@ -83,7 +83,7 @@ func TestScanPageMat(t *testing.T) {
 
 	mat, err := gocv.IMDecode(img, gocv.IMReadGrayScale)
 	if err != nil {
-		t.Fatal(err)	
+		t.Fatal(err)
 	}
 	defer mat.Close()
 
@@ -93,12 +93,12 @@ func TestScanPageMat(t *testing.T) {
 	}
 	defer results.Close()
 
-	if  results.Picture.Cols() != tmpl.Width ||
-	    results.Picture.Rows() != tmpl.Height {
-	
+	if results.Picture.Cols() != tmpl.Width ||
+		results.Picture.Rows() != tmpl.Height {
+
 		t.Fatalf(
 			"expected output %dx%d, got %dx%d",
-			tmpl.Width, tmpl.Height, 
+			tmpl.Width, tmpl.Height,
 			results.Picture.Cols(), results.Picture.Rows(),
 		)
 	}
@@ -120,7 +120,7 @@ func TestScanPageMatUpsideDown(t *testing.T) {
 
 	mat, err := gocv.IMDecode(img, gocv.IMReadGrayScale)
 	if err != nil {
-		t.Fatal(err)	
+		t.Fatal(err)
 	}
 	defer mat.Close()
 
@@ -134,12 +134,12 @@ func TestScanPageMatUpsideDown(t *testing.T) {
 	}
 	defer results.Close()
 
-	if  results.Picture.Cols() != tmpl.Width ||
-	    results.Picture.Rows() != tmpl.Height {
-	
+	if results.Picture.Cols() != tmpl.Width ||
+		results.Picture.Rows() != tmpl.Height {
+
 		t.Fatalf(
 			"expected output %dx%d, got %dx%d",
-			tmpl.Width, tmpl.Height, 
+			tmpl.Width, tmpl.Height,
 			results.Picture.Cols(), results.Picture.Rows(),
 		)
 	}
@@ -161,10 +161,10 @@ func TestScanExamMats(t *testing.T) {
 	}
 
 	//
-	// Test that the given page matrices and the returned exams are 
+	// Test that the given page matrices and the returned exams are
 	// independent--i.e., that you can close one without closing the other.
 	// We test this by closing the pages and then the exams, because if the
-	// matrices are the same (bad) then OpenCV will freak the fuck out and 
+	// matrices are the same (bad) then OpenCV will freak the fuck out and
 	// explode. Ergo, no explosions means the matrices are independent.
 	//
 
@@ -194,7 +194,7 @@ func TestScanExamMatsOutOfOrder(t *testing.T) {
 	gocv.Flip(*pages[0], pages[0], -1)
 	gocv.Flip(*pages[1], pages[1], -1)
 
-	exam, err := scanExamMats(pages[0:2], tmpl);
+	exam, err := scanExamMats(pages[0:2], tmpl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestScanMatsBadInputs(t *testing.T) {
 	if _, err := ScanMats(pages[:1], tmpl); err == nil {
 		t.Log(
 			"ScanMats should fail when the template expects two pages " +
-			"and only one is given",
+				"and only one is given",
 		)
 		t.Fail()
 	}
@@ -222,7 +222,7 @@ func TestScanMatsBadInputs(t *testing.T) {
 	if _, err := ScanMats(pages[:3], tmpl); err == nil {
 		t.Log(
 			"ScanMats should fail when the number of pages given is not " +
-			"divisible by the number of pages in the template",
+				"divisible by the number of pages in the template",
 		)
 		t.Fail()
 	}

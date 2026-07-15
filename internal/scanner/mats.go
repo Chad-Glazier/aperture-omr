@@ -79,7 +79,7 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 			}()
 
 			exam, err := scanExamMats(
-				pages[(i*nPagesPerExam) : ((i+1)*nPagesPerExam)],
+				pages[(i*nPagesPerExam):((i+1)*nPagesPerExam)],
 				tmpl,
 			)
 			if err != nil {
