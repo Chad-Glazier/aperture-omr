@@ -8,12 +8,67 @@
 
 #include <wand/MagickWand.h>
 
+// 
+// Types.
+//
+
+GrayImage* gray_image_create(size_t width, size_t height, void* pixels) {
+
+    GrayImage* img = malloc(sizeof(GrayImage));
+    if (img == NULL) {
+        return NULL;
+    }
+
+    img->width = width;
+    img->height = height;
+    img->pixels = pixels;
+
+    return img;
+}
+
+void gray_image_destroy(GrayImage* img) {
+    if (img == NULL) {
+        return;
+    }
+
+    if (img->pixels != NULL) {
+        free(img->pixels);
+    }
+
+    free(img);
+}
+
+GrayImageSlice* gray_image_slice_create(size_t length) {
+
+    GrayImageSlice* slice = malloc(sizeof(GrayImageSlice));
+    if (slice == NULL) {
+        return NULL;
+    }
+
+    slice->items = calloc(length, sizeof(GrayImage));
+    slice->length = length;
+
+    return slice;
+}
+
+void gray_image_slice_destroy(GrayImageSlice* slice) {
+    if (slice == NULL) {
+        return;
+    }
+
+    if (slice->items != NULL) {
+        free(slice->items);
+    }
+
+    slice->length = 0;
+}
+
 //
 // Get the number of pages in a PDF file.
 //
 
-int pdf_file_page_count(const char *file_name) {
-    MagickWand *wand = NewMagickWand();
+int pdf_file_page_count(const char* file_name) {
+    MagickWand* wand = NewMagickWand();
 
     if (MagickPingImage(wand, file_name) == MagickFalse) {
         return -1;
@@ -28,18 +83,15 @@ int pdf_file_page_count(const char *file_name) {
 // Convert a single page from a PDF file to a grayscale image.
 //
 
-PdfStatus pdf_file_page_to_gray(
-    const char *file_name,
-    int density,
-    int page_idx,
-    GrayImage *result
+GrayImage* pdf_file_page_to_gray(
+    const char* file_name,
+    size_t density,
+    size_t page_idx,
+    PdfStatus* status
 ) {
-    assert(page_idx >= 0);
-    assert(density > 0);
+    *status = PDF_OK;
 
-    memset(result, 0, sizeof(*result));
-
-    MagickWand *wand = NewMagickWand(); // <https://youtu.be/mdCyzJT59nw?si=gp8CU9qG2sbTp081>
+    MagickWand* wand = NewMagickWand(); // <https://youtu.be/mdCyzJT59nw?si=gp8CU9qG2sbTp081>
     MagickSetResolution(wand, density, density);
 
     char spec[4096];
@@ -53,7 +105,7 @@ PdfStatus pdf_file_page_to_gray(
 
     if (MagickReadImage(wand, spec) == MagickFalse) {
         ExceptionType severity;
-        char *msg = MagickGetException(wand, &severity);
+        char* msg = MagickGetException(wand, &severity);
 
         //
         // Previously, we had an exception handler to check whether the error 
@@ -75,16 +127,18 @@ PdfStatus pdf_file_page_to_gray(
         MagickRelinquishMemory(msg);
         DestroyMagickWand(wand);
 
-        return PDF_PAGE_NOT_FOUND;
+        *status = PDF_PAGE_NOT_FOUND;
+        return NULL;
     }
 
-    char *format = MagickGetImageFormat(wand);
+    char* format = MagickGetImageFormat(wand);
     if (strcmp(format, "PDF") != 0) {
 
         MagickRelinquishMemory(format);
         DestroyMagickWand(wand);
 
-        return PDF_LOADING_ERROR;
+        *status = PDF_LOADING_ERROR;
+        return NULL;
     }
 
     assert(MagickGetNumberImages(wand) == 1);
@@ -92,15 +146,211 @@ PdfStatus pdf_file_page_to_gray(
     size_t width = MagickGetImageWidth(wand);
     size_t height = MagickGetImageHeight(wand);
 
-    unsigned char *pixels = malloc(width * height);
+    void* pixels = malloc(width * height);
     if (pixels == NULL) {
+
         DestroyMagickWand(wand);
-        return PDF_OUT_OF_MEMORY;
+
+        *status = PDF_OUT_OF_MEMORY;
+        return NULL;
     }
 
     MagickSetImageColorspace(wand, GRAYColorspace);
 
     if (MagickExportImagePixels(
+        wand,
+        0,
+        0,
+        width,
+        height,
+        "I",
+        CharPixel,
+        pixels
+    ) == MagickFalse) {
+
+        free(pixels);
+        DestroyMagickWand(wand);
+
+        *status = PDF_EXPORT_ERROR;
+        return NULL;
+    }
+
+    GrayImage* image = gray_image_create(width, height, pixels);
+    if (image == NULL) {
+
+        free(pixels);
+        DestroyMagickWand(wand);
+
+        *status = PDF_OUT_OF_MEMORY;
+        return NULL;
+    }
+
+    DestroyMagickWand(wand);
+
+    return image;
+}
+
+//
+// Convert all pages in a PDF file into grayscale images.
+//
+
+GrayImageSlice* pdf_file_to_gray_images(
+    const char* file_name,
+    size_t density,
+    PdfStatus* status
+) {
+    *status = PDF_OK;
+
+    MagickWand *wand = NewMagickWand();
+    if (wand == NULL) {
+
+        *status = PDF_STARTUP_ERROR;
+        return NULL;
+    }
+
+    MagickSetResolution(wand, density, density);
+
+    if (MagickReadImage(wand, file_name) == MagickFalse) {
+        
+        DestroyMagickWand(wand);
+        
+        *status = PDF_LOADING_ERROR;
+        return NULL;
+    }
+
+    size_t page_count = MagickGetNumberImages(wand);
+
+    GrayImageSlice *slice = gray_image_slice_create(page_count);
+    if (slice == NULL) {
+        
+        DestroyMagickWand(wand);
+        
+        *status = PDF_OUT_OF_MEMORY;
+        return NULL;
+    }
+
+    MagickResetIterator(wand);
+
+    size_t page = 0;
+
+    while (MagickNextImage(wand) != MagickFalse) {
+        if (MagickSetImageColorspace(wand, GRAYColorspace) == MagickFalse ||
+            MagickSetImageType(wand, GrayscaleType) == MagickFalse) {
+
+            gray_image_slice_destroy(slice);
+            DestroyMagickWand(wand);
+
+            *status = PDF_RENDER_ERROR;
+            return NULL;
+        }
+
+        size_t width = MagickGetImageWidth(wand);
+        size_t height = MagickGetImageHeight(wand);
+        size_t bytes = width * height;
+
+        unsigned char *pixels = malloc(bytes);
+        if (pixels == NULL) {
+
+            gray_image_slice_destroy(slice);
+            DestroyMagickWand(wand);
+
+            *status = PDF_OUT_OF_MEMORY;
+            return NULL;
+        }
+
+        if (MagickExportImagePixels(
+                wand,
+                0,
+                0,
+                width,
+                height,
+                "I",
+                CharPixel,
+                pixels) == MagickFalse) {
+
+            free(pixels);
+            gray_image_slice_destroy(slice);
+            DestroyMagickWand(wand);
+
+            *status = PDF_EXPORT_ERROR;
+            return NULL;
+        }
+
+        slice->items[page].pixels = pixels;
+        slice->items[page].width = width;
+        slice->items[page].height = height;
+
+        page++;
+    }
+
+    DestroyMagickWand(wand);
+
+    return slice;
+}
+
+//
+// Convert PDF bytes into grayscale images.
+//
+
+GrayImageSlice* pdf_bytes_to_gray_images(
+    const void* bytes,
+    const size_t n_bytes,
+    int density,
+    PdfStatus* status
+) {
+    *status = PDF_OK;
+
+    MagickWand* wand = NewMagickWand();
+    MagickSetResolution(wand, density, density);
+
+    if (MagickReadImageBlob(wand, bytes, n_bytes) == MagickFalse) {
+
+        DestroyMagickWand(wand);
+
+        *status = PDF_LOADING_ERROR;
+        return NULL;
+    }
+
+    char* format = MagickGetImageFormat(wand);
+    if (strcmp(format, "PDF") != 0) {
+
+        MagickRelinquishMemory(format);
+        DestroyMagickWand(wand);
+
+        *status = PDF_LOADING_ERROR;
+        return NULL;
+    }
+
+    GrayImageSlice* images =
+        gray_image_slice_create(MagickGetNumberImages(wand));
+    if (images == NULL) {
+
+        DestroyMagickWand(wand);
+
+        *status = PDF_OUT_OF_MEMORY;
+        return NULL;
+    }
+
+    MagickResetIterator(wand);
+    while (MagickNextImage(wand) != MagickFalse) {
+
+        MagickSetImageColorspace(wand, GRAYColorspace);
+        MagickSetImageType(wand, GrayscaleType);
+
+        const size_t width = MagickGetImageWidth(wand);
+        const size_t height = MagickGetImageHeight(wand);
+
+        unsigned char* pixels = malloc(width * height);
+        if (pixels == NULL) {
+
+            gray_image_slice_destroy(images);
+            DestroyMagickWand(wand);
+
+            *status = PDF_OUT_OF_MEMORY;
+            return NULL;
+        }
+
+        if (MagickExportImagePixels(
             wand,
             0,
             0,
@@ -108,29 +358,23 @@ PdfStatus pdf_file_page_to_gray(
             height,
             "I",
             CharPixel,
-            pixels
-        ) == MagickFalse) {
+            pixels) == MagickFalse) {
 
-        free(pixels);
-        DestroyMagickWand(wand);
-        return PDF_EXPORT_ERROR;
+            free(pixels);
+            gray_image_slice_destroy(images);
+            DestroyMagickWand(wand);
+
+            *status = PDF_RENDER_ERROR;
+            return NULL;
+        }
+
+        int i = MagickGetIteratorIndex(wand);
+        images->items[i].pixels = pixels;
+        images->items[i].width = width;
+        images->items[i].height = height;
+
     }
-
-    result->pixels = pixels;
-    result->width = width;
-    result->height = height;
 
     DestroyMagickWand(wand);
-
-    return PDF_OK;
-}
-
-void free_gray_image(GrayImage *img) {
-    if (img->pixels != NULL) {
-        free(img->pixels);
-    }
-
-    img->pixels = NULL;
-    img->width = 0;
-    img->height = 0;
+    return images;
 }

@@ -6,8 +6,8 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func TestPdfPageCount(t *testing.T) {
-	count, err := pdfPageCount("testdata/sample.pdf")
+func TestPageCount(t *testing.T) {
+	count, err := pageCount("testdata/sample.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestPdfPageCount(t *testing.T) {
 func TestPdfPageToGray(t *testing.T) {
 	const samplePdfPath = "testdata/sample.pdf"
 
-	page, err := pdfPageToGray(samplePdfPath, 0)
+	page, err := pageToGray(samplePdfPath, 74, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestPdfPageToGray(t *testing.T) {
 	const pageCount = 5
 
 	for i := range pageCount {
-		if _, err := pdfPageToGray(samplePdfPath, i); err != nil {
+		if _, err := pageToGray(samplePdfPath, 74, i); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -59,31 +59,38 @@ func TestPdfPageToGray(t *testing.T) {
 	//
 
 	for i := pageCount; i < pageCount+10; i++ {
-		_, err := pdfPageToGray(samplePdfPath, i)
-		if err != errIndexOutOfBounds {
+		_, err := pageToGray(samplePdfPath, 74, i)
+		if err != PageNotFound {
 			t.Fatal(err)
 		}
 	}
 }
 
-func TestPdfToGrayPages(t *testing.T) {
+func TestPdfBytesToGrays(t *testing.T) {
 
-	const samplePdfPath = "testdata/sample.pdf"
-
-	pages, err := pdfToGrayPages(samplePdfPath)
+	// The sample PDF has 5 pages.
+	pdf, err := testData.ReadFile("testdata/sample.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, page := range pages {
-		mat, err := gocv.ImageGrayToMatGray(page)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer mat.Close()
+	images, err := pdfBytesToGrays(pdf, 74)
+	if err != nil {
+		t.Fatalf("pdfBytesToGrays() returned error: %v", err)
+	}
 
-		if _, err := gocv.IMEncode(gocv.PNGFileExt, mat); err != nil {
-			t.Fatal(err)
+	if len(images) != 5 {
+		t.Fatalf("expected %d images, got %d", 5, len(images))
+	}
+
+	for i, img := range images {
+		if img == nil {
+			t.Fatalf("page %d: image is nil", i+1)
+		}
+
+		b := img.Bounds()
+		if b.Dx() == 0 || b.Dy() == 0 {
+			t.Errorf("page %d: invalid image size %v", i+1, b)
 		}
 	}
 }

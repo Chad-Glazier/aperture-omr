@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/scanner"
@@ -41,6 +42,22 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 				"preprocessingTemplate is required",
 			)
 			return
+		}
+
+		dpiStr := r.FormValue("dpi")
+		density := 300
+		if dpiStr != "" {
+			dpi, err := strconv.Atoi(dpiStr)
+			if err != nil || dpi <= 0 {
+				dto.SendError(
+					w,
+					http.StatusBadRequest,
+					dto.ErrInvalidRequest,
+					"dpi must be a positive integer",
+				)
+				return
+			}
+			density = dpi
 		}
 
 		pdfFile, _, err := r.FormFile("pdf")
@@ -86,7 +103,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			}
 		}
 
-		pages, err := pdf.RenderPageMats(pdfFile)
+		pages, err := pdf.RenderPageMats(pdfFile, density)
 		switch err {
 		case nil:
 			break

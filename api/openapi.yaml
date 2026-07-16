@@ -315,6 +315,15 @@ paths:
                   type: string
                   description: |
                     The ID of the preprocessing template to use.
+                dpi:
+                  type: integer
+                  description: |
+                    The DPI (dots per inch) of the rendered images. Higher DPI
+                    is much slower to compute but yields higher resolution 
+                    images, which may be necessary for the OMR to function 
+                    correctly. As a rule of thumb, 300 is high resolution and
+                    74 is low. The default is 300, just to be safe.
+                  example: 250
               required:
                 - pdf
                 - preprocessingTemplate
