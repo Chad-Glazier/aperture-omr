@@ -162,9 +162,9 @@ func TestPostMark(t *testing.T) {
 	// After that, we can check that the marks are what we expect.
 	//
 
-	pTmplId := postNewPreprocessingTemplate(t, s)
-	scanId := postNewScan(t, s, pTmplId)
-	mTmplId := postNewMarkingTemplate(t, s)
+	pTmplId := postNewPreprocessingTemplate(t, s) // (1)
+	scanId := postNewScan(t, s, pTmplId)          // (2)
+	mTmplId := postNewMarkingTemplate(t, s)       // (3)
 
 	//
 	// 4) Post the marking job.

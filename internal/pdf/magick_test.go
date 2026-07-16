@@ -20,9 +20,9 @@ func TestPdfPageCount(t *testing.T) {
 }
 
 func TestPdfPageToGray(t *testing.T) {
-	const sampleImagePath = "testdata/sample.pdf"
+	const samplePdfPath = "testdata/sample.pdf"
 
-	page, err := pdfPageToGray(sampleImagePath, 0)
+	page, err := pdfPageToGray(samplePdfPath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestPdfPageToGray(t *testing.T) {
 	const pageCount = 5
 
 	for i := range pageCount {
-		if _, err := pdfPageToGray(sampleImagePath, i); err != nil {
+		if _, err := pdfPageToGray(samplePdfPath, i); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -59,7 +59,7 @@ func TestPdfPageToGray(t *testing.T) {
 	//
 
 	for i := pageCount; i < pageCount+10; i++ {
-		_, err := pdfPageToGray(sampleImagePath, i)
+		_, err := pdfPageToGray(samplePdfPath, i)
 		if err != errIndexOutOfBounds {
 			t.Fatal(err)
 		}
@@ -68,9 +68,9 @@ func TestPdfPageToGray(t *testing.T) {
 
 func TestPdfToGrayPages(t *testing.T) {
 
-	const sampleImagePath = "testdata/sample.pdf"
+	const samplePdfPath = "testdata/sample.pdf"
 
-	pages, err := pdfToGrayPages(sampleImagePath)
+	pages, err := pdfToGrayPages(samplePdfPath)
 	if err != nil {
 		t.Fatal(err)
 	}

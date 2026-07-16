@@ -80,6 +80,11 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+		for i := range anchors {
+			for j := range anchors[i] {
+				defer anchors[i][j].Close()
+			}
+		}
 
 		pages, err := pdf.RenderPageMats(pdfFile)
 		switch err {
@@ -101,6 +106,9 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 				err.Error(),
 			)
 			return
+		}
+		for i := range pages {
+			defer pages[i].Close()
 		}
 
 		if len(pages)%len(pTempl.Pages) != 0 {
@@ -147,7 +155,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
-		defer scannerTmpl.Close()
 
 		results, err := scanner.ScanMats(pages, scannerTmpl)
 		if err != nil {
@@ -159,11 +166,9 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
-		defer func() {
-			for i := range results {
-				results[i].Close()
-			}
-		}()
+		for i := range results {
+			defer results[i].Close()
+		}
 
 		//
 		// Save the results.
