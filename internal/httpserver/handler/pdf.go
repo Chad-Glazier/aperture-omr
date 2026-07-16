@@ -90,7 +90,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 				w,
 				http.StatusBadRequest,
 				dto.ErrMalformedPdf,
-				"the given PDF was malformed",
+				err.Error(),
 			)
 			return
 		default:

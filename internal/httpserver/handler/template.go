@@ -26,6 +26,10 @@ func encodeImg(w io.Writer, img image.Image) error {
 
 const imgType = "image/jpeg"
 
+//
+// Helpers functions
+//
+
 func sendJson(w http.ResponseWriter, v any) {
 	w.Header().Add("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {

@@ -45,54 +45,7 @@ func TestPostScan(t *testing.T) {
 	// Uploading scans requires that we first have a preprocessing template.
 	//
 
-	req, err := makeMultipartRequest(
-		t,
-		"testdata/preprocessing_template.json",
-		multipartImage{
-			name:     "page0anchor0",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page0anchor1",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page0anchor2",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page1anchor0",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page1anchor1",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page1anchor2",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-
-	PostPreprocessingTemplate(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("failed to upload preprocessing template")
-	}
-
-	v := make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	templateId, ok := v["templateId"]
-	if !ok {
-		t.Fatalf("templateId wasn't found in response body")
-	}
+	templateId := postNewPreprocessingTemplate(t, s)
 
 	//
 	// Now we can try to post the scan. We'll test out a couple of error cases
@@ -103,7 +56,7 @@ func TestPostScan(t *testing.T) {
 	// 400: No pages.
 	//
 
-	req, err = makeMultipartRequest(
+	req, err := makeMultipartRequest(
 		t,
 		"",
 	)
@@ -112,7 +65,7 @@ func TestPostScan(t *testing.T) {
 	}
 	req.URL.RawQuery += "template=" + templateId
 
-	rr = httptest.NewRecorder()
+	rr := httptest.NewRecorder()
 	PostScan(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
@@ -202,7 +155,7 @@ func TestPostScan(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
 
-	v = make(map[string]string)
+	v := make(map[string]string)
 	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
 		t.Fatalf("failed to parse JSON response: %s", err.Error())
 	}
