@@ -3,6 +3,7 @@ package pdf
 // #cgo pkg-config: MagickWand
 //
 // #include <stdlib.h>
+// #include <wand/MagickWand.h>
 // #include "magick.h"
 import "C"
 
@@ -26,7 +27,11 @@ var (
 // Determines the dots per inch (DPI) when rendering the PDF. Lower values are
 // much faster to compute but lead to poorer quality images. 300 DPI would be
 // very high resolution while 74 DPI would be very low resolution.
-const density = 200
+const density = 300
+
+func init() {
+	C.MagickWandGenesis() // initialize ImageMagick
+}
 
 // Counts the number of pages in a PDF without rendering it. This function is
 // still noticeably slow; don't use it unless necessary.

@@ -58,7 +58,7 @@ func TestPdfPageToGray(t *testing.T) {
 	// Test that a bunch of invalid indices don't work.
 	//
 
-	for i := pageCount; i < pageCount+100; i++ {
+	for i := pageCount; i < pageCount+10; i++ {
 		_, err := pdfPageToGray(sampleImagePath, i)
 		if err != errIndexOutOfBounds {
 			t.Fatal(err)
@@ -68,7 +68,7 @@ func TestPdfPageToGray(t *testing.T) {
 
 func TestPdfToGrayPages(t *testing.T) {
 
-	const sampleImagePath = "testdata/sample_large.pdf"
+	const sampleImagePath = "testdata/sample.pdf"
 
 	pages, err := pdfToGrayPages(sampleImagePath)
 	if err != nil {

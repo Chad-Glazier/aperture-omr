@@ -49,7 +49,7 @@ func newScanPdfRequest(
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"/scan/pdf",
+		"/",
 		&body,
 	)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -77,10 +77,10 @@ func TestPostScanPdf_OK(t *testing.T) {
 
 	req := newScanPdfRequest(t, pTmplId, "testdata/batches/exams.pdf")
 	rr := httptest.NewRecorder()
-	PostMarkingJob(s).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	
+
 }
