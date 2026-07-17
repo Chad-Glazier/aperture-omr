@@ -28,11 +28,11 @@ tags:
   - name: Status
     description: Service status and availability
   - name: Scan
-    description: Image scans of exams
-  - name: Preprocessing
-    description: Data for preprocessing scans
-  - name: Marking
-    description: Data for marking scans
+    description: Tasks related to uploading and preprocessing scans
+  - name: Mark
+    description: Tasks related to marking uploaded scans
+  - name: Inspect
+    description: Tasks related to inspecting uploaded scans
 
 paths:
   /health:
@@ -65,7 +65,7 @@ paths:
         This endpoint is used to upload a preprocessing template. Such a
         template must be uploaded before any scans.
       tags:
-        - Preprocessing
+        - Scan
       requestBody:
         description: |
           The body defines a preprocessing template in a `multipart/form-data`
@@ -164,7 +164,7 @@ paths:
         This endpoint is used to upload a marking template. Such a template
         must be uploaded before any scans can be marked.
       tags:
-        - Marking
+        - Mark
       requestBody:
         description: |
           The body describes the marking template for an exam.
@@ -215,7 +215,7 @@ paths:
         preprocessing according to the specified template and store the
         scans.
       tags:
-        - Preprocessing
+        - Scan
       parameters:
         - in: query
           name: template
@@ -292,11 +292,16 @@ paths:
     post:
       summary: Upload a PDF scan
       description: |
-        This endpoint lets you upload a scan in PDF format. The OMR will 
-        perform any preprocessing according to the specified template and store
-        the scans for marking.
+        This endpoint lets you upload scanned exam(s) in PDF format. The OMR 
+        will perform any preprocessing according to the specified template 
+        and store the scans for marking.
+
+        The PDF may include as many exams as you want provided that each exam's
+        pages are grouped together. The pages may be in the wrong order and/or
+        flipped upside-down but such errors should still be avoided when to
+        maximize performance.
       tags:
-        - Preprocessing
+        - Scan
       requestBody:
         description: |
           The PDF containing the scanned exam(s).
@@ -318,11 +323,15 @@ paths:
                 dpi:
                   type: integer
                   description: |
-                    The DPI (dots per inch) of the rendered images. Higher DPI
-                    is much slower to compute but yields higher resolution 
+                    The DPI (dots per inch) of the rendered images. Higher DPIs
+                    are much slower to compute but yield higher resolution 
                     images, which may be necessary for the OMR to function 
-                    correctly. As a rule of thumb, 300 is high resolution and
-                    74 is low. The default is 300, just to be safe.
+                    correctly. As a rule of thumb, 300 is high resolution (the
+                    default) and 74 is low. 
+                    
+                    If you want to maximize performance I would recommended 
+                    that you test out a few different DPI's for a given scan 
+                    template and use the lowest number you can get away with.
                   example: 250
               required:
                 - pdf
@@ -358,6 +367,15 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+        413:
+          description: |
+            The attached PDF is too large.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
         500:
           description: |
             Something went wrong on the OMR's side. Check the OMR's logs and
@@ -372,7 +390,7 @@ paths:
     post:
       summary: Run a marking job
       tags:
-        - Marking
+        - Mark
       description: |
         This endpoint can be used to run a marking job by specifying a list of 
         scans to mark and a template to mark them with. 
@@ -527,7 +545,7 @@ paths:
         This endpoint lets you retrieve a cropped snippet of a question for
         review purposes.
       tags:
-        - Marking
+        - Inspect
       parameters:
         - in: query
           name: template

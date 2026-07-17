@@ -31,7 +31,7 @@ var (
 // Returns ErrMalformedPdf if the given file was not a proper PDF.
 func RenderPageMats(r io.ReadSeeker, density int) ([]*gocv.Mat, error) {
 
-	pdfs, err := splitEven(r, runtime.NumCPU())
+	pdfs, err := splitEven(r, runtime.GOMAXPROCS(0))
 	if err != nil {
 		return nil, ErrMalformedPdf
 	}

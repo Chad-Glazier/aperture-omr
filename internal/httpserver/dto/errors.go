@@ -17,6 +17,7 @@ const (
 	ErrInternal          ErrReason = "internal_error"
 	ErrMissingAnchor     ErrReason = "missing_anchor"
 	ErrMalformedPdf      ErrReason = "malformed_pdf"
+	ErrContentTooLarge   ErrReason = "content_too_large"
 )
 
 // Sends a JSON error response with a classifier (reason) so that the client

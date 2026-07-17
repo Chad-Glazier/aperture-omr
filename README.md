@@ -37,7 +37,7 @@ docker exec -t omr sh -c "go test ./..."
 
 ## Setting Up a Local Environment
 
-In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/),  and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
+In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/), [ghostscript](https://www.ghostscript.com/), [ImageMagick6](https://legacy.imagemagick.org/#gsc.tab=0), and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
 
 ```sh
 go run .

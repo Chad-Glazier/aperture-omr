@@ -15,6 +15,9 @@ import (
 // page.
 const minDim = 100
 
+// The maximum allowed size for a PDF file upload.
+const maxPdfSize = 200 * 1024 * 1024 // 200 MB
+
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -60,7 +63,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			density = dpi
 		}
 
-		pdfFile, _, err := r.FormFile("pdf")
+		pdfFile, header, err := r.FormFile("pdf")
 		if err != nil {
 			dto.SendError(
 				w,
@@ -71,6 +74,19 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			return
 		}
 		defer pdfFile.Close()
+
+		if header.Size > maxPdfSize {
+			dto.SendError(
+				w,
+				http.StatusRequestEntityTooLarge,
+				dto.ErrContentTooLarge,
+				fmt.Sprintf(
+					"the attached pdf is larger than %.2fMB",
+					float64(maxPdfSize) / (1024.0 * 1024.0),
+				),
+			)
+			return
+		}
 
 		//
 		// Load the resources.

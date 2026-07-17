@@ -46,6 +46,11 @@ GrayImageSlice* gray_image_slice_create(size_t length) {
     }
 
     slice->items = calloc(length, sizeof(GrayImage));
+    if (slice->items == NULL) {
+        free(slice);
+        return NULL;
+    }
+
     slice->length = length;
 
     return slice;
@@ -60,7 +65,7 @@ void gray_image_slice_destroy(GrayImageSlice* slice) {
         free(slice->items);
     }
 
-    slice->length = 0;
+    free(slice);
 }
 
 //
@@ -140,6 +145,7 @@ GrayImage* pdf_file_page_to_gray(
         *status = PDF_LOADING_ERROR;
         return NULL;
     }
+    MagickRelinquishMemory(format);
 
     assert(MagickGetNumberImages(wand) == 1);
 
@@ -320,6 +326,7 @@ GrayImageSlice* pdf_bytes_to_gray_images(
         *status = PDF_LOADING_ERROR;
         return NULL;
     }
+    MagickRelinquishMemory(format);
 
     GrayImageSlice* images =
         gray_image_slice_create(MagickGetNumberImages(wand));

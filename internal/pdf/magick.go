@@ -121,20 +121,7 @@ func pdfBytesToGrays(pdf []byte, density int) ([]*image.Gray, error) {
 	images := make([]*image.Gray, length)
 
 	for i, img := range cImages {
-		width := int(img.width)
-		height := int(img.height)
-
-		// Since this is an 8-bit grayscale image:
-		size := width * height
-
-		images[i] = &image.Gray{
-			Pix: C.GoBytes(
-				img.pixels,
-				C.int(size),
-			),
-			Stride: width,
-			Rect:   image.Rect(0, 0, width, height),
-		}
+		images[i] = copyToGoMemory(&img)
 	}
 
 	return images, nil
