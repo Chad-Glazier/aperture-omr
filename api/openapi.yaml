@@ -464,6 +464,70 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /image:
+    get:
+      summary: Get a page's image
+      description: |
+        This endpoint lets you retrieve the human-viewable picture for a
+        single page of a scan, unmodified. Pages are fetched one at a time
+        so callers can skip pages they don't need (e.g. a back page holding
+        only name/ID fields).
+      tags:
+        - Scan
+      parameters:
+        - in: query
+          name: scan
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the scan.
+        - in: query
+          name: page
+          required: true
+          schema:
+            type: integer
+            description: |
+              The zero-based index of the page to retrieve.
+      responses:
+        200:
+          description: |
+            The image was successfully retrieved.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: |
+            Something was missing from the request. See the error message for
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of what was wrong with the request.
+        404:
+          description: |
+            The identified scan or page could not be found.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's end. See the error message for
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+
   /snippet:
     get:
       summary: Get a question snippet
