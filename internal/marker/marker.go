@@ -83,10 +83,15 @@ type Answer struct {
 	Selected   []string `json:"selected"`
 	Confidence float64  `json:"confidence"`
 	Flag       bool     `json:"flag"`
-	X          int      `json:"x"`
-	Y          int      `json:"y"`
-	Width      int      `json:"width"`
-	Height     int      `json:"height"`
+	// PageIndex is which page (0-based, matching Template.Pages and the scan's
+	// page images) this question's bubbles were found on. X/Y/Width/Height
+	// below are in that page's pixel coordinates, so they don't mean anything
+	// without it.
+	PageIndex int `json:"pageIndex"`
+	X         int `json:"x"`
+	Y         int `json:"y"`
+	Width     int `json:"width"`
+	Height    int `json:"height"`
 }
 
 type Result struct {
@@ -140,6 +145,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 				Selected:   selected,
 				Confidence: confidence,
 				Flag:       flag,
+				PageIndex:  i,
 				X:          x,
 				Y:          y,
 				Width:      width,

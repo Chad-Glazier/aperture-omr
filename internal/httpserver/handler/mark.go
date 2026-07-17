@@ -134,6 +134,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 					results.Scans[i].Marks[j].Selected = mark.selected
 					results.Scans[i].Marks[j].QuestionId = mark.questionId
 					results.Scans[i].Marks[j].Confidence = mark.confidence
+					results.Scans[i].Marks[j].PageIndex = mark.pageIndex
 					results.Scans[i].Marks[j].X = mark.x
 					results.Scans[i].Marks[j].Y = mark.y
 					results.Scans[i].Marks[j].Width = mark.width
@@ -167,6 +168,7 @@ type marks []struct {
 	flagged    bool
 	selected   []string
 	confidence float64
+	pageIndex  int
 	x, y       int
 	width      int
 	height     int
@@ -223,6 +225,7 @@ func markScan(tmpl *dto.MarkingTemplate, scan scan) (marks, error) {
 			marks[i].selected = make([]string, 0)
 		}
 		marks[i].confidence = answer.Confidence
+		marks[i].pageIndex = answer.PageIndex
 		marks[i].x = answer.X
 		marks[i].y = answer.Y
 		marks[i].width = answer.Width

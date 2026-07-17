@@ -303,9 +303,10 @@ func TestEvaluate(t *testing.T) {
 			},
 			wantSelected: [][]string{{"A", "B", "C"}},
 			wantFlagged:  []bool{true},
-			// Bounds must follow the detected alignment offset (+8 in X), not
-			// the raw template position — that's the whole point of storing
-			// the found location instead of relying on the static template.
+			// Bounds must follow the detected alignment offset (+8 in X),
+			// not the raw template position. That's the whole point of
+			// storing the found location instead of relying on the static
+			// template.
 			wantBounds: &[4]int{50 + allFilledShiftX, 100, 130, 30},
 		},
 		{
@@ -373,8 +374,64 @@ func TestEvaluate(t *testing.T) {
 						t.Errorf("answer[0]: bounds = %v, want %v", got, want)
 					}
 				}
+				// None of the cases above use a multi-page template, so every
+				// answer should be attributed to page 0.
+				if ans.PageIndex != 0 {
+					t.Errorf("answer[%d]: pageIndex = %d, want 0", i, ans.PageIndex)
+				}
 			}
 		})
+	}
+}
+
+// TestEvaluate_PageIndex checks that answers are attributed to the page they
+// were actually found on, not just page 0. Annotation rendering depends on
+// this, since each page has its own pixel coordinate space.
+func TestEvaluate_PageIndex(t *testing.T) {
+	const imgW, imgH, bw, bh = 400, 400, 30, 30
+
+	q := func(id string) Question {
+		return Question{
+			ID: id, Type: "single",
+			BubbleWidth: bw, BubbleHeight: bh,
+			Options: []Bubble{
+				{Label: "A", X: 65, Y: 115},
+				{Label: "B", X: 115, Y: 115},
+			},
+		}
+	}
+
+	newImg := func() gocv.Mat {
+		return gocv.NewMatWithSizeFromScalar(
+			gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
+	}
+	page0Img := newImg()
+	defer page0Img.Close()
+	fillBubble(&page0Img, 65, 115, bw, bh, 0.75)
+	page1Img := newImg()
+	defer page1Img.Close()
+	fillBubble(&page1Img, 115, 115, bw, bh, 0.75)
+
+	tmpl := &Template{
+		Config: Config{FillThreshold: ptr(0.5), BubbleInset: ptr(0.75), FlagThreshold: ptr(0.5)},
+		Pages: []Page{
+			{Questions: []Question{q("Q1")}},
+			{Questions: []Question{q("Q2")}},
+		},
+	}
+
+	result, err := Evaluate([]*gocv.Mat{&page0Img, &page1Img}, tmpl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Answers) != 2 {
+		t.Fatalf("expected 2 answers, got %d", len(result.Answers))
+	}
+	if result.Answers[0].PageIndex != 0 {
+		t.Errorf("Q1: pageIndex = %d, want 0", result.Answers[0].PageIndex)
+	}
+	if result.Answers[1].PageIndex != 1 {
+		t.Errorf("Q2: pageIndex = %d, want 1", result.Answers[1].PageIndex)
 	}
 }
 

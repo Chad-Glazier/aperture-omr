@@ -415,12 +415,19 @@ paths:
                                 description: |
                                   How cleanly the detected answer separated from the alternatives
                                   (0.0-1.0). Mirrors the value flagged against flagThreshold.
+                              pageIndex:
+                                type: integer
+                                description: |
+                                  The zero-based page (matching the scan's page images, and the
+                                  `page` parameter of GET /image) this question's bubbles were
+                                  found on. x/y/width/height below are in that page's pixel
+                                  coordinates only.
                               x:
                                 type: integer
                                 description: |
                                   Left edge, in scan pixel coordinates, of the bounding box enclosing
                                   this question's bubbles at the offset actually used to detect them
-                                  (template position plus whatever alignment search found),not the
+                                  (template position plus whatever alignment search found). Not the
                                   raw template position, since warping isn't pixel-perfect.
                               y:
                                 type: integer

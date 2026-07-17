@@ -62,10 +62,13 @@ type Mark struct {
 	Flagged    bool     `json:"flagged"`
 	Selected   []string `json:"selected"`
 	Confidence float64  `json:"confidence"`
-	X          int      `json:"x"`
-	Y          int      `json:"y"`
-	Width      int      `json:"width"`
-	Height     int      `json:"height"`
+	// PageIndex is the 0-based page (matching the scan's page images) the
+	// question's bubbles were found on. See marker.Answer.
+	PageIndex int `json:"pageIndex"`
+	X         int `json:"x"`
+	Y         int `json:"y"`
+	Width     int `json:"width"`
+	Height    int `json:"height"`
 }
 
 type PerformanceMetrics struct {
