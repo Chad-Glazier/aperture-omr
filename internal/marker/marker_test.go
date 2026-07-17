@@ -234,6 +234,8 @@ func TestEvaluate(t *testing.T) {
 		errContains  string
 		wantSelected [][]string
 		wantFlagged  []bool
+		// wantBounds, when non-nil, checks answer[0]'s {X, Y, Width, Height}.
+		wantBounds *[4]int
 	}{
 		{
 			name:        "Empty image returns error",
@@ -255,6 +257,9 @@ func TestEvaluate(t *testing.T) {
 			tmpl:         &Template{Config: defaultConfig, Questions: []Question{singleQ}},
 			wantSelected: [][]string{{"A"}},
 			wantFlagged:  []bool{false},
+			// No search radius configured, so the bounds sit at the raw
+			// template position: options span X 65-165, bubble half-width 15.
+			wantBounds: &[4]int{50, 100, 130, 30},
 		},
 		{
 			name:         "Single-select: no bubble filled is flagged",
@@ -298,6 +303,10 @@ func TestEvaluate(t *testing.T) {
 			},
 			wantSelected: [][]string{{"A", "B", "C"}},
 			wantFlagged:  []bool{true},
+			// Bounds must follow the detected alignment offset (+8 in X), not
+			// the raw template position — that's the whole point of storing
+			// the found location instead of relying on the static template.
+			wantBounds: &[4]int{50 + allFilledShiftX, 100, 130, 30},
 		},
 		{
 			name: "FlagThreshold above max confidence flags clear answers",
@@ -356,6 +365,13 @@ func TestEvaluate(t *testing.T) {
 				if ans.Flag != tc.wantFlagged[i] {
 					t.Errorf("answer[%d]: flag = %v, want %v",
 						i, ans.Flag, tc.wantFlagged[i])
+				}
+				if tc.wantBounds != nil && i == 0 {
+					want := *tc.wantBounds
+					got := [4]int{ans.X, ans.Y, ans.Width, ans.Height}
+					if got != want {
+						t.Errorf("answer[0]: bounds = %v, want %v", got, want)
+					}
 				}
 			}
 		})

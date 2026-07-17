@@ -404,12 +404,36 @@ paths:
                                   Whether or not the question was flagged for manual review.
                               selected:
                                 type: array
-                                items: 
+                                items:
                                   type: string
                                 description: |
                                   A list of selected options that were detected for the question.
                                   The options are named according to the marking template. For
                                   example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
+                              confidence:
+                                type: number
+                                description: |
+                                  How cleanly the detected answer separated from the alternatives
+                                  (0.0-1.0). Mirrors the value flagged against flagThreshold.
+                              x:
+                                type: integer
+                                description: |
+                                  Left edge, in scan pixel coordinates, of the bounding box enclosing
+                                  this question's bubbles at the offset actually used to detect them
+                                  (template position plus whatever alignment search found),not the
+                                  raw template position, since warping isn't pixel-perfect.
+                              y:
+                                type: integer
+                                description: |
+                                  Top edge of the bounding box described above.
+                              width:
+                                type: integer
+                                description: |
+                                  Width of the bounding box described above.
+                              height:
+                                type: integer
+                                description: |
+                                  Height of the bounding box described above.
         400:
           description: |
             The request was missing something. Check the error message for 

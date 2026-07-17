@@ -83,6 +83,10 @@ type Answer struct {
 	Selected   []string `json:"selected"`
 	Confidence float64  `json:"confidence"`
 	Flag       bool     `json:"flag"`
+	X          int      `json:"x"`
+	Y          int      `json:"y"`
+	Width      int      `json:"width"`
+	Height     int      `json:"height"`
 }
 
 type Result struct {
@@ -125,16 +129,21 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 			return nil, fmt.Errorf("page %d: mark template contains no questions", i)
 		}
 		for _, q := range pages[i].Questions {
-			selected, confidence := detectAnswers(img, q, threshold, inset, searchRadius)
+			selected, confidence, dx, dy := detectAnswers(img, q, threshold, inset, searchRadius)
 			multiSelect := q.Type == "multi"
 			flag := confidence < flagThreshold ||
 				(len(selected) == 0 && strings.HasPrefix(q.ID, "Q")) ||
 				(!multiSelect && len(selected) > 1)
+			x, y, width, height := questionBounds(q, dx, dy)
 			answers = append(answers, Answer{
 				QuestionID: q.ID,
 				Selected:   selected,
 				Confidence: confidence,
 				Flag:       flag,
+				X:          x,
+				Y:          y,
+				Width:      width,
+				Height:     height,
 			})
 		}
 	}
@@ -142,11 +151,14 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 	return &Result{Answers: answers}, nil
 }
 
+// detectAnswers returns the selected option labels, the detection confidence,
+// and the (dx, dy) alignment offset (relative to the template's bubble
+// positions) that was used to take the measurements.
 func detectAnswers(
 	img *gocv.Mat, q Question, threshold, inset float64, searchRadius int,
-) ([]string, float64) {
+) ([]string, float64, int, int) {
 	if len(q.Options) == 0 {
-		return nil, 0.0
+		return nil, 0.0, 0, 0
 	}
 
 	n := len(q.Options)
@@ -322,7 +334,24 @@ func detectAnswers(
 	confidence = math.Max(confidence, 0.0)
 	confidence = math.Min(confidence, 1.0)
 
-	return answered, confidence
+	return answered, confidence, bestDX, bestDY
+}
+
+// questionBounds returns the bounding box (in scan pixel coordinates)
+// enclosing all of a question's bubbles, shifted by the (dx, dy) alignment
+// offset detectAnswers found for it. Mirrors the bounds computation the
+// snippet handler uses for cropping (internal/httpserver/handler/snippet.go),
+// but at the detected offset rather than the raw template position.
+func questionBounds(q Question, dx, dy int) (x, y, width, height int) {
+	minX, minY := math.MaxInt, math.MaxInt
+	maxX, maxY := math.MinInt, math.MinInt
+	for _, opt := range q.Options {
+		minX = min(minX, opt.X+dx-q.BubbleWidth/2)
+		minY = min(minY, opt.Y+dy-q.BubbleHeight/2)
+		maxX = max(maxX, opt.X+dx+q.BubbleWidth/2)
+		maxY = max(maxY, opt.Y+dy+q.BubbleHeight/2)
+	}
+	return minX, minY, maxX - minX, maxY - minY
 }
 
 // bubbleFillRatio returns the fraction of pixels inside the bubble's inset

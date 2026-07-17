@@ -61,6 +61,11 @@ type Mark struct {
 	QuestionId string   `json:"questionId"`
 	Flagged    bool     `json:"flagged"`
 	Selected   []string `json:"selected"`
+	Confidence float64  `json:"confidence"`
+	X          int      `json:"x"`
+	Y          int      `json:"y"`
+	Width      int      `json:"width"`
+	Height     int      `json:"height"`
 }
 
 type PerformanceMetrics struct {
