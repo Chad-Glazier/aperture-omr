@@ -420,27 +420,81 @@ paths:
                                 description: |
                                   The zero-based page (matching the scan's page images, and the
                                   `page` parameter of GET /image) this question's bubbles were
-                                  found on. x/y/width/height below are in that page's pixel
-                                  coordinates only.
-                              x:
-                                type: integer
+                                  found on. bounds and selectedBoxes below are in that page's
+                                  pixel coordinates only.
+                              bounds:
+                                type: object
                                 description: |
-                                  Left edge, in scan pixel coordinates, of the bounding box enclosing
-                                  this question's bubbles at the offset actually used to detect them
-                                  (template position plus whatever alignment search found). Not the
-                                  raw template position, since warping isn't pixel-perfect.
-                              y:
-                                type: integer
+                                  The bounding box enclosing every one of this question's bubbles,
+                                  not just the selected ones. Unlike selectedBoxes, this is present
+                                  even for a blank question, so it's meant as a generous hover/click
+                                  hit-region for the whole question rather than something to draw a
+                                  visible highlight from.
+                                required:
+                                  - x
+                                  - y
+                                  - width
+                                  - height
+                                properties:
+                                  x:
+                                    type: integer
+                                    description: |
+                                      Left edge, in scan pixel coordinates.
+                                  y:
+                                    type: integer
+                                    description: |
+                                      Top edge, in scan pixel coordinates.
+                                  width:
+                                    type: integer
+                                    description: |
+                                      Width of the bounding box.
+                                  height:
+                                    type: integer
+                                    description: |
+                                      Height of the bounding box.
+                              boxes:
+                                type: array
                                 description: |
-                                  Top edge of the bounding box described above.
-                              width:
-                                type: integer
-                                description: |
-                                  Width of the bounding box described above.
-                              height:
-                                type: integer
-                                description: |
-                                  Height of the bounding box described above.
+                                  One bounding box per option in the question, selected or not, in
+                                  template order. Each box is the bubble's position at the offset
+                                  actually used to detect it (template position plus whatever
+                                  alignment search found), not the raw template position, since
+                                  warping isn't pixel-perfect.
+                                items:
+                                  type: object
+                                  required:
+                                    - label
+                                    - selected
+                                    - x
+                                    - y
+                                    - width
+                                    - height
+                                  properties:
+                                    label:
+                                      type: string
+                                      description: |
+                                        Which option this box is for, e.g. "A".
+                                    selected:
+                                      type: boolean
+                                      description: |
+                                        Whether this option is one of the question's selected
+                                        answers (present in `selected` above).
+                                    x:
+                                      type: integer
+                                      description: |
+                                        Left edge of the bubble, in scan pixel coordinates.
+                                    y:
+                                      type: integer
+                                      description: |
+                                        Top edge of the bubble, in scan pixel coordinates.
+                                    width:
+                                      type: integer
+                                      description: |
+                                        Width of the bubble.
+                                    height:
+                                      type: integer
+                                      description: |
+                                        Height of the bubble.
         400:
           description: |
             The request was missing something. Check the error message for 

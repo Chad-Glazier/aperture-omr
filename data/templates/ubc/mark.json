@@ -3,7 +3,7 @@
     "fillThreshold": 0.25,
     "bubbleInset": 0.75,
     "flagThreshold": 0.30,
-    "searchRadius": 5
+    "searchRadius": 7
   },
   "pages": [
     {

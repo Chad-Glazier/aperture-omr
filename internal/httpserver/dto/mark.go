@@ -64,11 +64,29 @@ type Mark struct {
 	Confidence float64  `json:"confidence"`
 	// PageIndex is the 0-based page (matching the scan's page images) the
 	// question's bubbles were found on. See marker.Answer.
-	PageIndex int `json:"pageIndex"`
-	X         int `json:"x"`
-	Y         int `json:"y"`
-	Width     int `json:"width"`
-	Height    int `json:"height"`
+	PageIndex int            `json:"pageIndex"`
+	Bounds    QuestionBounds `json:"bounds"`
+	Boxes     []Box          `json:"boxes"`
+}
+
+// Box is the bounding box of a single option's bubble, selected or not, in
+// the page's scan pixel coordinates. See marker.Box.
+type Box struct {
+	Label    string `json:"label"`
+	Selected bool   `json:"selected"`
+	X        int    `json:"x"`
+	Y        int    `json:"y"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+}
+
+// QuestionBounds is the bounding box enclosing every one of a question's
+// bubbles, not just the selected ones. See marker.QuestionBounds.
+type QuestionBounds struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 type PerformanceMetrics struct {

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"image"
 	"image/color"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -234,8 +235,10 @@ func TestEvaluate(t *testing.T) {
 		errContains  string
 		wantSelected [][]string
 		wantFlagged  []bool
-		// wantBounds, when non-nil, checks answer[0]'s {X, Y, Width, Height}.
-		wantBounds *[4]int
+		// wantBoxes, when non-nil, checks answer[0]'s Boxes.
+		wantBoxes []Box
+		// wantBounds, when non-nil, checks answer[0]'s Bounds.
+		wantBounds *QuestionBounds
 	}{
 		{
 			name:        "Empty image returns error",
@@ -257,9 +260,17 @@ func TestEvaluate(t *testing.T) {
 			tmpl:         &Template{Config: defaultConfig, Questions: []Question{singleQ}},
 			wantSelected: [][]string{{"A"}},
 			wantFlagged:  []bool{false},
-			// No search radius configured, so the bounds sit at the raw
-			// template position: options span X 65-165, bubble half-width 15.
-			wantBounds: &[4]int{50, 100, 130, 30},
+			// Boxes cover every option, not just the selected one -- and sit
+			// at each bubble's raw template position since no search radius
+			// is configured.
+			wantBoxes: []Box{
+				{Label: "A", Selected: true, X: 50, Y: 100, Width: 30, Height: 30},
+				{Label: "B", Selected: false, X: 100, Y: 100, Width: 30, Height: 30},
+				{Label: "C", Selected: false, X: 150, Y: 100, Width: 30, Height: 30},
+			},
+			// Bounds spans all three options (A-C: X 65-165), same extent as
+			// the union of Boxes above but without the per-bubble detail.
+			wantBounds: &QuestionBounds{X: 50, Y: 100, Width: 130, Height: 30},
 		},
 		{
 			name:         "Single-select: no bubble filled is flagged",
@@ -303,11 +314,15 @@ func TestEvaluate(t *testing.T) {
 			},
 			wantSelected: [][]string{{"A", "B", "C"}},
 			wantFlagged:  []bool{true},
-			// Bounds must follow the detected alignment offset (+8 in X),
-			// not the raw template position. That's the whole point of
-			// storing the found location instead of relying on the static
-			// template.
-			wantBounds: &[4]int{50 + allFilledShiftX, 100, 130, 30},
+			// Boxes must follow the detected alignment offset (+8 in X), not
+			// the raw template position. That's the whole point of storing
+			// the found location instead of relying on the static template.
+			wantBoxes: []Box{
+				{Label: "A", Selected: true, X: 65 + allFilledShiftX - 15, Y: 100, Width: 30, Height: 30},
+				{Label: "B", Selected: true, X: 115 + allFilledShiftX - 15, Y: 100, Width: 30, Height: 30},
+				{Label: "C", Selected: true, X: 165 + allFilledShiftX - 15, Y: 100, Width: 30, Height: 30},
+			},
+			wantBounds: &QuestionBounds{X: 50 + allFilledShiftX, Y: 100, Width: 130, Height: 30},
 		},
 		{
 			name: "FlagThreshold above max confidence flags clear answers",
@@ -367,11 +382,14 @@ func TestEvaluate(t *testing.T) {
 					t.Errorf("answer[%d]: flag = %v, want %v",
 						i, ans.Flag, tc.wantFlagged[i])
 				}
+				if tc.wantBoxes != nil && i == 0 {
+					if !reflect.DeepEqual(ans.Boxes, tc.wantBoxes) {
+						t.Errorf("answer[0]: boxes = %+v, want %+v", ans.Boxes, tc.wantBoxes)
+					}
+				}
 				if tc.wantBounds != nil && i == 0 {
-					want := *tc.wantBounds
-					got := [4]int{ans.X, ans.Y, ans.Width, ans.Height}
-					if got != want {
-						t.Errorf("answer[0]: bounds = %v, want %v", got, want)
+					if ans.Bounds != *tc.wantBounds {
+						t.Errorf("answer[0]: bounds = %+v, want %+v", ans.Bounds, *tc.wantBounds)
 					}
 				}
 				// None of the cases above use a multi-page template, so every
