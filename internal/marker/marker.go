@@ -307,16 +307,37 @@ func detectAnswers(
 	if len(answered) == 0 {
 		// How confidently blank: 1.0 when all adjusted fills are identical.
 		confidence = 1.0 - highestFill
+	} else if allFilled && q.Type != "multi" {
+		// Every option looks filled on a single-choice question, so there's
+		// no unselected bubble left to measure a margin against, and this is
+		// itself the most ambiguous possible read.
+		confidence = 0.0
 	} else {
-		// Weakest selected minus strongest unselected: measures how cleanly the
-		// marked bubbles separate from the unmarked ones.
 		minSelected := selectedFills[0]
 		for _, f := range selectedFills[1:] {
 			if f < minSelected {
 				minSelected = f
 			}
 		}
-		confidence = minSelected - highestUnselected
+		if allFilled {
+			// A multi-select question where every option is genuinely
+			// marked (e.g. a small option count with a "select all" answer)
+			// has no unselected bubble to contrast against either, but
+			// unlike the single-choice case above it can be a correct
+			// answer, not an error. Fall back to how strongly the weakest
+			// of the marked bubbles is filled.
+			confidence = minSelected
+		} else {
+			// How cleanly the marked bubbles separate from the unmarked
+			// ones, relative to how much ink a mark actually leaves.
+			// An absolute margin understates confidence for genuinely
+			// clean marks and for questions with more options (more
+			// letterform variation among unmarked bubbles narrows the raw
+			// gap without the read being any less certain). sorted[n-1] is
+			// the largest adjusted fill overall, which always belongs to a
+			// selected bubble.
+			confidence = (minSelected - highestUnselected) / sorted[n-1]
+		}
 	}
 
 	confidence = math.Max(confidence, 0.0)
