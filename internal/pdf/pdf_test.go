@@ -3,6 +3,7 @@ package pdf
 import (
 	"bytes"
 	"embed"
+	"sync/atomic"
 	"testing"
 
 	pdfcpu "github.com/pdfcpu/pdfcpu/pkg/api"
@@ -137,5 +138,45 @@ func TestSplitEven(t *testing.T) {
 		if err := pdfcpu.Validate(bytes.NewReader(pdf), conf); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+
+func TestRenderPageBatches(t *testing.T) {
+
+	// The large sample PDF has 88 pages.
+	buf, err := testData.ReadFile("testdata/sample_large.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matsProcessed := atomic.Int32{}
+	err = RenderPageBatches(
+		bytes.NewReader(buf), 
+		300,
+		2,
+		8,
+		func(mats []*gocv.Mat, batchIdx uint32) {
+			// Ensure that the matrices are well-formed images.
+			for _, mat := range mats {
+				buf, err := gocv.IMEncode(gocv.PNGFileExt, *mat)
+				matsProcessed.Add(1)
+				if err != nil {
+					t.Fatal(err)
+				}
+				buf.Close()
+			}
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure that there is one matrix per page.
+	if matsProcessed.Load() != 88 {
+		t.Fatalf(
+			"pdf had %d pages but only %d matrices were rendered",
+			5, matsProcessed.Load(),
+		)
 	}
 }

@@ -155,7 +155,7 @@ func TestScanExamMats(t *testing.T) {
 
 	const nPagesPerExam = 2
 
-	examData, err := scanExamMats(pages[:nPagesPerExam], tmpl)
+	examData, err := ScanExamMats(pages[:nPagesPerExam], tmpl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestScanExamMatsOutOfOrder(t *testing.T) {
 	gocv.Flip(*pages[0], pages[0], -1)
 	gocv.Flip(*pages[1], pages[1], -1)
 
-	exam, err := scanExamMats(pages[0:2], tmpl)
+	exam, err := ScanExamMats(pages[0:2], tmpl)
 	if err != nil {
 		t.Fatal(err)
 	}

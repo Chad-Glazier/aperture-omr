@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #include <wand/MagickWand.h>
+#include <opencv2/core/mat.hpp>
 
 // 
 // Types.
@@ -14,7 +15,7 @@
 
 GrayImage* gray_image_create(size_t width, size_t height, void* pixels) {
 
-    GrayImage* img = malloc(sizeof(GrayImage));
+    GrayImage* img = (GrayImage*) malloc(sizeof(GrayImage));
     if (img == NULL) {
         return NULL;
     }
@@ -40,15 +41,22 @@ void gray_image_destroy(GrayImage* img) {
 
 GrayImageSlice* gray_image_slice_create(size_t length) {
 
-    GrayImageSlice* slice = malloc(sizeof(GrayImageSlice));
+    GrayImageSlice* slice = (GrayImageSlice*) malloc(sizeof(GrayImageSlice));
     if (slice == NULL) {
         return NULL;
     }
 
-    slice->items = calloc(length, sizeof(GrayImage));
+    slice->items = (GrayImage*) calloc(length, sizeof(GrayImage));
     if (slice->items == NULL) {
         free(slice);
         return NULL;
+    }
+
+    // Make the pointer values all NULL. This way, if we have to terminate 
+    // early (i.e., before the full slice has been populated with real values) 
+    // we can safely call "free" on all of the pointers.
+    for (int i = 0; i < length; i++) {
+        slice->items[i].pixels = NULL;
     }
 
     slice->length = length;
@@ -62,10 +70,35 @@ void gray_image_slice_destroy(GrayImageSlice* slice) {
     }
 
     if (slice->items != NULL) {
+
+        for (int i = 0; i < slice->length; i++) {
+            free(slice->items[i].pixels);
+        }
+
         free(slice->items);
     }
 
     free(slice);
+}
+
+Mats mats_create(size_t length) {
+    Mats mats;
+    mats.length = length;
+    mats.mats = new cv::Mat[length];
+
+    return mats;
+}
+
+void mats_destroy(struct Mats mats) {
+    delete[] static_cast<cv::Mat*>(mats.mats);
+}
+
+void* mats_get(struct Mats mats, size_t index) {
+    if (index >= mats.length) {
+        return nullptr;
+    }
+
+    return &static_cast<cv::Mat*>(mats.mats)[index];
 }
 
 //
@@ -117,16 +150,11 @@ GrayImage* pdf_file_page_to_gray(
         // is actually an out-of-bounds index. However, that doesn't work on 
         // Linux because the delegated call to ghostscript does not yield 
         // capturable output, instead it just prints it right to stderr. This 
-        // leads to the approach of simply assuming that any failure in loading
-        // the PDF is an index out-of-bounds error. This isn't ideal, but it 
-        // works as long as we dont get a malformed PDF. (Notably, a malformed 
+        // led me to the approach of simply assuming that any failure in 
+        // loading the PDF is an out-of-bounds error. This isn't ideal, but it 
+        // works as long as we dont get a malformed PDF. Notably, a malformed 
         // PDF can still be detected if the total number of pages rendered is 
-        // zero.)
-        //
-        // We could use the `pdf_get_page_count` function, but the cost of 
-        // getting metadata from the PDF is still significant--in my testing,
-        // about 2 full seconds for a large PDF. We should look into writing
-        // our own page counter in the future if the issue becomes important.
+        // zero.
         //
 
         MagickRelinquishMemory(msg);
@@ -254,7 +282,7 @@ GrayImageSlice* pdf_file_to_gray_images(
         size_t height = MagickGetImageHeight(wand);
         size_t bytes = width * height;
 
-        unsigned char *pixels = malloc(bytes);
+        unsigned char *pixels = (unsigned char*) malloc(bytes);
         if (pixels == NULL) {
 
             gray_image_slice_destroy(slice);
@@ -341,13 +369,13 @@ GrayImageSlice* pdf_bytes_to_gray_images(
     MagickResetIterator(wand);
     while (MagickNextImage(wand) != MagickFalse) {
 
-        MagickSetImageColorspace(wand, GRAYColorspace);
-        MagickSetImageType(wand, GrayscaleType);
-
         const size_t width = MagickGetImageWidth(wand);
         const size_t height = MagickGetImageHeight(wand);
 
-        unsigned char* pixels = malloc(width * height);
+        MagickSetImageColorspace(wand, GRAYColorspace);
+        MagickSetImageType(wand, GrayscaleType);
+
+        unsigned char* pixels = (unsigned char*) malloc(width * height);
         if (pixels == NULL) {
 
             gray_image_slice_destroy(images);
@@ -384,4 +412,81 @@ GrayImageSlice* pdf_bytes_to_gray_images(
 
     DestroyMagickWand(wand);
     return images;
+}
+
+//
+// Convert PDF bytes into grayscale OpenCV matrices.
+//
+
+Mats pdf_bytes_to_mats(
+    const void* bytes,
+    const size_t n_bytes,
+    int density,
+    PdfStatus* status
+) {
+    *status = PDF_OK;
+
+    MagickWand* wand = NewMagickWand();
+    MagickSetResolution(wand, density, density);
+
+    if (MagickReadImageBlob(wand, bytes, n_bytes) == MagickFalse) {
+
+        DestroyMagickWand(wand);
+
+        *status = PDF_LOADING_ERROR;
+        return Mats{nullptr, 0};
+    }
+
+    char* format = MagickGetImageFormat(wand);
+    if (strcmp(format, "PDF") != 0) {
+
+        MagickRelinquishMemory(format);
+        DestroyMagickWand(wand);
+
+        *status = PDF_LOADING_ERROR;
+        return Mats{nullptr, 0};
+    }
+    MagickRelinquishMemory(format);
+
+    Mats mats = mats_create(MagickGetNumberImages(wand));
+
+    MagickResetIterator(wand);
+    while (MagickNextImage(wand) != MagickFalse) {
+
+        const size_t width = MagickGetImageWidth(wand);
+        const size_t height = MagickGetImageHeight(wand);
+
+        int i = MagickGetIteratorIndex(wand);
+
+
+        cv::Mat& mat = static_cast<cv::Mat*>(mats.mats)[i];
+        mat = cv::Mat(
+            static_cast<int>(height),
+            static_cast<int>(width),
+            CV_8UC1
+        );
+
+        MagickSetImageColorspace(wand, GRAYColorspace);
+        MagickSetImageType(wand, GrayscaleType);
+
+        if (MagickExportImagePixels(
+            wand,
+            0,
+            0,
+            width,
+            height,
+            "I",
+            CharPixel,
+            mat.data) == MagickFalse) {
+
+            mats_destroy(mats);
+            DestroyMagickWand(wand);
+
+            *status = PDF_RENDER_ERROR;
+            return Mats{nullptr, 0};
+        }
+    }
+
+    DestroyMagickWand(wand);
+    return mats;
 }

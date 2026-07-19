@@ -78,7 +78,7 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 				}
 			}()
 
-			exam, err := scanExamMats(
+			exam, err := ScanExamMats(
 				pages[(i*nPagesPerExam):((i+1)*nPagesPerExam)],
 				tmpl,
 			)
@@ -104,12 +104,21 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 // will attempt to resolve the issue by shuffling the order around. In any
 // case, the returned exam will have its pages in the correct order to match
 // the template.
-func scanExamMats(
+func ScanExamMats(
 	pages []*gocv.Mat,
 	tmpl *Template,
 ) (ExamData, error) {
 
 	n := len(pages)
+	if n != len(tmpl.Pages) {
+		return ExamData{}, fmt.Errorf("ScanExamMats: page count mismatch")
+	}
+	for i := range pages {
+		if pages[i] == nil {
+			return ExamData{}, fmt.Errorf("ScanExamMats: nil matrix received")
+		}
+	}
+
 	result := ExamData{
 		Pages: make([]*ScanData, n),
 	}

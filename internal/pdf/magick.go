@@ -1,6 +1,6 @@
 package pdf
 
-// #cgo pkg-config: MagickWand
+// #cgo pkg-config: Magick++
 //
 // #include <stdlib.h>
 // #include <wand/MagickWand.h>
@@ -11,6 +11,8 @@ import (
 	"errors"
 	"image"
 	"unsafe"
+
+	"gocv.io/x/gocv"
 )
 
 func init() {
@@ -125,6 +127,58 @@ func pdfBytesToGrays(pdf []byte, density int) ([]*image.Gray, error) {
 	}
 
 	return images, nil
+}
+
+type MatSlice struct {
+	cMats C.Mats
+	Mats  []*gocv.Mat
+}
+
+func pdfBytesToMats(pdf []byte, density int) (*MatSlice, error) {
+	if len(pdf) == 0 {
+		return nil, errors.New("pdfBytesToMats: empty PDF")
+	}
+
+	var status C.PdfStatus
+
+	cMats := C.pdf_bytes_to_mats(
+		unsafe.Pointer(&pdf[0]),
+		C.size_t(len(pdf)),
+		C.int(density),
+		&status,
+	)
+
+	if cMats.mats == nil {
+		return nil, Status(status)
+	}
+
+	result := &MatSlice{
+		cMats: cMats,
+		Mats:  make([]*gocv.Mat, int(cMats.length)),
+	}
+
+	for i := 0; i < int(cMats.length); i++ {
+		cMat := C.mats_get(cMats, C.size_t(i))
+
+		if cMat == nil {
+			result.Close()
+			return nil, errors.New("failed to get matrix")
+		}
+
+		mat := gocv.NewMatFromCMat(cMat)
+		result.Mats[i] = &mat
+	}
+
+	return result, nil
+}
+
+func (s *MatSlice) Close() {
+	if s == nil {
+		return
+	}
+
+	C.mats_destroy(s.cMats)
+	s.cMats = C.Mats{}
 }
 
 func copyToGoMemory(img *C.GrayImage) *image.Gray {

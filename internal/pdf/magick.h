@@ -3,6 +3,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Gets the number of pages in a PDF file (without rendering it). Returns -1 if
 // the file could not be loaded.
 int pdf_file_page_count(const char* file_name);
@@ -37,6 +41,18 @@ typedef struct {
 
 GrayImageSlice* gray_image_slice_create(size_t length);
 void gray_image_slice_destroy(GrayImageSlice* slice);
+
+typedef void* Mat;
+
+// Represents an ordered collection of OpenCV matrices.
+typedef struct Mats {
+    void* mats;
+    size_t length;
+} Mats;
+
+Mats mats_create(size_t length);
+void mats_destroy(struct Mats mats);
+void* mats_get(struct Mats mats, size_t index);
 
 // Renders a single page from a PDF file to a grayscale image.
 //
@@ -83,5 +99,22 @@ GrayImageSlice* pdf_file_to_gray_images(
     size_t density,
     PdfStatus* status
 );
+
+// Renders all pages in a PDF byte buffer into grayscale opencv matrices.
+//
+// Parameters:
+//   buf      - the byte buffer for the PDF
+//   density  - the DPI of the rendered PDF
+//   status   - the terminal state of the procedure
+Mats pdf_bytes_to_mats(
+    const void* bytes,
+    const size_t n_bytes,
+    int density,
+    PdfStatus* status
+);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

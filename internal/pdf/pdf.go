@@ -9,6 +9,7 @@ import (
 	"image"
 	"io"
 	"runtime"
+	"sync/atomic"
 
 	pdfcpu "github.com/pdfcpu/pdfcpu/pkg/api"
 	"gocv.io/x/gocv"
@@ -74,7 +75,6 @@ func RenderPageMats(r io.ReadSeeker, density int) ([]*gocv.Mat, error) {
 	}
 
 	return mats, nil
-
 }
 
 // Divides a single PDF buffer into multiple valid PDF files. Pages from the
@@ -114,4 +114,92 @@ func splitEven(pdfData io.ReadSeeker, buckets int) ([][]byte, error) {
 	}
 
 	return bufs, nil
+}
+
+// Renders a large PDF by dividing it into batches of a fixed size. Once a 
+// given batch is processed, the callback will be invoked on the rendered 
+// matrices. Notably, these matrices will be freed after the callback returns.
+// 
+// The parallelization argument determines how many batches will be processed 
+// simultaneously. Setting it to zero will fall back to using GOMAXPROCS.
+//
+// Batches will preserve their original order. E.g., if the batch size is 3,
+// pages 1-3 will be one batch, pages 4-6 will be another, and so on. If the
+// original PDF has a number of pages that isn't a multiple of the batch size,
+// an error will be returned. The pages of each batch are also passed in order,
+// and the accompanying integer is the batch's index.
+func RenderPageBatches(
+	r io.ReadSeeker, 
+	density int,
+	batchSize int,
+	parallelization int,
+	callback func ([]*gocv.Mat, uint32),
+) error {
+
+	conf := pdfcpu.LoadConfiguration()
+	pageCount, err := pdfcpu.PageCount(r, conf)
+	if err != nil {
+		return err
+	}
+	
+	if pageCount%batchSize != 0	{
+		return fmt.Errorf(
+			"RenderPageBatches: PDF pages %d not divisible by batch size %d",
+			pageCount, batchSize,
+		)
+	}
+
+	spans, err := pdfcpu.SplitRaw(r, batchSize, conf)
+	if err != nil {
+		return err
+	}
+	
+	nextSpanIdx := atomic.Uint32{}
+	nextSpanIdx.Store(0)
+
+	wg := errgroup.Group{}
+	for range parallelization {
+		wg.Go(func() (err error) {
+
+			// We track the currently-allocated matrix slice so that, if the
+			// callback panics, we can free it with the recovery call.
+			var mats *MatSlice
+			defer func() {
+				if r := recover(); r != nil {
+					if mats != nil {
+						mats.Close()
+					}
+					err = fmt.Errorf("RenderPageBatches: panic recovered")
+				}
+			}()
+			
+			//
+			// We keep each thread running until the pool of PDF batches is
+			// complete.
+			//
+
+			for nextSpanIdx.Load() < uint32(len(spans)) {
+
+				spanIdx := nextSpanIdx.Add(1)-1
+				
+				buf, err := io.ReadAll(spans[spanIdx].Reader)
+				if err != nil {
+					return err
+				}
+				spans[spanIdx] = nil // Help the GC?
+
+				mats, err = pdfBytesToMats(buf, density)
+				callback(mats.Mats, spanIdx)				
+				mats.Close()
+				buf = nil
+			}
+
+			return nil
+		})
+	}
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }

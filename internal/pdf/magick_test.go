@@ -94,3 +94,30 @@ func TestPdfBytesToGrays(t *testing.T) {
 		}
 	}
 }
+
+func TestPdfBytesToMats(t *testing.T) {
+
+	// The sample PDF has 5 pages.
+	pdf, err := testData.ReadFile("testdata/sample.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mats, err := pdfBytesToMats(pdf, 74)
+	if err != nil {
+		t.Fatalf("pdfBytesToGrays() returned error: %v", err)
+	}
+	defer mats.Close()
+
+	if len(mats.Mats) != 5 {
+		t.Fatalf("expected %d mats, got %d", 5, len(mats.Mats))
+	}
+
+	for i := range mats.Mats {
+		_, err := gocv.IMEncode(gocv.PNGFileExt, *mats.Mats[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
