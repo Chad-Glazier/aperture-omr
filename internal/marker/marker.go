@@ -28,7 +28,8 @@ type Question struct {
 }
 
 // Config holds marking-specific parameters. Nil fields fall back to defaults:
-// fillThreshold: 0.25, bubbleInset: 0.75, flagThreshold: 0.5, searchRadius: 0.
+// fillThreshold: 0.25, bubbleInset: 0.75, flagThreshold: 0.5, searchRadius: 0,
+// labelInset: 0.4.
 type Config struct {
 	FillThreshold *float64 `json:"fillThreshold"`
 	BubbleInset   *float64 `json:"bubbleInset"`
@@ -40,6 +41,16 @@ type Config struct {
 	// across all (2*r+1)² candidate centres. Use 3–5 to tolerate small
 	// printer/scanner misalignment without changing the warp pipeline.
 	SearchRadius *int `json:"searchRadius"`
+	// LabelInset carves this fraction of the bubble radius out of the centre
+	// of the alignment search's sampling mask, so a bubble's own printed
+	// option label (most templates print one inside each bubble) can't pull
+	// the alignment search toward itself. Only the alignment search is
+	// restricted this way -- final fill measurement still samples the full
+	// disk (bubbleInset), so detection sensitivity for light or
+	// centre-concentrated marks is unaffected. Set to 0.0 to disable and
+	// sample the full disk for alignment too, e.g. for a template that
+	// doesn't print anything inside its bubbles.
+	LabelInset *float64 `json:"labelInset"`
 }
 
 // Page holds the questions for a single exam page.
@@ -115,6 +126,10 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 	if tmpl.Config.SearchRadius != nil {
 		searchRadius = *tmpl.Config.SearchRadius
 	}
+	labelInset := 0.4
+	if tmpl.Config.LabelInset != nil {
+		labelInset = *tmpl.Config.LabelInset
+	}
 
 	var answers []Answer
 	for i, img := range imgs {
@@ -125,7 +140,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 			return nil, fmt.Errorf("page %d: mark template contains no questions", i)
 		}
 		for _, q := range pages[i].Questions {
-			selected, confidence := detectAnswers(img, q, threshold, inset, searchRadius)
+			selected, confidence := detectAnswers(img, q, threshold, inset, labelInset, searchRadius)
 			multiSelect := q.Type == "multi"
 			flag := confidence < flagThreshold ||
 				(len(selected) == 0 && strings.HasPrefix(q.ID, "Q")) ||
@@ -143,7 +158,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 }
 
 func detectAnswers(
-	img *gocv.Mat, q Question, threshold, inset float64, searchRadius int,
+	img *gocv.Mat, q Question, threshold, inset, labelInset float64, searchRadius int,
 ) ([]string, float64) {
 	if len(q.Options) == 0 {
 		return nil, 0.0
@@ -155,84 +170,173 @@ func detectAnswers(
 
 	innerR := int(float64(r) * inset)
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	qMask := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8U)
-	defer qMask.Close()
-	gocv.Circle(&qMask, image.Pt(w/2, h/2), innerR, white, -1)
-	circleArea := gocv.CountNonZero(qMask)
-	masked := gocv.NewMat()
-	defer masked.Close()
 
-	measure := func(cx, cy int) float64 {
-		if circleArea == 0 {
-			return 0.0
+	// scoreMask: the full disk out to innerR -- used for the actual fill
+	// measurement once alignment is settled, so a light or centre-concentrated
+	// mark is still fully counted.
+	scoreMask := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8U)
+	defer scoreMask.Close()
+	gocv.Circle(&scoreMask, image.Pt(w/2, h/2), innerR, white, -1)
+	scoreArea := gocv.CountNonZero(scoreMask)
+	scoreMasked := gocv.NewMat()
+	defer scoreMasked.Close()
+
+	// alignMask: same disk, but with a hole punched out of the centre to
+	// hide the bubble's own printed letter from the alignment search --
+	// otherwise a heavily-inked letter can pull the search toward itself
+	// even on an unmarked bubble. Only used to pick (dx, dy); a real mark
+	// still darkens the surrounding ring either way.
+	labelR := int(float64(r) * labelInset)
+	alignMask := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8U)
+	defer alignMask.Close()
+	gocv.Circle(&alignMask, image.Pt(w/2, h/2), innerR, white, -1)
+	if labelR > 0 {
+		gocv.Circle(&alignMask, image.Pt(w/2, h/2), labelR, color.RGBA{}, -1)
+	}
+	alignArea := gocv.CountNonZero(alignMask)
+	alignMasked := gocv.NewMat()
+	defer alignMasked.Close()
+
+	// guardMask: a disk drawn well past the bubble's own printed ring,
+	// fixed regardless of the inset config. Used only by the "is this
+	// genuinely well-inked" check in the fallback below.
+	//
+	// scoreMask/alignMask are deliberately smaller than the ring so a real
+	// mark gets measured precisely, with no surrounding print diluting it.
+	// But that same smallness is a trap for a fallback that just maximises
+	// raw fill: on a blank bubble, drifting the sample toward the ring
+	// looks like finding ink, with nothing to stop it short of the search
+	// radius. guardMask already contains the whole ring at zero shift, so
+	// there's no false reward for drifting, and scoring stays untouched.
+	const guardInset = 1.2
+	guardInnerR := int(float64(r) * guardInset)
+	guardMask := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8U)
+	defer guardMask.Close()
+	gocv.Circle(&guardMask, image.Pt(w/2, h/2), guardInnerR, white, -1)
+	guardArea := gocv.CountNonZero(guardMask)
+	guardMasked := gocv.NewMat()
+	defer guardMasked.Close()
+
+	sample := func(cx, cy, boxW, boxH int, mask *gocv.Mat, area int, masked *gocv.Mat) (float64, bool) {
+		if area == 0 {
+			return 0.0, false
 		}
-		x0, y0 := cx-w/2, cy-h/2
-		x1, y1 := x0+w, y0+h
+		x0, y0 := cx-boxW/2, cy-boxH/2
+		x1, y1 := x0+boxW, y0+boxH
 		if x0 < 0 || y0 < 0 || x1 > img.Cols() || y1 > img.Rows() {
-			return 0.0
+			return 0.0, false
 		}
 		roi := img.Region(image.Rect(x0, y0, x1, y1))
 		defer roi.Close()
-		gocv.BitwiseAnd(roi, qMask, &masked)
-		return float64(gocv.CountNonZero(masked)) / float64(circleArea)
+		gocv.BitwiseAnd(roi, *mask, masked)
+		return float64(gocv.CountNonZero(*masked)) / float64(area), true
 	}
 
-	// Per-question alignment search: find the single (dx, dy) offset within
-	// ±searchRadius that maximises the largest gap between consecutive sorted
-	// fills across all options. This directly optimises for detection
-	// discrimination — the offset where selected bubbles stand out most
-	// clearly from empty ones. Maximising raw peak fill instead can select
-	// offsets where printed ring pixels inflate all bubbles equally, shrinking
-	// the gap and producing spurious multi-selections. Using the gap metric
-	// avoids those offsets because uniform inflation across all options leaves
-	// the gap unchanged or smaller.
+	measure := func(cx, cy int) float64 {
+		f, _ := sample(cx, cy, w, h, &scoreMask, scoreArea, &scoreMasked)
+		return f
+	}
+	alignMeasure := func(cx, cy int) float64 {
+		f, _ := sample(cx, cy, w, h, &alignMask, alignArea, &alignMasked)
+		return f
+	}
+	guardMeasure := func(cx, cy int) float64 {
+		f, _ := sample(cx, cy, w, h, &guardMask, guardArea, &guardMasked)
+		return f
+	}
+
+	// Per-question alignment search: find the (dx, dy) offset within
+	// ±searchRadius that maximises the gap between the sorted option fills
+	// -- the offset where a marked bubble stands out most clearly from the
+	// rest. Gap, not raw fill, because ring ink inflates every option about
+	// equally as the window drifts, which raw fill would reward but gap
+	// mostly cancels out.
+	//
+	// offBubbleFloor: a real bubble always has *some* ink (its ring, its
+	// letter), so a fill this low means the sample has drifted off the
+	// bubble entirely. Without this floor, that near-zero reading always
+	// wins the biggest gap in the sorted list, so the search would just
+	// walk to the edge of the radius chasing it instead of a real mark.
+	const offBubbleFloor = 0.05
+
 	bestDX, bestDY := 0, 0
 	if searchRadius > 0 {
 		sortBuf := make([]float64, n)
 
-		bestGapScore := 0.0
+		gapAt := func(dx, dy int) (float64, bool) {
+			for i, b := range q.Options {
+				f := alignMeasure(b.X+dx, b.Y+dy)
+				if f < offBubbleFloor {
+					return 0, false
+				}
+				sortBuf[i] = f
+			}
+			sort.Float64s(sortBuf)
+			maxGap := 0.0
+			for i := 1; i < n; i++ {
+				if g := sortBuf[i] - sortBuf[i-1]; g > maxGap {
+					maxGap = g
+				}
+			}
+			return maxGap, true
+		}
+
+		// Start from the centred offset's own gap, not 0.0 -- otherwise a
+		// tie always goes to whichever candidate happens to be checked
+		// first (the window's top-left corner), quietly dragging ambiguous
+		// questions toward that corner instead of leaving them centred.
+		bestGapScore, _ := gapAt(0, 0)
 		for dy := -searchRadius; dy <= searchRadius; dy++ {
 			for dx := -searchRadius; dx <= searchRadius; dx++ {
-				for i, b := range q.Options {
-					sortBuf[i] = measure(b.X+dx, b.Y+dy)
+				if dx == 0 && dy == 0 {
+					continue
 				}
-				sort.Float64s(sortBuf)
-				maxGap := 0.0
-				for i := 1; i < n; i++ {
-					if g := sortBuf[i] - sortBuf[i-1]; g > maxGap {
-						maxGap = g
-					}
-				}
-				if maxGap > bestGapScore {
-					bestGapScore = maxGap
+				if gap, ok := gapAt(dx, dy); ok && gap > bestGapScore {
+					bestGapScore = gap
 					bestDX, bestDY = dx, dy
 				}
 			}
 		}
 
-		// If the gap found is below the fill threshold, the discrimination is
-		// too small to be meaningful — fills are nearly uniform across all
-		// options. This happens when all bubbles are selected (or all empty).
-		// In this regime the gap search chases noise and may land on a position
-		// where accidental pixel variation looks like a gap but the absolute
-		// fills are poor. Fall back instead to the offset that maximises the
-		// total fill across all options: for the all-selected case this centres
-		// the window on the best available position so allFilled can trigger;
-		// for the all-empty case fills stay near zero regardless of offset.
+		// A gap this small means fills are nearly uniform across all
+		// options -- either everything's genuinely marked, or nothing is.
+		// Two different fallbacks below tell those apart.
 		if bestGapScore < threshold {
-			bestSum := -1.0
+			// Look for a position with real ink across the board -- this is
+			// what recovers a shifted all-filled row, which reads weak at
+			// the template's own centre by definition (that's why it needed
+			// a search at all). Uses guardMeasure, not measure/alignMeasure
+			// -- those are sized for precise scoring, which is exactly what
+			// makes a fill-maximising search over them drift toward the
+			// ring on a blank bubble instead of stopping at the true mark.
+			centeredSum := 0.0
+			for _, b := range q.Options {
+				centeredSum += guardMeasure(b.X, b.Y)
+			}
+			sumDX, sumDY := 0, 0
+			bestSum := centeredSum
 			for dy := -searchRadius; dy <= searchRadius; dy++ {
 				for dx := -searchRadius; dx <= searchRadius; dx++ {
+					if dx == 0 && dy == 0 {
+						continue
+					}
 					sum := 0.0
 					for _, b := range q.Options {
-						sum += measure(b.X+dx, b.Y+dy)
+						sum += guardMeasure(b.X+dx, b.Y+dy)
 					}
 					if sum > bestSum {
 						bestSum = sum
-						bestDX, bestDY = dx, dy
+						sumDX, sumDY = dx, dy
 					}
 				}
 			}
+
+			if bestSum/float64(n) > 0.5 {
+				// Found a position with real ink across the board -- trust it.
+				bestDX, bestDY = sumDX, sumDY
+			}
+			// Else: genuinely blank, nothing to align to -- leave
+			// bestDX/bestDY at the template's own position.
 		}
 	}
 

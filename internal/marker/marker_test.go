@@ -223,6 +223,19 @@ func TestEvaluate(t *testing.T) {
 	fillBubble(&imgAllSelectedShifted, 115+allFilledShiftX, 115, bw, bh, inset)
 	fillBubble(&imgAllSelectedShifted, 165+allFilledShiftX, 115, bw, bh, inset)
 
+	// Same shift, but filled out to the bubble's full radius rather than
+	// just `inset` of it -- needed for the search-radius recovery case
+	// below, since the sum-fill fallback's guard mask deliberately samples
+	// past that radius (see guardMask in marker.go) to stay exploit-proof,
+	// so an ink circle calibrated to `inset` alone isn't dark enough for it
+	// to register as "well-inked".
+	imgAllSelectedShiftedFull := gocv.NewMatWithSizeFromScalar(
+		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
+	defer imgAllSelectedShiftedFull.Close()
+	fillBubble(&imgAllSelectedShiftedFull, 65+allFilledShiftX, 115, bw, bh, 1.0)
+	fillBubble(&imgAllSelectedShiftedFull, 115+allFilledShiftX, 115, bw, bh, 1.0)
+	fillBubble(&imgAllSelectedShiftedFull, 165+allFilledShiftX, 115, bw, bh, 1.0)
+
 	emptyImg := gocv.NewMat()
 	defer emptyImg.Close()
 
@@ -286,7 +299,7 @@ func TestEvaluate(t *testing.T) {
 		},
 		{
 			name: "All options filled but shifted: search radius recovers all-filled detection",
-			img:  imgAllSelectedShifted,
+			img:  imgAllSelectedShiftedFull,
 			tmpl: &Template{
 				Config: Config{
 					FillThreshold: ptr(0.5),
