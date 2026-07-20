@@ -45,7 +45,7 @@ Mats pdf_bytes_to_mats(
 ) {
     *status = PDF_OK;
 
-    MagickWand* wand = NewMagickWand();
+    MagickWand* wand = NewMagickWand(); // <https://youtu.be/mdCyzJT59nw?si=w86B_1-z85RDTNhL>
     MagickSetResolution(wand, density, density);
 
     if (MagickReadImageBlob(wand, bytes, n_bytes) == MagickFalse) {
@@ -69,16 +69,14 @@ Mats pdf_bytes_to_mats(
 
     Mats mats = mats_create(MagickGetNumberImages(wand));
 
+    size_t i = 0;
     MagickResetIterator(wand);
     while (MagickNextImage(wand) != MagickFalse) {
 
         const size_t width = MagickGetImageWidth(wand);
         const size_t height = MagickGetImageHeight(wand);
 
-        int i = MagickGetIteratorIndex(wand);
-
-
-        cv::Mat& mat = static_cast<cv::Mat*>(mats.mats)[i];
+        cv::Mat& mat = static_cast<cv::Mat*>(mats.mats)[i++];
         mat = cv::Mat(
             static_cast<int>(height),
             static_cast<int>(width),
@@ -104,6 +102,9 @@ Mats pdf_bytes_to_mats(
             *status = PDF_RENDER_ERROR;
             return Mats{nullptr, 0};
         }
+
+        MagickRemoveImage(wand);
+        MagickResetIterator(wand);
     }
 
     DestroyMagickWand(wand);
