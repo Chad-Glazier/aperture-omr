@@ -6,8 +6,6 @@ package pdf
 
 import (
 	"errors"
-	"fmt"
-	"image"
 	"io"
 	"runtime"
 	"sync"
@@ -15,111 +13,12 @@ import (
 
 	pdfcpu "github.com/pdfcpu/pdfcpu/pkg/api"
 	"gocv.io/x/gocv"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
 	ErrMalformedPdf      = errors.New("the given file does not form a PDF")
 	ErrPageCountMismatch = errors.New("the given PDF page count is not a multiple of the batch size")
 )
-
-// Interprets the reader as a stream of bytes representing a PDF file. The
-// output is a slice of grayscale OpenCV matrices representing the PDF's pages
-// in their original order.
-//
-// The density parameter is the DPI used when rasterizing the image. Higher DPI
-// are much slower to compute but provide higher quality images. As a rule of
-// thumb, you should keep it between 300 (high resolution) and 74 (low
-// resolution).
-//
-// Returns ErrMalformedPdf if the given file was not a proper PDF.
-func RenderPageMats(r io.ReadSeeker, density int) ([]*gocv.Mat, error) {
-
-	pdfs, err := splitEven(r, runtime.GOMAXPROCS(0))
-	if err != nil {
-		return nil, ErrMalformedPdf
-	}
-
-	results := make([][]*image.Gray, len(pdfs))
-
-	wg := errgroup.Group{}
-	for i, pdf := range pdfs {
-		wg.Go(func() error {
-
-			images, err := pdfBytesToGrays(pdf, density)
-			if err != nil {
-				return err
-			}
-
-			results[i] = images
-			return nil
-
-		})
-	}
-	if err := wg.Wait(); err != nil {
-		return nil, err
-	}
-
-	mats := make([]*gocv.Mat, 0)
-	for i := range results {
-		for j := range results[i] {
-
-			mat, err := gocv.ImageGrayToMatGray(results[i][j])
-			if err != nil {
-				for _, m := range mats {
-					m.Close()
-				}
-				return nil, err
-			}
-
-			mats = append(mats, &mat)
-
-		}
-	}
-
-	return mats, nil
-}
-
-// Divides a single PDF buffer into multiple valid PDF files. Pages from the
-// original are evenly distributed among the returned sub-PDFs.
-//
-// In the case that the original PDF has fewer pages than the number of buckets
-// specified, the number of sub-PDFs made will be equal to the number of pages.
-func splitEven(pdfData io.ReadSeeker, buckets int) ([][]byte, error) {
-
-	if buckets <= 0 {
-		return nil, fmt.Errorf("splitEven: number of buckets must be positive")
-	}
-
-	conf := pdfcpu.LoadConfiguration()
-	pageCount, err := pdfcpu.PageCount(pdfData, conf)
-	if err != nil {
-		return nil, err
-	}
-
-	span := pageCount / buckets
-	if pageCount%buckets != 0 {
-		span++
-	}
-
-	results, err := pdfcpu.SplitRaw(pdfData, span, conf)
-	if err != nil {
-		return nil, err
-	}
-
-	bufs := make([][]byte, len(results))
-	for i := range bufs {
-		buf, err := io.ReadAll(results[i].Reader)
-		if err != nil {
-			return nil, err
-		}
-		bufs[i] = buf
-	}
-
-	return bufs, nil
-}
-
-var inUse sync.Mutex
 
 // Represents a batch of pages in a PDF. If there was an error in the rendering
 // of this batch it will be included in the Error field (and the Pages field
@@ -143,6 +42,8 @@ func (b *Batch) Close() {
 	b.Error = nil
 }
 
+var inUse sync.Mutex
+
 // Renders a large PDF by dividing it into batches of a fixed size. Once a
 // given batch is processed and converted to matrices it will be passed
 // through the returned channel (the total number of batches is given by the
@@ -155,11 +56,7 @@ func (b *Batch) Close() {
 // original order.
 //
 // The parallelization argument determines how many batches will be processed
-// simultaneously. Setting it to zero will fall back to using GOMAXPROCS. It
-// is worth noting that the amount of memory required by this procedure at any
-// given time can be estimated by the following equation:
-//
-//     memory ∝ parallelization * (density * batchSize + overhead)
+// simultaneously. Setting it to zero will fall back to using GOMAXPROCS.
 //
 // If this function returns an error, it will either be because the reader does
 // not describe a PDF (ErrMalformedPdf) or the page count of the PDF is not
@@ -177,7 +74,7 @@ func RenderPageBatches(
 	// PDF rendering is hard, and it uses a lot of memory. We could, at some
 	// point, implement a sophisticated scheduler to manage things and limit
 	// the resources being used. In the meantime, we're just going to say "only
-	// one process at a time".
+	// one render at a time".
 	inUse.Lock()
 	defer inUse.Unlock()
 

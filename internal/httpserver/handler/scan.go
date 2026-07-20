@@ -146,7 +146,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		// Send the response.
 		//
 
-		sendJson(w, map[string]string{
+		dto.SendJson(w, map[string]string{
 			"scanId": id,
 		})
 	}

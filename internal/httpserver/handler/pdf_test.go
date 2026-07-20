@@ -192,10 +192,10 @@ func TestPostScanPdf_FunkyBatch(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
 
-	var scanIds []string
-	json.Unmarshal(rr.Body.Bytes(), &scanIds)
+	var scanResult dto.ScanResult
+	json.Unmarshal(rr.Body.Bytes(), &scanResult)
 
-	marks := getMarkResults(t, s, scanIds, mTmplId)
+	marks := getMarkResults(t, s, scanResult.ScanIds, mTmplId)
 	for i := 1; i < len(marks.Scans); i++ {
 		if !reflect.DeepEqual(marks.Scans[i].Marks, marks.Scans[i-1].Marks) {
 			t.Fatalf(

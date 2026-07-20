@@ -223,9 +223,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		// Send the response.
 		//
 
-		sendJson(w, map[string]any{
-			"scanIds": scanIds,
-			"errors":  errorMsgs,
-		})
+		dto.SendJson(w, dto.NewScanResult(scanIds, errorMsgs))
 	}
 }
