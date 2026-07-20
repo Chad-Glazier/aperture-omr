@@ -5,11 +5,25 @@ package pdf
 // #include <stdlib.h>
 // #include <wand/MagickWand.h>
 // #include "magick.h"
+//
+// #include <inttypes.h>
+// static void PrintResourceLimits(void) {
+//     printf("Memory: %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(MemoryResource));
+//     printf("Map:    %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(MapResource));
+//     printf("Disk:   %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(DiskResource));
+//     printf("Area:   %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(AreaResource));
+//     printf("Width:  %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(WidthResource));
+//     printf("Height: %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(HeightResource));
+//     printf("Thread: %" PRIu64 "\n", (uint64_t)GetMagickResourceLimit(ThreadResource));
+//     printf("Time: %"   PRIu64 "\n", (uint64_t)GetMagickResourceLimit(TimeResource));
+// }
 import "C"
 
 import (
 	"errors"
+	"fmt"
 	"image"
+	"runtime"
 	"unsafe"
 
 	"gocv.io/x/gocv"
@@ -17,6 +31,23 @@ import (
 
 func init() {
 	C.MagickWandGenesis() // initialize ImageMagick
+
+	const GB = uint64(1024 * 1024 * 1024)
+	const unlimited = C.MagickSizeType(9223372036854775807)
+
+	maxThreads := max(1, runtime.GOMAXPROCS(0)-1)
+
+	C.SetMagickResourceLimit(C.MemoryResource, C.MagickSizeType(4*GB))
+	C.SetMagickResourceLimit(C.MapResource, C.MagickSizeType(8*GB))
+	// Unlimited disk cache.
+	C.SetMagickResourceLimit(C.DiskResource, C.MagickSizeType(16*GB))
+	// Maximum number of open files.
+	C.SetMagickResourceLimit(C.FileResource, C.MagickSizeType(1536))
+	C.SetMagickResourceLimit(C.ThreadResource, C.MagickSizeType(maxThreads))
+	C.SetMagickResourceLimit(C.ThrottleResource, C.MagickSizeType(0))
+	C.SetMagickResourceLimit(C.TimeResource, unlimited)
+
+	C.PrintResourceLimits()
 }
 
 type Status int
@@ -129,12 +160,23 @@ func pdfBytesToGrays(pdf []byte, density int) ([]*image.Gray, error) {
 	return images, nil
 }
 
-type MatSlice struct {
+type PageMats struct {
 	cMats C.Mats
-	Mats  []*gocv.Mat
+	Pages []*gocv.Mat
 }
 
-func pdfBytesToMats(pdf []byte, density int) (*MatSlice, error) {
+func pdfBytesToMats(pdf []byte, density int) (result *PageMats, err error) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			if result != nil {
+				result.Close()
+			}
+			result = nil
+			err = fmt.Errorf("panic recovered in pdfBytesToMats: %v", r)
+		}
+	}()
+
 	if len(pdf) == 0 {
 		return nil, errors.New("pdfBytesToMats: empty PDF")
 	}
@@ -152,9 +194,9 @@ func pdfBytesToMats(pdf []byte, density int) (*MatSlice, error) {
 		return nil, Status(status)
 	}
 
-	result := &MatSlice{
+	result = &PageMats{
 		cMats: cMats,
-		Mats:  make([]*gocv.Mat, int(cMats.length)),
+		Pages: make([]*gocv.Mat, int(cMats.length)),
 	}
 
 	for i := 0; i < int(cMats.length); i++ {
@@ -166,19 +208,20 @@ func pdfBytesToMats(pdf []byte, density int) (*MatSlice, error) {
 		}
 
 		mat := gocv.NewMatFromCMat(cMat)
-		result.Mats[i] = &mat
+		result.Pages[i] = &mat
 	}
 
 	return result, nil
 }
 
-func (s *MatSlice) Close() {
+func (s *PageMats) Close() {
 	if s == nil {
 		return
 	}
 
 	C.mats_destroy(s.cMats)
 	s.cMats = C.Mats{}
+	s.Pages = nil
 }
 
 func copyToGoMemory(img *C.GrayImage) *image.Gray {

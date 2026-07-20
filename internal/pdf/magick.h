@@ -100,7 +100,7 @@ GrayImageSlice* pdf_file_to_gray_images(
     PdfStatus* status
 );
 
-// Renders all pages in a PDF byte buffer into grayscale opencv matrices.
+// Renders all pages in a PDF byte buffer into grayscale OpenCV matrices.
 //
 // Parameters:
 //   buf      - the byte buffer for the PDF

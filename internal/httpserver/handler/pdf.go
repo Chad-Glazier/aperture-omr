@@ -3,7 +3,9 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"strconv"
+	"sync"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/scanner"
@@ -11,12 +13,18 @@ import (
 	"gocv.io/x/gocv"
 )
 
-// The minimum size across any given dimension (length or width) for a PDF
-// page.
-const minDim = 100
-
 // The maximum allowed size for a PDF file upload.
 const maxPdfSize = 200 * 1024 * 1024 // 200 MB
+
+func examErrorStr(err error, examIdx, pagesPerExam int) string {
+	return fmt.Sprintf(
+		"error in exam %d (pages %d through %d): %s",
+		examIdx+1,
+		examIdx*pagesPerExam+1,
+		(examIdx+1)*pagesPerExam,
+		err.Error(),
+	)
+}
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -81,8 +89,8 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 				http.StatusRequestEntityTooLarge,
 				dto.ErrContentTooLarge,
 				fmt.Sprintf(
-					"the attached pdf is larger than %.2fMB",
-					float64(maxPdfSize) / (1024.0 * 1024.0),
+					"the attached pdf is larger than %.1fMB",
+					float64(maxPdfSize)/(1024.0*1024.0),
 				),
 			)
 			return
@@ -119,65 +127,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			}
 		}
 
-		pages, err := pdf.RenderPageMats(pdfFile, density)
-		switch err {
-		case nil:
-			break
-		case pdf.ErrMalformedPdf:
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrMalformedPdf,
-				err.Error(),
-			)
-			return
-		default:
-			dto.SendError(
-				w,
-				http.StatusInternalServerError,
-				dto.ErrInternal,
-				err.Error(),
-			)
-			return
-		}
-		for i := range pages {
-			defer pages[i].Close()
-		}
-
-		if len(pages)%len(pTempl.Pages) != 0 {
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrPageCountMismatch,
-				fmt.Sprintf(
-					"the PDF page count (%d) must be divisible by the "+
-						"template's expected page count (%d)",
-					len(pages), len(pTempl.Pages),
-				),
-			)
-			return
-		}
-
-		for i := range pages {
-			if pages[i].Rows() < minDim || pages[i].Cols() < minDim {
-				dto.SendError(
-					w,
-					http.StatusBadRequest,
-					dto.ErrMalformedPdf,
-					fmt.Sprintf(
-						"PDF pages must all be at least %d pixels wide "+
-							"and tall",
-						minDim,
-					),
-				)
-				return
-			}
-		}
-
-		//
-		// Preprocess the scan.
-		//
-
 		scannerTmpl, err := dto.AdaptScannerTemplate(pTempl, anchors)
 		if err != nil {
 			dto.SendError(
@@ -189,55 +138,94 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		results, err := scanner.ScanMats(pages, scannerTmpl)
+		pagesPerExam := len(pTempl.Pages)
+
+		exams, nExams, err := pdf.RenderPageBatches(
+			pdfFile,
+			density,
+			pagesPerExam,
+			min(runtime.GOMAXPROCS(0), 8),
+		)
 		if err != nil {
+			if err == pdf.ErrMalformedPdf {
+				dto.SendError(
+					w,
+					http.StatusBadRequest,
+					dto.ErrMalformedPdf,
+					err.Error(),
+				)
+				return
+			}
+			if err == pdf.ErrPageCountMismatch {
+				dto.SendError(
+					w,
+					http.StatusBadRequest,
+					dto.ErrPageCountMismatch,
+					err.Error(),
+				)
+				return
+			}
 			dto.SendError(
 				w,
 				http.StatusInternalServerError,
 				dto.ErrInternal,
-				"error during preprocessing: "+err.Error(),
+				err.Error(),
 			)
 			return
 		}
-		for i := range results {
-			defer results[i].Close()
-		}
+		pdfFile.Close() // We've also deferred these Close calls, but these
+		r.Body.Close()  // types ignore redundant closes.
 
-		//
-		// Save the results.
-		//
+		scanIds := make([]string, nExams)
+		errorMsgs := make([]string, nExams)
 
-		savedScanIds := make([]string, len(results))
+		wg := sync.WaitGroup{}
+		for exam := range exams {
+			idx := int(exam.Index)
 
-		for i := range results {
-
-			pages := make([]*gocv.Mat, len(results[i].Pages))
-			pagePictures := make([]*gocv.Mat, len(results[i].Pages))
-
-			for j := range pages {
-				pages[j] = &results[i].Pages[j].Binary
-				pagePictures[j] = &results[i].Pages[j].Picture
+			if exam.Error != nil {
+				scanIds[idx] = ""
+				errorMsgs[idx] = examErrorStr(exam.Error, idx, pagesPerExam)
+				continue
 			}
 
-			id, err := s.SaveScan(pages, pagePictures, pTemplId)
-			if err != nil {
-				dto.SendError(
-					w,
-					http.StatusInternalServerError,
-					dto.ErrInternal,
-					"error saving preprocessed scans: "+err.Error(),
-				)
-				return
-			}
+			wg.Go(func() {
+				defer exam.Close()
 
-			savedScanIds[i] = id
+				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)
 
+				if err != nil {
+					scanIds[idx] = ""
+					errorMsgs[idx] = examErrorStr(err, idx, pagesPerExam)
+					return
+				}
+				defer result.Close()
+
+				pictures := make([]*gocv.Mat, pagesPerExam)
+				binarized := make([]*gocv.Mat, pagesPerExam)
+				for i := range result.Pages {
+					binarized[i] = &result.Pages[i].Binary
+					pictures[i] = &result.Pages[i].Picture
+				}
+
+				scanId, err := s.SaveScan(binarized, pictures, pTemplId)
+				if err != nil {
+					scanIds[idx] = ""
+					errorMsgs[idx] = examErrorStr(err, idx, pagesPerExam)
+				}
+
+				scanIds[idx] = scanId
+			})
 		}
+		wg.Wait()
 
 		//
 		// Send the response.
 		//
 
-		sendJson(w, savedScanIds)
+		sendJson(w, map[string]any{
+			"scanIds": scanIds,
+			"errors":  errorMsgs,
+		})
 	}
 }

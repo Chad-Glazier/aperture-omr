@@ -28,6 +28,7 @@ func (e *ExamData) Close() {
 			e.Pages[i].Picture.Close()
 		}
 	}
+	e.Pages = nil
 }
 
 // Accepts an arbitrary number of scanned pages (as grayscale OpenCV matrices)
@@ -104,6 +105,10 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 // will attempt to resolve the issue by shuffling the order around. In any
 // case, the returned exam will have its pages in the correct order to match
 // the template.
+//
+// Importantly, the exams in the returned ExamData are independent of the
+// matrices passed to it. That means that one can be closed without closing the
+// other.
 func ScanExamMats(
 	pages []*gocv.Mat,
 	tmpl *Template,

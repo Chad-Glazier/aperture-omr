@@ -3,7 +3,6 @@ package pdf
 import (
 	"bytes"
 	"embed"
-	"sync/atomic"
 	"testing"
 
 	pdfcpu "github.com/pdfcpu/pdfcpu/pkg/api"
@@ -60,11 +59,11 @@ func TestRenderPageMatsWithMalformedData(t *testing.T) {
 
 	_, err = RenderPageMats(bytes.NewReader(buf), 74)
 	if err != ErrMalformedPdf {
-		t.Fatal(err)
+		t.Fatal("expected ErrMalformedPdf error")
 	}
 
 	// Check an image file. The MagickWand library is able to handle all kinds
-	// of images, so it's conceivable that would fail silently. We need to
+	// of images, so it's conceivable that it would fail silently. We need to
 	// ensure that it doesn't.
 	buf, err = testData.ReadFile("testdata/not_a_pdf.jpg")
 	if err != nil {
@@ -73,7 +72,7 @@ func TestRenderPageMatsWithMalformedData(t *testing.T) {
 
 	_, err = RenderPageMats(bytes.NewReader(buf), 74)
 	if err != ErrMalformedPdf {
-		t.Fatal(err)
+		t.Fatal("expected ErrMalformedPdf error")
 	}
 }
 
@@ -141,7 +140,6 @@ func TestSplitEven(t *testing.T) {
 	}
 }
 
-
 func TestRenderPageBatches(t *testing.T) {
 
 	// The large sample PDF has 88 pages.
@@ -150,33 +148,88 @@ func TestRenderPageBatches(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	matsProcessed := atomic.Int32{}
-	err = RenderPageBatches(
-		bytes.NewReader(buf), 
-		300,
+	batches, nBatches, err := RenderPageBatches(
+		bytes.NewReader(buf),
+		74,
 		2,
 		8,
-		func(mats []*gocv.Mat, batchIdx uint32) {
-			// Ensure that the matrices are well-formed images.
-			for _, mat := range mats {
-				buf, err := gocv.IMEncode(gocv.PNGFileExt, *mat)
-				matsProcessed.Add(1)
-				if err != nil {
-					t.Fatal(err)
-				}
-				buf.Close()
-			}
-		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Ensure that there is one matrix per page.
-	if matsProcessed.Load() != 88 {
+	if nBatches != 88/2 {
 		t.Fatalf(
-			"pdf had %d pages but only %d matrices were rendered",
-			5, matsProcessed.Load(),
+			"pdf had %d pages but only %d %d-page batches were prepared",
+			88, nBatches, 2,
 		)
+	}
+
+	nBatchesRendered := 0
+	for batch := range batches {
+		nBatchesRendered++
+
+		if batch.Error != nil {
+			t.Fatal(batch.Error)
+		}
+
+		// Ensure that each page's matrix is a well-formed image.
+		for _, page := range batch.Pages {
+			_, err := gocv.IMEncode(gocv.PNGFileExt, *page)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	// Ensure that each page was rendered.
+	if nBatchesRendered != 88/2 {
+		t.Fatalf(
+			"pdf had %d pages but only %d %d-page batches were rendered",
+			88, nBatchesRendered, 2,
+		)
+	}
+}
+
+func TestRenderPageBatchesWithMalformedData(t *testing.T) {
+
+	//
+	// This test checks how the renderer handles non-PDF data being passed to
+	// it.
+	//
+
+	// Check a text file. This should not be parseable at all by the PDF
+	// renderer.
+	buf, err := testData.ReadFile("testdata/not_a_pdf.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = RenderPageBatches(
+		bytes.NewReader(buf),
+		74,
+		2,
+		8,
+	)
+	if err != ErrMalformedPdf {
+		t.Fatal("expected ErrMalformedPdf error")
+	}
+
+	// Check an image file. The MagickWand library is able to handle all kinds
+	// of images, so it's conceivable that it would fail silently. We need to
+	// ensure that it doesn't.
+	buf, err = testData.ReadFile("testdata/not_a_pdf.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = RenderPageBatches(
+		bytes.NewReader(buf),
+		74,
+		2,
+		8,
+	)
+	if err != ErrMalformedPdf {
+		t.Fatal("expected ErrMalformedPdf error")
 	}
 }

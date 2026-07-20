@@ -109,15 +109,14 @@ func TestPdfBytesToMats(t *testing.T) {
 	}
 	defer mats.Close()
 
-	if len(mats.Mats) != 5 {
-		t.Fatalf("expected %d mats, got %d", 5, len(mats.Mats))
+	if len(mats.Pages) != 5 {
+		t.Fatalf("expected %d mats, got %d", 5, len(mats.Pages))
 	}
 
-	for i := range mats.Mats {
-		_, err := gocv.IMEncode(gocv.PNGFileExt, *mats.Mats[i])
+	for i := range mats.Pages {
+		_, err := gocv.IMEncode(gocv.PNGFileExt, *mats.Pages[i])
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 }
-
