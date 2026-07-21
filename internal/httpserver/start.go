@@ -30,6 +30,7 @@ func Start(hostname, port string) {
 	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdf(res))
 	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
 	mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
+	mux.HandleFunc("GET /image", handler.GetImage(res))
 
 	httpHandler := middleware.Cors(mux)
 	httpHandler = middleware.Recovery(httpHandler)

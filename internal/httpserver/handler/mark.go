@@ -133,6 +133,10 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 					results.Scans[i].Marks[j].Flagged = mark.flagged
 					results.Scans[i].Marks[j].Selected = mark.selected
 					results.Scans[i].Marks[j].QuestionId = mark.questionId
+					results.Scans[i].Marks[j].Confidence = mark.confidence
+					results.Scans[i].Marks[j].PageIndex = mark.pageIndex
+					results.Scans[i].Marks[j].Bounds = mark.bounds
+					results.Scans[i].Marks[j].Boxes = mark.boxes
 				}
 				results.Scans[i].ScanId = scan.id
 			})
@@ -161,6 +165,10 @@ type marks []struct {
 	questionId string
 	flagged    bool
 	selected   []string
+	confidence float64
+	pageIndex  int
+	bounds     dto.QuestionBounds
+	boxes      []dto.Box
 }
 
 func markScan(tmpl *dto.MarkingTemplate, scan scan) (marks, error) {
@@ -212,6 +220,25 @@ func markScan(tmpl *dto.MarkingTemplate, scan scan) (marks, error) {
 		marks[i].selected = answer.Selected
 		if marks[i].selected == nil {
 			marks[i].selected = make([]string, 0)
+		}
+		marks[i].confidence = answer.Confidence
+		marks[i].pageIndex = answer.PageIndex
+		marks[i].bounds = dto.QuestionBounds{
+			X:      answer.Bounds.X,
+			Y:      answer.Bounds.Y,
+			Width:  answer.Bounds.Width,
+			Height: answer.Bounds.Height,
+		}
+		marks[i].boxes = make([]dto.Box, len(answer.Boxes))
+		for j, box := range answer.Boxes {
+			marks[i].boxes[j] = dto.Box{
+				Label:    box.Label,
+				Selected: box.Selected,
+				X:        box.X,
+				Y:        box.Y,
+				Width:    box.Width,
+				Height:   box.Height,
+			}
 		}
 	}
 
