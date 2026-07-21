@@ -381,7 +381,7 @@ func (s *defaultResources) LoadScanPicture(
 }
 
 func (s *defaultResources) OpenScanPicture(
-	scanId string, 
+	scanId string,
 	pageIdx int,
 ) (io.ReadCloser, error) {
 
@@ -404,4 +404,3 @@ func (s *defaultResources) OpenScanPicture(
 	return img, nil
 
 }
-

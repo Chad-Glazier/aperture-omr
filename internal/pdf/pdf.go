@@ -138,10 +138,10 @@ func RenderPageBatches(
 				pdf.Buf.Reset()
 				if err != nil {
 					ch <- Batch{
-						Index: spanIdx, 
+						Index: spanIdx,
 						Error: err,
-						From: pdf.From,
-						Thru: pdf.Thru,
+						From:  pdf.From,
+						Thru:  pdf.Thru,
 					}
 					continue
 				}
@@ -150,8 +150,8 @@ func RenderPageBatches(
 					mats:  mats,
 					Pages: mats.Pages,
 					Index: spanIdx,
-					From: pdf.From,
-					Thru: pdf.Thru,
+					From:  pdf.From,
+					Thru:  pdf.Thru,
 					Error: nil,
 				}
 			}

@@ -49,8 +49,6 @@ func GetImage(s ServerResources) http.HandlerFunc {
 		}
 		defer img.Close()
 
-		
-
 		w.Header().Add("Content-Type", fs.ImgContentType)
 		if _, err := io.Copy(w, img); err != nil {
 			http.Error(

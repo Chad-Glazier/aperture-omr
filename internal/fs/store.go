@@ -6,8 +6,8 @@ package fs
 
 import (
 	"errors"
-	"io"
 	"image"
+	"io"
 
 	"gocv.io/x/gocv"
 )
