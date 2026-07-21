@@ -311,6 +311,7 @@ func (s *defaultResources) SaveScan(
 		if err != nil {
 			return "", err
 		}
+		defer pictureBuf.Close()
 
 		err = s.Images.SetBytes(pictureId, pictureBuf.GetBytes())
 		if err != nil {

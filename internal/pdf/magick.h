@@ -26,7 +26,7 @@ typedef enum {
 
 // Represents an ordered collection of OpenCV matrices.
 typedef struct Mats {
-    void* mats;    // cv::Mat[]
+    void* mats;    // obscures cv::Mat[]
     size_t length;
 } Mats;
 

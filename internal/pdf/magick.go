@@ -83,6 +83,7 @@ func (s *PageMats) Close() {
 	}
 
 	C.mats_destroy(s.cMats)
+
 	s.cMats = C.Mats{}
 	s.Pages = nil
 }

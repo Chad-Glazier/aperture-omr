@@ -47,6 +47,7 @@ func (b *Batch) Close() {
 	if b.mats != nil {
 		b.mats.Close()
 	}
+
 	b.mats = nil
 	b.Pages = nil
 	b.Index = 0
@@ -134,6 +135,7 @@ func RenderPageBatches(
 					pdf.Buf.Bytes(),
 					density,
 				)
+				pdf.Buf.Reset()
 				if err != nil {
 					ch <- Batch{
 						Index: spanIdx, 
