@@ -9,8 +9,8 @@ ENV GOPATH=/go
 
 RUN apt update
 RUN apt install -y \
-    imagemagick=8:6.9.11.60+dfsg-1.6+deb12u11 \
-    libmagickwand-dev=8:6.9.11.60+dfsg-1.6+deb12u11 \
+    imagemagick \
+    libmagickwand-dev \
     ghostscript
 
 # Update permissions policy so that ImageMagick is cool
