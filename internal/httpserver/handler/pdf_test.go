@@ -197,11 +197,41 @@ func TestPostScanPdf_FunkyBatch(t *testing.T) {
 
 	marks := getMarkResults(t, s, scanResult.ScanIds, mTmplId)
 	for i := 1; i < len(marks.Scans); i++ {
-		if !reflect.DeepEqual(marks.Scans[i].Marks, marks.Scans[i-1].Marks) {
+		
+		marksA, marksB := marks.Scans[i].Marks, marks.Scans[i-1].Marks
+		if len(marksA) != len(marksB) {
 			t.Fatalf(
-				"marks for scan %d and %d aren't equal",
-				i, i-1,
+				"returned marks have different lengths (%d and %d)", 
+				len(marksA), len(marksB),
 			)
+		}
+
+		for j := range marksA {
+			a, b := marksA[j], marksB[j]
+			switch {
+			case a.QuestionId != b.QuestionId,
+			     a.Flagged != b.Flagged,
+				 !reflect.DeepEqual(a.Selected, b.Selected):
+
+				aStr, _ := json.MarshalIndent(a, "  ", "  ")
+				bStr, _ := json.MarshalIndent(b, "  ", "  ")
+
+				t.Fatalf(
+					"Mismatch between marks returned for scans %d and %d:\n" +
+					"\n" +
+					"Scan %d, Mark %d:\n" +
+					"%s\n" +
+					"\n" +
+					"Scan %d, Mark %d:\n" +
+					"%s\n" +
+					"\n",
+					i, i-1,
+					i, j,
+					string(aStr),
+					i-1, j, 
+					string(bStr),
+				)
+			}
 		}
 	}
 }
