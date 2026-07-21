@@ -62,6 +62,9 @@ type ServerResources interface {
 	// is maintained for human viewers. (Preprocessing leaves the main scan
 	// a little ugly).
 	LoadScanPicture(scanId string, pageIdx int) (image.Image, error)
+
+	// Opens a scan picture for reading.
+	OpenScanPicture(scanId string, pageIdx int) (io.ReadCloser, error)
 }
 
 //
@@ -376,3 +379,29 @@ func (s *defaultResources) LoadScanPicture(
 
 	return img, nil
 }
+
+func (s *defaultResources) OpenScanPicture(
+	scanId string, 
+	pageIdx int,
+) (io.ReadCloser, error) {
+
+	page, err := s.DB.GetScanPage(
+		context.Background(),
+		sqlc.GetScanPageParams{
+			ScanID:    scanId,
+			PageIndex: int64(pageIdx),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := s.Images.Open(page.PictureKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
+
+}
+

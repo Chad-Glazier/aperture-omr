@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 	"strconv"
+	"ubco-team15/omr/internal/fs"
 )
 
 func GetImage(s ServerResources) http.HandlerFunc {
@@ -36,7 +38,7 @@ func GetImage(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		img, err := s.LoadScanPicture(scanId, pageIdx)
+		img, err := s.OpenScanPicture(scanId, pageIdx)
 		if err != nil {
 			http.Error(
 				w,
@@ -45,9 +47,12 @@ func GetImage(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+		defer img.Close()
 
-		w.Header().Add("Content-Type", imgType)
-		if err := encodeImg(w, img); err != nil {
+		
+
+		w.Header().Add("Content-Type", fs.ImgContentType)
+		if _, err := io.Copy(w, img); err != nil {
 			http.Error(
 				w,
 				"error writing image to response: "+err.Error(),

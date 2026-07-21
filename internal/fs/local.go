@@ -65,6 +65,10 @@ func (s *localImageStore) Delete(key string) error {
 	return os.Remove(filepath.Join(s.root, key))
 }
 
+func (s *localImageStore) Open(key string) (io.ReadCloser, error) {
+	return os.Open(filepath.Join(s.root, key))
+}
+
 //
 // Local MatStore implementation.
 //
