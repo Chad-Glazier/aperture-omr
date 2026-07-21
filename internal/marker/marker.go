@@ -7,22 +7,11 @@ import (
 	"image/color"
 	"io"
 	"math"
-	"os"
 	"sort"
 	"strings"
 
 	"gocv.io/x/gocv"
 )
-
-var debugAlign = os.Getenv("OMR_DEBUG_ALIGN") != ""
-
-// debugf prints alignment diagnostics to stderr when OMR_DEBUG_ALIGN is set,
-// and does nothing otherwise.
-func debugf(format string, args ...any) {
-	if debugAlign {
-		fmt.Fprintf(os.Stderr, format, args...)
-	}
-}
 
 type Bubble struct {
 	Label string `json:"label"`
@@ -303,7 +292,6 @@ func detectAnswers(
 		// first valid candidate as its starting point instead of defaulting
 		// to 0, which used to let any candidate with gap > 0 win by default.
 		bestGapScore, haveBest := gapAt(0, 0)
-		debugf("  [%s] centered gapAt(0,0)=%.4f ok=%v\n", q.ID, bestGapScore, haveBest)
 		for dy := -searchRadius; dy <= searchRadius; dy++ {
 			for dx := -searchRadius; dx <= searchRadius; dx++ {
 				if dx == 0 && dy == 0 {
@@ -316,7 +304,6 @@ func detectAnswers(
 				}
 			}
 		}
-		debugf("  [%s] chosen bestDX,bestDY=(%d,%d) bestGapScore=%.4f\n", q.ID, bestDX, bestDY, bestGapScore)
 
 		// A gap this small means fills are nearly uniform across all
 		// options. Either everything's genuinely marked, or nothing is. Two
@@ -374,14 +361,6 @@ func detectAnswers(
 	fills := make([]float64, n)
 	for i, bubble := range q.Options {
 		fills[i] = measure(bubble.X+bestDX, bubble.Y+bestDY)
-	}
-	if debugAlign {
-		var raw strings.Builder
-		fmt.Fprintf(&raw, "  [%s] raw fills:", q.ID)
-		for i, f := range fills {
-			fmt.Fprintf(&raw, " %s=%.3f", q.Options[i].Label, f)
-		}
-		fmt.Fprintln(os.Stderr, raw.String())
 	}
 
 	// Baseline is the row's background unmarked ink level. We subtract it
