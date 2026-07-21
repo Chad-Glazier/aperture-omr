@@ -404,12 +404,97 @@ paths:
                                   Whether or not the question was flagged for manual review.
                               selected:
                                 type: array
-                                items: 
+                                items:
                                   type: string
                                 description: |
                                   A list of selected options that were detected for the question.
                                   The options are named according to the marking template. For
                                   example, `["A"]` or, if multiple options were selected, `["A", "B"]`.
+                              confidence:
+                                type: number
+                                description: |
+                                  How cleanly the detected answer separated from the alternatives
+                                  (0.0-1.0). Mirrors the value flagged against flagThreshold.
+                              pageIndex:
+                                type: integer
+                                description: |
+                                  The zero-based page (matching the scan's page images, and the
+                                  `page` parameter of GET /image) this question's bubbles were
+                                  found on. bounds and selectedBoxes below are in that page's
+                                  pixel coordinates only.
+                              bounds:
+                                type: object
+                                description: |
+                                  The bounding box enclosing every one of this question's bubbles,
+                                  not just the selected ones. Unlike selectedBoxes, this is present
+                                  even for a blank question, so it's meant as a generous hover/click
+                                  hit-region for the whole question rather than something to draw a
+                                  visible highlight from.
+                                required:
+                                  - x
+                                  - y
+                                  - width
+                                  - height
+                                properties:
+                                  x:
+                                    type: integer
+                                    description: |
+                                      Left edge, in scan pixel coordinates.
+                                  y:
+                                    type: integer
+                                    description: |
+                                      Top edge, in scan pixel coordinates.
+                                  width:
+                                    type: integer
+                                    description: |
+                                      Width of the bounding box.
+                                  height:
+                                    type: integer
+                                    description: |
+                                      Height of the bounding box.
+                              boxes:
+                                type: array
+                                description: |
+                                  One bounding box per option in the question, selected or not, in
+                                  template order. Each box is the bubble's position at the offset
+                                  actually used to detect it (template position plus whatever
+                                  alignment search found), not the raw template position, since
+                                  warping isn't pixel-perfect.
+                                items:
+                                  type: object
+                                  required:
+                                    - label
+                                    - selected
+                                    - x
+                                    - y
+                                    - width
+                                    - height
+                                  properties:
+                                    label:
+                                      type: string
+                                      description: |
+                                        Which option this box is for, e.g. "A".
+                                    selected:
+                                      type: boolean
+                                      description: |
+                                        Whether this option is one of the question's selected
+                                        answers (present in `selected` above).
+                                    x:
+                                      type: integer
+                                      description: |
+                                        Left edge of the bubble, in scan pixel coordinates.
+                                    y:
+                                      type: integer
+                                      description: |
+                                        Top edge of the bubble, in scan pixel coordinates.
+                                    width:
+                                      type: integer
+                                      description: |
+                                        Width of the bubble.
+                                    height:
+                                      type: integer
+                                      description: |
+                                        Height of the bubble.
         400:
           description: |
             The request was missing something. Check the error message for 
@@ -440,6 +525,70 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /image:
+    get:
+      summary: Get a page's image
+      description: |
+        This endpoint lets you retrieve the human-viewable picture for a
+        single page of a scan, unmodified. Pages are fetched one at a time
+        so callers can skip pages they don't need (e.g. a back page holding
+        only name/ID fields).
+      tags:
+        - Scan
+      parameters:
+        - in: query
+          name: scan
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the scan.
+        - in: query
+          name: page
+          required: true
+          schema:
+            type: integer
+            description: |
+              The zero-based index of the page to retrieve.
+      responses:
+        200:
+          description: |
+            The image was successfully retrieved.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: |
+            Something was missing from the request. See the error message for
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of what was wrong with the request.
+        404:
+          description: |
+            The identified scan or page could not be found.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's end. See the error message for
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+
   /snippet:
     get:
       summary: Get a question snippet

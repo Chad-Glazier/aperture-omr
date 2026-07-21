@@ -78,11 +78,46 @@ func LoadTemplate(r io.Reader) (*Template, error) {
 	return &tmpl, nil
 }
 
+// Box is the bounding box (in scan pixel coordinates) of a single bubble,
+// at the offset actually used to detect it rather than its raw template
+// position, since warping isn't pixel-perfect. There's one of these per
+// option in a question, selected or not, so a caller can render every
+// bubble at its real position rather than guessing where an unselected one
+// sits from the question's aggregate bounds.
+type Box struct {
+	Label    string `json:"label"`
+	Selected bool   `json:"selected"`
+	X        int    `json:"x"`
+	Y        int    `json:"y"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+}
+
+// QuestionBounds is the bounding box (in scan pixel coordinates) enclosing
+// every one of a question's bubbles, not just the ones that were selected.
+// Unlike SelectedBoxes, it's available even for a blank question, which
+// makes it useful as a generous hover/click hit-region for a whole question
+// rather than something to draw a visible highlight from.
+type QuestionBounds struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
 type Answer struct {
 	QuestionID string   `json:"questionID"`
 	Selected   []string `json:"selected"`
 	Confidence float64  `json:"confidence"`
 	Flag       bool     `json:"flag"`
+	// PageIndex is which page (0-based, matching Template.Pages and the scan's
+	// page images) this question's bubbles were found on. Bounds and Boxes
+	// below are in that page's pixel coordinates, so they don't mean anything
+	// without it.
+	PageIndex int            `json:"pageIndex"`
+	Bounds    QuestionBounds `json:"bounds"`
+	// Boxes is one Box per option in the question, in template order.
+	Boxes []Box `json:"boxes"`
 }
 
 type Result struct {
@@ -125,7 +160,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 			return nil, fmt.Errorf("page %d: mark template contains no questions", i)
 		}
 		for _, q := range pages[i].Questions {
-			selected, confidence := detectAnswers(img, q, threshold, inset, searchRadius)
+			selected, confidence, dx, dy := detectAnswers(img, q, threshold, inset, searchRadius)
 			multiSelect := q.Type == "multi"
 			flag := confidence < flagThreshold ||
 				(len(selected) == 0 && strings.HasPrefix(q.ID, "Q")) ||
@@ -135,6 +170,9 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 				Selected:   selected,
 				Confidence: confidence,
 				Flag:       flag,
+				PageIndex:  i,
+				Bounds:     questionBounds(q, dx, dy),
+				Boxes:      questionOptionBoxes(q, selected, dx, dy),
 			})
 		}
 	}
@@ -142,11 +180,14 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 	return &Result{Answers: answers}, nil
 }
 
+// detectAnswers returns the selected option labels, the detection confidence,
+// and the (dx, dy) alignment offset (relative to the template's bubble
+// positions) that was used to take the measurements.
 func detectAnswers(
 	img *gocv.Mat, q Question, threshold, inset float64, searchRadius int,
-) ([]string, float64) {
+) ([]string, float64, int, int) {
 	if len(q.Options) == 0 {
-		return nil, 0.0
+		return nil, 0.0, 0, 0
 	}
 
 	n := len(q.Options)
@@ -322,7 +363,49 @@ func detectAnswers(
 	confidence = math.Max(confidence, 0.0)
 	confidence = math.Min(confidence, 1.0)
 
-	return answered, confidence
+	return answered, confidence, bestDX, bestDY
+}
+
+// selectedBubbleBoxes returns one Box per label in selected, using each
+// option's template position shifted by the (dx, dy) alignment offset
+// detectAnswers found for the question.
+// questionOptionBoxes returns one Box per option in q, in template order,
+// each shifted by the (dx, dy) alignment offset detectAnswers found for the
+// question and flagged with whether that option is in selected.
+func questionOptionBoxes(q Question, selected []string, dx, dy int) []Box {
+	selectedSet := make(map[string]bool, len(selected))
+	for _, label := range selected {
+		selectedSet[label] = true
+	}
+	boxes := make([]Box, len(q.Options))
+	for i, opt := range q.Options {
+		boxes[i] = Box{
+			Label:    opt.Label,
+			Selected: selectedSet[opt.Label],
+			X:        opt.X + dx - q.BubbleWidth/2,
+			Y:        opt.Y + dy - q.BubbleHeight/2,
+			Width:    q.BubbleWidth,
+			Height:   q.BubbleHeight,
+		}
+	}
+	return boxes
+}
+
+// questionBounds returns the bounding box (in scan pixel coordinates)
+// enclosing all of a question's bubbles, shifted by the (dx, dy) alignment
+// offset detectAnswers found for it. Mirrors the bounds computation the
+// snippet handler uses for cropping (internal/httpserver/handler/snippet.go),
+// but at the detected offset rather than the raw template position.
+func questionBounds(q Question, dx, dy int) QuestionBounds {
+	minX, minY := math.MaxInt, math.MaxInt
+	maxX, maxY := math.MinInt, math.MinInt
+	for _, opt := range q.Options {
+		minX = min(minX, opt.X+dx-q.BubbleWidth/2)
+		minY = min(minY, opt.Y+dy-q.BubbleHeight/2)
+		maxX = max(maxX, opt.X+dx+q.BubbleWidth/2)
+		maxY = max(maxY, opt.Y+dy+q.BubbleHeight/2)
+	}
+	return QuestionBounds{X: minX, Y: minY, Width: maxX - minX, Height: maxY - minY}
 }
 
 // bubbleFillRatio returns the fraction of pixels inside the bubble's inset
