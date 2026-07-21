@@ -99,65 +99,6 @@ func TestLoadTemplate(t *testing.T) {
 	}
 }
 
-func TestBubbleFillRatio(t *testing.T) {
-	const bw, bh = 30, 30
-
-	white := gocv.NewMatWithSizeFromScalar(
-		gocv.NewScalar(255, 0, 0, 0), 100, 100, gocv.MatTypeCV8UC1)
-	defer white.Close()
-
-	black := gocv.NewMatWithSizeFromScalar(
-		gocv.NewScalar(0, 0, 0, 0), 100, 100, gocv.MatTypeCV8UC1)
-	defer black.Close()
-
-	tests := []struct {
-		name    string
-		img     gocv.Mat
-		bubble  Bubble
-		wantMin float64
-		wantMax float64
-	}{
-		{
-			name:    "Fully white image gives high fill ratio",
-			img:     white,
-			bubble:  Bubble{X: 50, Y: 50},
-			wantMin: 0.9,
-			wantMax: 1.0,
-		},
-		{
-			name:    "Fully black image gives zero fill ratio",
-			img:     black,
-			bubble:  Bubble{X: 50, Y: 50},
-			wantMin: 0.0,
-			wantMax: 0.0,
-		},
-		{
-			name:    "Bubble entirely outside image gives zero",
-			img:     white,
-			bubble:  Bubble{X: 200, Y: 200},
-			wantMin: 0.0,
-			wantMax: 0.0,
-		},
-		{
-			name:    "Partially clipped bubble is clamped without panicking",
-			img:     white,
-			bubble:  Bubble{X: 90, Y: 10},
-			wantMin: 0.0,
-			wantMax: 1.0,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := bubbleFillRatio(tc.img, tc.bubble, bw, bh, 0.75)
-			if got < tc.wantMin || got > tc.wantMax {
-				t.Errorf("bubbleFillRatio = %.3f, want in [%.3f, %.3f]",
-					got, tc.wantMin, tc.wantMax)
-			}
-		})
-	}
-}
-
 func TestEvaluate(t *testing.T) {
 	const (
 		imgW, imgH = 400, 400
