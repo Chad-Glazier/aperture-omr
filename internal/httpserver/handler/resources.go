@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"io"
+	"os"
 
 	"ubco-team15/omr/internal/database"
 	"ubco-team15/omr/internal/database/sqlc"
@@ -84,6 +85,10 @@ var _ ServerResources = (*defaultResources)(nil)
 // stores files locally. All data (i.e., the SQLite file and the root directory
 // for stored files) will be stored in the specified root.
 func NewLocalResources(rootDir string) (*defaultResources, error) {
+
+	if err := os.MkdirAll(rootDir, 0755); err != nil {
+		return nil, err
+	}
 
 	db, cnx, err := database.Connect(rootDir + "/database.sqlite3")
 	if err != nil {

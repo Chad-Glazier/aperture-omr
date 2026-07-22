@@ -213,8 +213,11 @@ paths:
               The ID of the preprocessing template to use.
       requestBody:
         description: |
-          The JPEG image(s) used for the scan. There should be one image per 
+          The image(s) used for the scan. There should be one image per 
           page.
+
+          The image files can be in any format that is supported by version 4 
+          of OpenCV. The complete list is available [here](https://docs.opencv.org/4.12.0/d4/da8/group__imgcodecs.html#gacbaa02cffc4ec2422dfa2e24412a99e2).
         content: 
           multipart/form-data:
             schema:
@@ -228,11 +231,6 @@ paths:
                 page1:
                   type: string
                   format: binary
-            encoding:
-              page0:
-                contentType: image/jpeg
-              page1:
-                contentType: image/jpeg
       responses: 
         200:
           description: |
@@ -363,9 +361,8 @@ paths:
                   A description of the error.
         422:
           description: |
-            The PDF was likely well-formed, but none of the exams passed 
-            preprocessing. Check the error messages and consider increasing the
-            DPI.
+            The PDF was well-formed, but none of the exams passed preprocessing.
+            Check the error messages and consider increasing the DPI.
           content:
             application/json:
               schema:
@@ -652,8 +649,8 @@ paths:
       summary: View a Question
       description: |
         > This endpoint previously used the path `/snippet`. That path is still supported at the time of writing. 
-        This endpoint lets you retrieve a cropped snippet of a question in
-        isolation.
+        This endpoint lets you retrieve a cropped image that isolates a 
+        question.
       tags:
         - Inspect
       parameters:

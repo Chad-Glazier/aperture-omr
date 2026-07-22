@@ -7,11 +7,11 @@ ENV GOPATH=/go
 # Install the ImageMagick dependency.
 # 
 
-RUN apt update
-RUN apt install -y \
-    imagemagick \
-    libmagickwand-dev \
-    ghostscript
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        imagemagick \
+        libmagickwand-dev \
+        ghostscript
 
 # Update permissions policy so that ImageMagick is cool
 RUN sed -i \
