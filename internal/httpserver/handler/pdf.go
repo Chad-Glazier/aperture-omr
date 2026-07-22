@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"ubco-team15/omr/internal/httpserver/dto"
@@ -33,6 +34,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+		defer r.MultipartForm.RemoveAll()
 
 		pTemplId := r.FormValue("preprocessingTemplate")
 		if pTemplId == "" {
@@ -167,6 +169,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+		r.MultipartForm.RemoveAll()
 		pdfFile.Close() // We've also deferred these Close calls, but these
 		r.Body.Close()  // types ignore redundant closes.
 
@@ -195,7 +198,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 				defer exam.Close()
 
 				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)
-
 				if err != nil {
 					scanIds[idx] = ""
 					errorMsgs[idx] = &dto.ScanError{
@@ -230,8 +232,10 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		wg.Wait()
 
 		//
-		// Send the response.
+		// Tidy up and send the response.
 		//
+
+		debug.FreeOSMemory()
 
 		results := dto.NewScanResult(scanIds, errorMsgs)
 
