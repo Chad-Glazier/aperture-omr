@@ -16,16 +16,6 @@ import (
 // The maximum allowed size for a PDF file upload.
 const maxPdfSize = 200 * 1024 * 1024 // 200 MB
 
-func examErrorStr(err error, examIdx, pagesPerExam int) string {
-	return fmt.Sprintf(
-		"error in exam %d (pages %d through %d): %s",
-		examIdx+1,
-		examIdx*pagesPerExam+1,
-		(examIdx+1)*pagesPerExam,
-		err.Error(),
-	)
-}
-
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -177,7 +167,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		r.Body.Close()  // types ignore redundant closes.
 
 		scanIds := make([]string, nExams)
-		errorMsgs := make([]string, nExams)
+		errorMsgs := make([]*dto.ScanError, nExams)
 
 		wg := sync.WaitGroup{}
 		for exam := range exams {
@@ -185,7 +175,11 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 
 			if exam.Error != nil {
 				scanIds[idx] = ""
-				errorMsgs[idx] = examErrorStr(exam.Error, idx, pagesPerExam)
+				errorMsgs[idx] = &dto.ScanError{
+					From:  exam.From,
+					Thru:  exam.Thru,
+					Debug: exam.Error.Error(),
+				}
 				continue
 			}
 
@@ -196,7 +190,11 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 
 				if err != nil {
 					scanIds[idx] = ""
-					errorMsgs[idx] = examErrorStr(err, idx, pagesPerExam)
+					errorMsgs[idx] = &dto.ScanError{
+						From:  exam.From,
+						Thru:  exam.Thru,
+						Debug: err.Error(),
+					}
 					return
 				}
 				defer result.Close()
@@ -211,7 +209,11 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 				scanId, err := s.SaveScan(binarized, pictures, pTemplId)
 				if err != nil {
 					scanIds[idx] = ""
-					errorMsgs[idx] = examErrorStr(err, idx, pagesPerExam)
+					errorMsgs[idx] = &dto.ScanError{
+						From:  exam.From,
+						Thru:  exam.Thru,
+						Debug: err.Error(),
+					}
 				}
 
 				scanIds[idx] = scanId
@@ -223,6 +225,22 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		// Send the response.
 		//
 
-		dto.SendJson(w, dto.NewScanResult(scanIds, errorMsgs))
+		results := dto.NewScanResult(scanIds, errorMsgs)
+
+		switch {
+		case len(results.ScanIds) == 0:
+			// The PDF was well-formed, but none of the scanned exams passed
+			// preprocessing.
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			dto.SendJson(w, results.Errors)
+			return
+		case len(results.Errors) == 0:
+			// All scans were successfully preprocessed.
+			dto.SendJson(w, results)
+		case len(results.Errors) != 0:
+			// Some exams were preprocessed, others failed. We treat this the
+			// same as the full-success case for now.
+			dto.SendJson(w, results)
+		}
 	}
 }

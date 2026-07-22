@@ -195,6 +195,15 @@ func TestPostScanPdf_FunkyBatch(t *testing.T) {
 	var scanResult dto.ScanResult
 	json.Unmarshal(rr.Body.Bytes(), &scanResult)
 
+	if len(scanResult.Errors) != 0 {
+		errors, _ := json.MarshalIndent(scanResult.Errors, "", "  ")
+		t.Fatalf(
+			"expected no errors in preprocessing; got\n\n"+
+				"%v\n\n",
+			errors,
+		)
+	}
+
 	marks := getMarkResults(t, s, scanResult.ScanIds, mTmplId)
 	for i := 1; i < len(marks.Scans); i++ {
 
@@ -303,4 +312,45 @@ func TestPostScanPdf_BadInputs(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
 	}
+}
+
+func TestPostScanPdf_FailedPreprocessing(t *testing.T) {
+
+	s, err := NewLocalResources(t.TempDir())
+	if err != nil {
+		t.Fatal("error initializing server resources: " + err.Error())
+	}
+	defer s.Close()
+
+	pTmplId := postNewPreprocessingTemplate(t, s)
+
+	//
+	// When sending PDFs to the OMR, using a DPI that's too low will make it
+	// impossible for the preprocessor to make sense of them. In this case we
+	// expect all scans to fail, which should give us a status of 422.
+	//
+
+	req := newScanPdfRequest(
+		t,
+		pTmplId,
+		"testdata/batches/5_funky_duplicate_exams.pdf",
+	)
+	req.URL.RawQuery = fmt.Sprintf("dpi=%d", 50)
+	rr := httptest.NewRecorder()
+	PostScanPdf(s).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var scanResult []dto.ScanError
+	json.Unmarshal(rr.Body.Bytes(), &scanResult)
+
+	if len(scanResult) != 5 {
+		t.Fatalf(
+			"expected 5 errors in preprocessing; got %d",
+			len(scanResult),
+		)
+	}
+
 }
