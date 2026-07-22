@@ -21,11 +21,15 @@ func Start(hostname, port string) {
 	mux := http.NewServeMux()
 
 	//
-	// API
+	// Development
 	//
 
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
 	mux.HandleFunc("GET /", handler.DocsPage)
+
+	//
+	// Core API
+	//
 
 	mux.HandleFunc("GET /health", handler.Health)
 
@@ -41,14 +45,14 @@ func Start(hostname, port string) {
 	mux.HandleFunc("GET /image", handler.GetImage(res))
 
 	//
-	// Deprecated endpoints.
+	// Deprecated endpoints
 	//
 
 	mux.HandleFunc("POST /scan", handler.PostScan(res))
 	mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
 
 	//
-	// Set up middleware.
+	// Middleware
 	//
 
 	httpHandler := middleware.Cors(mux)

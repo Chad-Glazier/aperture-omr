@@ -26,10 +26,6 @@ func encodeImg(w io.Writer, img image.Image) error {
 const imgType = "image/jpeg"
 
 //
-// Helpers functions
-//
-
-//
 // Marking templates
 //
 

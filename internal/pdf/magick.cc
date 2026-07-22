@@ -103,6 +103,8 @@ Mats pdf_bytes_to_mats(
             return Mats{nullptr, 0};
         }
 
+        // Using these functions during iteration is unconventional, but it
+        // helps us keep the peak memory usage down.
         MagickRemoveImage(wand);
         MagickResetIterator(wand);
     }

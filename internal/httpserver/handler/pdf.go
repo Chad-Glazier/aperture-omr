@@ -128,6 +128,10 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			return
 		}
 
+		//
+		// Do the rendering.
+		//
+
 		pagesPerExam := len(pTempl.Pages)
 
 		exams, nExams, err := pdf.RenderPageBatches(
@@ -165,6 +169,10 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		}
 		pdfFile.Close() // We've also deferred these Close calls, but these
 		r.Body.Close()  // types ignore redundant closes.
+
+		//
+		// Process the exam scans as they're rendered.
+		//
 
 		scanIds := make([]string, nExams)
 		errorMsgs := make([]*dto.ScanError, nExams)

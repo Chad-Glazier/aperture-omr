@@ -97,6 +97,7 @@ func RenderPageBatches(
 	if parallelization <= 0 {
 		parallelization = runtime.GOMAXPROCS(0)
 	}
+
 	//
 	// We split the PDF below and then run the threads.
 	//
@@ -152,7 +153,6 @@ func RenderPageBatches(
 					Index: spanIdx,
 					From:  pdf.From,
 					Thru:  pdf.Thru,
-					Error: nil,
 				}
 			}
 

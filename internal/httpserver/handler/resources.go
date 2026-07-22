@@ -72,19 +72,19 @@ type ServerResources interface {
 // Below, we implement the interface.
 //
 
-type defaultResources struct {
+type localResources struct {
 	DBCnx  io.Closer
 	DB     database.Querier
 	Images fs.ImageStore
 	Mats   fs.MatStore
 }
 
-var _ ServerResources = (*defaultResources)(nil)
+var _ ServerResources = (*localResources)(nil)
 
 // An implementation of ServerResources that uses a default SQLite database and
 // stores files locally. All data (i.e., the SQLite file and the root directory
 // for stored files) will be stored in the specified root.
-func NewLocalResources(rootDir string) (*defaultResources, error) {
+func NewLocalResources(rootDir string) (*localResources, error) {
 
 	if err := os.MkdirAll(rootDir, 0755); err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func NewLocalResources(rootDir string) (*defaultResources, error) {
 		return nil, err
 	}
 
-	res := &defaultResources{
+	res := &localResources{
 		DBCnx:  cnx,
 		DB:     db,
 		Images: images,
@@ -114,7 +114,7 @@ func NewLocalResources(rootDir string) (*defaultResources, error) {
 	return res, nil
 }
 
-func (s *defaultResources) Close() error {
+func (s *localResources) Close() error {
 	return s.DBCnx.Close()
 }
 
@@ -127,7 +127,7 @@ func (s *defaultResources) Close() error {
 // until we're sure that the template shape won't change dramatically.
 //
 
-func (s *defaultResources) SaveMarkingTemplate(
+func (s *localResources) SaveMarkingTemplate(
 	tmpl *dto.MarkingTemplate,
 ) (string, error) {
 
@@ -152,7 +152,7 @@ func (s *defaultResources) SaveMarkingTemplate(
 	return id.String(), nil
 }
 
-func (s *defaultResources) LoadMarkingTemplate(
+func (s *localResources) LoadMarkingTemplate(
 	id string,
 ) (*dto.MarkingTemplate, error) {
 
@@ -176,7 +176,7 @@ func (s *defaultResources) LoadMarkingTemplate(
 // size. We just store the uncompressed JSON.
 //
 
-func (s *defaultResources) SavePreprocessingTemplate(
+func (s *localResources) SavePreprocessingTemplate(
 	tmpl *dto.PreprocessingTemplate,
 ) (string, error) {
 
@@ -200,7 +200,7 @@ func (s *defaultResources) SavePreprocessingTemplate(
 	return id.String(), nil
 }
 
-func (s *defaultResources) LoadPreprocessingTemplate(
+func (s *localResources) LoadPreprocessingTemplate(
 	id string,
 ) (*dto.PreprocessingTemplate, error) {
 
@@ -224,7 +224,7 @@ func (s *defaultResources) LoadPreprocessingTemplate(
 // the MatStore methods.
 //
 
-func (s *defaultResources) SaveAnchor(
+func (s *localResources) SaveAnchor(
 	mat *gocv.Mat,
 	templateId string,
 	pageIdx, anchorIdx int,
@@ -252,7 +252,7 @@ func (s *defaultResources) SaveAnchor(
 	return nil
 }
 
-func (s *defaultResources) LoadAnchors(
+func (s *localResources) LoadAnchors(
 	templateId string,
 ) ([][]*gocv.Mat, error) {
 
@@ -292,7 +292,7 @@ func (s *defaultResources) LoadAnchors(
 // matching human-viewable picture for producing snippets.
 //
 
-func (s *defaultResources) SaveScan(
+func (s *localResources) SaveScan(
 	pages []*gocv.Mat,
 	pagePictures []*gocv.Mat,
 	templateId string,
@@ -343,7 +343,7 @@ func (s *defaultResources) SaveScan(
 	return scanId, nil
 }
 
-func (s *defaultResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
+func (s *localResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 	records, err := s.DB.GetScanPages(context.Background(), scanId)
 	if err != nil {
 		return nil, err
@@ -361,7 +361,7 @@ func (s *defaultResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 	return mats, nil
 }
 
-func (s *defaultResources) LoadScanPicture(
+func (s *localResources) LoadScanPicture(
 	scanId string,
 	pageIdx int,
 ) (image.Image, error) {
@@ -385,7 +385,7 @@ func (s *defaultResources) LoadScanPicture(
 	return img, nil
 }
 
-func (s *defaultResources) OpenScanPicture(
+func (s *localResources) OpenScanPicture(
 	scanId string,
 	pageIdx int,
 ) (io.ReadCloser, error) {
