@@ -173,7 +173,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 			return nil, fmt.Errorf("page %d: mark template contains no questions", i)
 		}
 		for _, q := range pages[i].Questions {
-			selected, confidence := detectAnswers(img, q, threshold, inset, labelInset, searchRadius)
+			selected, confidence, dx, dy := detectAnswers(img, q, threshold, inset, labelInset, searchRadius)
 			multiSelect := q.Type == "multi"
 			flag := confidence < flagThreshold ||
 				(len(selected) == 0 && strings.HasPrefix(q.ID, "Q")) ||
@@ -198,7 +198,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 // positions) that was used to take the measurements.
 func detectAnswers(
 	img *gocv.Mat, q Question, threshold, inset, labelInset float64, searchRadius int,
-) ([]string, float64) {
+) ([]string, float64, int, int) {
 	if len(q.Options) == 0 {
 		return nil, 0.0, 0, 0
 	}
