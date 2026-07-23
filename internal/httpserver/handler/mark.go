@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
+	"runtime/debug"
 	"sync"
-	"time"
+	"sync/atomic"
 
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/marker"
@@ -20,7 +22,9 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		// Parse the request.
 		//
 
+		defer debug.FreeOSMemory()
 		defer r.Body.Close()
+
 		jsonBuf, err := io.ReadAll(r.Body)
 		if err != nil {
 			dto.SendError(
@@ -43,16 +47,11 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		perf := dto.PerformanceMetrics{}
-
 		//
 		// Fetch the required resources.
 		//
 
-		perf.StartTime = time.Now().UnixMilli()
-		diskStart := time.Now()
-
-		tmpl, err := s.LoadMarkingTemplate(markingJob.TemplateId)
+		t, err := s.LoadMarkingTemplate(markingJob.TemplateId)
 		if err != nil {
 			dto.SendError(
 				w,
@@ -62,185 +61,136 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
-
-		scans := make([]scan, len(markingJob.ScanIds))
-		for i, scanId := range markingJob.ScanIds {
-			pages, err := s.LoadScan(scanId)
-			if err != nil {
-				dto.SendError(
-					w,
-					http.StatusNotFound,
-					dto.ErrScanNotFound,
-					"error loading scan "+scanId+": "+err.Error(),
-				)
-				return
-			}
-			for i := range pages {
-				defer pages[i].Close()
-			}
-
-			if len(pages) != len(tmpl.Pages) {
-				dto.SendError(
-					w,
-					http.StatusBadRequest,
-					dto.ErrPageCountMismatch,
-					fmt.Sprintf(
-						"page count %d for scan %s does not match "+
-							"page count %d of template %s",
-						len(pages), scanId,
-						len(tmpl.Pages), markingJob.TemplateId,
-					),
-				)
-				return
-			}
-			scans[i].id = scanId
-			scans[i].pages = pages
-		}
-
-		totalQuestions := 0
-		for _, page := range tmpl.Pages {
-			totalQuestions += len(page.Questions)
-		}
-
-		perf.DiskTime = time.Since(diskStart).Milliseconds()
+		template := dto.AdaptMarkerTemplate(t)
 
 		//
-		// Run the job.
+		// We stream the scans and mark them in parallel. This sets a limit
+		// on the number of scans that are kept in memory at a given time.
 		//
 
-		omrStartTime := time.Now()
+		errorSent := atomic.Bool{}
+		nextIdx := atomic.Uint32{}
+		nScans := len(markingJob.ScanIds)
 
-		results := dto.MarkingResult{}
-		results.PagesMarked = len(tmpl.Pages) * len(scans)
-		results.TemplateId = markingJob.TemplateId
-		results.Scans = make([]dto.Scan, len(markingJob.ScanIds))
-		for i := range results.Scans {
-			results.Scans[i].Marks = make([]dto.Mark, totalQuestions)
+		markingResults := dto.MarkingResult{
+			PagesMarked: nScans * len(template.Pages),
+			TemplateId:  markingJob.TemplateId,
 		}
+		markingResults.Scans = make([]dto.Scan, nScans)
 
 		wg := sync.WaitGroup{}
-		for i, scan := range scans {
+		for range runtime.GOMAXPROCS(0) {
 			wg.Go(func() {
-				marks, err := markScan(tmpl, scan)
-				if err != nil {
-					results.Errors = append(
-						results.Errors,
-						"error in scan "+scan.id+": "+err.Error(),
+
+				defer func() {
+					if r := recover(); r != nil {
+						if !errorSent.Swap(true) {
+							dto.SendError(
+								w,
+								http.StatusInternalServerError,
+								dto.ErrInternal,
+								"unexpected panic during marking",
+							)
+						}
+					}
+				}()
+
+				//
+				// Each thread runs until the pool of scan IDs is exhausted,
+				// or until an error is sent.
+				//
+
+				for !errorSent.Load() {
+
+					idx := nextIdx.Add(1) - 1
+					if int(idx) >= nScans {
+						break
+					}
+					scanId := markingJob.ScanIds[idx]
+
+					//
+					// Load the preprocessed scan's page matrices.
+					//
+
+					pages, err := s.LoadScan(scanId)
+					if err != nil && !errorSent.Swap(true) {
+						dto.SendError(
+							w,
+							http.StatusNotFound,
+							dto.ErrScanNotFound,
+							"error loading scan "+scanId+": "+err.Error(),
+						)
+						break
+					}
+					scan := scan{id: scanId, pages: pages}
+					defer scan.close()
+
+					if len(pages) != len(template.Pages) &&
+						!errorSent.Swap(true) {
+						dto.SendError(
+							w,
+							http.StatusBadRequest,
+							dto.ErrPageCountMismatch,
+							fmt.Sprintf(
+								"page count %d for scan %s does not match "+
+									"page count %d of template %s",
+								len(pages), scanId,
+								len(template.Pages), markingJob.TemplateId,
+							),
+						)
+						break
+					}
+
+					//
+					// Get the marks.
+					//
+
+					marks, err := marker.Evaluate(scan.pages, template)
+					if err != nil && !errorSent.Swap(true) {
+						dto.SendError(
+							w,
+							http.StatusUnprocessableEntity,
+							dto.ErrMarkingFailed,
+							"scan "+scanId+" failed marking",
+						)
+						break
+					}
+					scan.close()
+
+					markingResults.Scans[idx].ScanId = scanId
+					markingResults.Scans[idx].Marks = make(
+						[]dto.Mark,
+						len(marks.Answers),
 					)
-					return
+					for i, a := range marks.Answers {
+						markingResults.Scans[idx].Marks[i] = *dto.AdaptMark(&a)
+					}
 				}
-				for j, mark := range marks {
-					results.Scans[i].Marks[j].Flagged = mark.flagged
-					results.Scans[i].Marks[j].Selected = mark.selected
-					results.Scans[i].Marks[j].QuestionId = mark.questionId
-					results.Scans[i].Marks[j].Confidence = mark.confidence
-					results.Scans[i].Marks[j].PageIndex = mark.pageIndex
-					results.Scans[i].Marks[j].Bounds = mark.bounds
-					results.Scans[i].Marks[j].Boxes = mark.boxes
-				}
-				results.Scans[i].ScanId = scan.id
 			})
 		}
 		wg.Wait()
+		if errorSent.Load() {
+			return
+		}
 
-		perf.OMRTime = time.Since(omrStartTime).Milliseconds()
-		perf.EndTime = time.Now().UnixMilli()
-
-		results.PerformanceMetrics = perf
-
-		dto.SendJson(w, results)
+		dto.SendJson(w, markingResults)
 	}
 }
-
-//
-// The marking function is defined below.
-//
 
 type scan struct {
-	id    string
-	pages []*gocv.Mat
+	id     string
+	pages  []*gocv.Mat
+	closed bool
 }
 
-type marks []struct {
-	questionId string
-	flagged    bool
-	selected   []string
-	confidence float64
-	pageIndex  int
-	bounds     dto.QuestionBounds
-	boxes      []dto.Box
-}
-
-func markScan(tmpl *dto.MarkingTemplate, scan scan) (marks, error) {
-
-	//
-	// Translate the template into the marker package's format.
-	//
-
-	template := marker.Template{
-		Config: marker.Config{
-			FillThreshold: &tmpl.Config.FillThreshold,
-			BubbleInset:   &tmpl.Config.BubbleInset,
-			FlagThreshold: &tmpl.Config.FlagThreshold,
-			SearchRadius:  &tmpl.Config.SearchRadius,
-		},
-		Pages: make([]marker.Page, len(tmpl.Pages)),
+// Idempotently closes the scan's pages.
+func (s *scan) close() {
+	if !s.closed {
+		return
 	}
 
-	for i, p := range tmpl.Pages {
-		// yes, I know how it looks
-		template.Pages[i].Questions = make([]marker.Question, len(p.Questions))
-		for j, q := range p.Questions {
-			template.Pages[i].Questions[j].ID = q.ID
-			template.Pages[i].Questions[j].Type = q.Type
-			template.Pages[i].Questions[j].BubbleWidth = q.BubbleWidth
-			template.Pages[i].Questions[j].BubbleHeight = q.BubbleHeight
-			template.Pages[i].Questions[j].Options = make([]marker.Bubble, len(q.Options))
-			for k, o := range q.Options {
-				template.Pages[i].Questions[j].Options[k].Label = o.Label
-				template.Pages[i].Questions[j].Options[k].X = o.X
-				template.Pages[i].Questions[j].Options[k].Y = o.Y
-			}
-		}
+	for i := range s.pages {
+		s.pages[i].Close()
 	}
-
-	//
-	// Do the marking.
-	//
-
-	result, err := marker.Evaluate(scan.pages, &template)
-	if err != nil {
-		return nil, err
-	}
-
-	marks := make(marks, len(result.Answers))
-	for i, answer := range result.Answers {
-		marks[i].flagged = answer.Flag
-		marks[i].questionId = answer.QuestionID
-		marks[i].selected = answer.Selected
-		if marks[i].selected == nil {
-			marks[i].selected = make([]string, 0)
-		}
-		marks[i].confidence = answer.Confidence
-		marks[i].pageIndex = answer.PageIndex
-		marks[i].bounds = dto.QuestionBounds{
-			X:      answer.Bounds.X,
-			Y:      answer.Bounds.Y,
-			Width:  answer.Bounds.Width,
-			Height: answer.Bounds.Height,
-		}
-		marks[i].boxes = make([]dto.Box, len(answer.Boxes))
-		for j, box := range answer.Boxes {
-			marks[i].boxes[j] = dto.Box{
-				Label:    box.Label,
-				Selected: box.Selected,
-				X:        box.X,
-				Y:        box.Y,
-				Width:    box.Width,
-				Height:   box.Height,
-			}
-		}
-	}
-
-	return marks, nil
+	s.closed = true
 }

@@ -42,7 +42,6 @@ paths:
                 type: string
                 description: |
                   A description of the error.
-
   /template/preprocess:
     post:
       summary: |
@@ -142,6 +141,46 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+    delete:
+      summary: |
+        Remove a Preprocessing Template
+      description: |
+        This endpoint is used to remove a preprocessing template. Redundant 
+        calls will return `200`.
+      tags:
+        - Scan
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the preprocessing template to remove.
+      responses:
+        200:
+          description: |
+            The template has been removed.
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
   /template/mark:
     post:
       summary: |
@@ -173,6 +212,46 @@ paths:
                     description: |
                       The ID of the newly-created marking template.
                     type: string
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+    delete:
+      summary: |
+        Remove a Marking Template
+      description: |
+        This endpoint is used to remove a marking template. Redundant calls 
+        will return `200`.
+      tags:
+        - Mark
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+            description: |
+              The ID of the marking template to remove.
+      responses:
+        200:
+          description: |
+            The template has been removed.
         400:
           description: |
             The request was missing something. Check the error message for 
@@ -369,6 +448,47 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ScanError'
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
+    delete:
+      summary: |
+        Remove Scans
+      description: |
+        This endpoint is used to remove one or more uploaded scans. Redundant 
+        calls will return `200`.
+      tags:
+        - Scan
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              description: |
+                A list of uploaded scan IDs to remove.            
+              items: 
+                type: string
+      responses:
+        200:
+          description: |
+            The scans were removed.
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
         500:
           description: |
             Something went wrong on the OMR's side. Check the OMR's logs and

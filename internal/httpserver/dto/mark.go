@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"fmt"
+	"ubco-team15/omr/internal/marker"
 )
 
 //
@@ -45,11 +46,9 @@ func (m *MarkingJobRequest) Validate() error {
 //
 
 type MarkingResult struct {
-	PerformanceMetrics PerformanceMetrics `json:"performanceMetrics"`
-	PagesMarked        int                `json:"pagesMarked"`
-	TemplateId         string             `json:"templateId"`
-	Scans              []Scan             `json:"scans"`
-	Errors             []string           `json:"errors,omitempty"`
+	PagesMarked int    `json:"pagesMarked"`
+	TemplateId  string `json:"templateId"`
+	Scans       []Scan `json:"scans"`
 }
 
 type Scan struct {
@@ -89,9 +88,41 @@ type QuestionBounds struct {
 	Height int `json:"height"`
 }
 
-type PerformanceMetrics struct {
-	StartTime int64 `json:"startTime"`
-	EndTime   int64 `json:"endTime"`
-	DiskTime  int64 `json:"diskTime"`
-	OMRTime   int64 `json:"omrTime"`
+//
+// Adaptors.
+//
+
+// Convert the output from the marker package into Mark DTO structs.
+func AdaptMark(a *marker.Answer) *Mark {
+
+	mark := Mark{}
+
+	mark.Flagged = a.Flag
+	mark.QuestionId = a.QuestionID
+	mark.Selected = a.Selected
+	if mark.Selected == nil {
+		mark.Selected = make([]string, 0)
+	}
+	mark.Confidence = a.Confidence
+	mark.PageIndex = a.PageIndex
+	mark.Bounds = QuestionBounds{
+		X:      a.Bounds.X,
+		Y:      a.Bounds.Y,
+		Width:  a.Bounds.Width,
+		Height: a.Bounds.Height,
+	}
+	mark.Boxes = make([]Box, len(a.Boxes))
+	for j, box := range a.Boxes {
+		mark.Boxes[j] = Box{
+			Label:    box.Label,
+			Selected: box.Selected,
+			X:        box.X,
+			Y:        box.Y,
+			Width:    box.Width,
+			Height:   box.Height,
+		}
+	}
+
+	return &mark
+
 }

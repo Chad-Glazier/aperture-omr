@@ -6,3 +6,7 @@ data/images/
 data/matrices/
 *.sqlite3
 *.prof
+
+
+# Log files
+debug.log

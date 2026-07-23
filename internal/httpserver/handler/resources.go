@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"image"
 	"io"
 	"os"
@@ -263,6 +264,9 @@ func (s *localResources) LoadAnchors(
 	if err != nil {
 		return nil, err
 	}
+	if len(anchorRecords) == 0 {
+		return nil, fmt.Errorf("no anchors found for template %s", templateId)
+	}
 
 	mats := make([][]*gocv.Mat, 0, 2)
 	for _, record := range anchorRecords {
@@ -347,6 +351,9 @@ func (s *localResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 	records, err := s.DB.GetScanPages(context.Background(), scanId)
 	if err != nil {
 		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, fmt.Errorf("no pages found for scan %s", scanId)
 	}
 
 	mats := make([]*gocv.Mat, len(records))
