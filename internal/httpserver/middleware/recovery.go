@@ -35,18 +35,18 @@ func Recovery(next http.Handler) http.Handler {
 				slog.Error(
 					"panic recovered",
 					"endpoint", r.Method+" "+r.URL.Path,
+					"log_file", logFilePath,
 					"err", err,
-					"stack trace written to", "debug.log",
 				)
 
 				logFileMu.Lock()
 				defer logFileMu.Unlock()
 
-				const maxStackTraceLen = 10000
+				const maxStackTraceLen = 4 << 20 // 4 KB
 				buf := make([]byte, maxStackTraceLen)
 				nBytes := runtime.Stack(buf, false)
 
-				trace := string(buf)
+				trace := string(buf[:nBytes])
 				trace = strings.Join(strings.Split(trace, "\n"), "\n│  ")
 				trace = "│  " + trace
 				buf = []byte(trace)
@@ -58,20 +58,22 @@ func Recovery(next http.Handler) http.Handler {
 
 				fmt.Fprintf(
 					logFile,
-					"│   endpoint.... %s\n" +
-					"│   time........ %s\n│\n",
+					"│   endpoint..... %s\n" +
+					"│   time......... %s\n" +
+					"│   recovered.... %v\n│\n",
 					r.Method+" "+r.URL.Path,
 					formatDate(time.Now()),
+					err,
 				)
 
-				logFile.Write(buf[:nBytes])
-				if len(buf) > maxStackTraceLen {
+				logFile.Write(buf)
+				if nBytes == maxStackTraceLen {
 					fmt.Fprint(logFile, "\n│  [...]\n│")
 				}
 
 				fmt.Fprint(
 					logFile,
-					"\n│\n└─────────────────────────────────────────────────────────────────────────────────────────────────────────────\n",
+					"\n└─────────────────────────────────────────────────────────────────────────────────────────────────────────────\n",
 				)
 
 				// Only write a response if one hasn't already been written.
