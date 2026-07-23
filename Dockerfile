@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 # Update permissions policy so that ImageMagick is cool
 RUN sed -i \
-    's/rights="none"/rights="read|write"/g' \
+    '/pattern="PDF"/ s/rights="none"/rights="read|write"/' \
     /etc/ImageMagick-6/policy.xml
 
 #
