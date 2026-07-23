@@ -15,6 +15,24 @@ import (
 	"gocv.io/x/gocv"
 )
 
+type scan struct {
+	id     string
+	pages  []*gocv.Mat
+	closed bool
+}
+
+// Idempotently closes the scan's pages.
+func (s *scan) close() {
+	if !s.closed {
+		return
+	}
+
+	for i := range s.pages {
+		s.pages[i].Close()
+	}
+	s.closed = true
+}
+
 func PostMarkingJob(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -175,22 +193,4 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 
 		dto.SendJson(w, markingResults)
 	}
-}
-
-type scan struct {
-	id     string
-	pages  []*gocv.Mat
-	closed bool
-}
-
-// Idempotently closes the scan's pages.
-func (s *scan) close() {
-	if !s.closed {
-		return
-	}
-
-	for i := range s.pages {
-		s.pages[i].Close()
-	}
-	s.closed = true
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"ubco-team15/omr/internal/fs"
 	"ubco-team15/omr/internal/httpserver/dto"
 )
 
@@ -87,8 +88,8 @@ func TestGetImage(t *testing.T) {
 				req.URL.RawQuery, rr.Code,
 			)
 		}
-		if ct := rr.Header().Get("Content-Type"); ct != imgType {
-			t.Fatalf("expected Content-Type %s, got %s", imgType, ct)
+		if ct := rr.Header().Get("Content-Type"); ct != fs.ImgContentType {
+			t.Fatalf("expected Content-Type %s, got %s", fs.ImgContentType, ct)
 		}
 		if rr.Body.Len() == 0 {
 			t.Fatalf("expected a non-empty image body for page %d", pageIdx)

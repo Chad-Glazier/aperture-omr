@@ -213,8 +213,8 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		// Send the snippet.
 		//
 
-		w.Header().Add("Content-Type", imgType)
-		if err := encodeImg(w, snippet); err != nil {
+		w.Header().Add("Content-Type", fs.ImgContentType)
+		if err := fs.EncodeImg(w, snippet); err != nil {
 			http.Error(
 				w,
 				"error writing image to response: "+err.Error(),

@@ -2,8 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"image"
-	"image/jpeg"
 	"io"
 	"net/http"
 
@@ -14,16 +12,6 @@ import (
 )
 
 const maxUploadSize = 32 * 1024 * 1024 // 32 MB
-
-func decodeImg(r io.Reader) (image.Image, error) {
-	return jpeg.Decode(r)
-}
-
-func encodeImg(w io.Writer, img image.Image) error {
-	return jpeg.Encode(w, img, nil)
-}
-
-const imgType = "image/jpeg"
 
 //
 // Marking templates
