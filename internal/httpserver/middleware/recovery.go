@@ -6,16 +6,19 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
+	"time"
 
 	"os"
 )
 
+const logFilePath = "debug.log"
 var logFileMu sync.Mutex
-var logFile io.Writer
+var logFile io.WriteCloser
 
 func init() {
-	f, err := os.Create("debug.log")
+	f, err := os.Create(logFilePath)
 	if err != nil {
 		panic("failed to create debug.log file")
 	}
@@ -39,17 +42,36 @@ func Recovery(next http.Handler) http.Handler {
 				logFileMu.Lock()
 				defer logFileMu.Unlock()
 
-				buf := make([]byte, 10000)
+				const maxStackTraceLen = 10000
+				buf := make([]byte, maxStackTraceLen)
 				nBytes := runtime.Stack(buf, false)
-				fmt.Fprintf(
-					logFile,
-					"\n\n--- Panic Recovered in %s  ---\n",
-					r.Method+" "+r.URL.Path,
-				)
-				logFile.Write(buf[:nBytes])
+
+				trace := string(buf)
+				trace = strings.Join(strings.Split(trace, "\n"), "\n│  ")
+				trace = "│  " + trace
+				buf = []byte(trace)
+
 				fmt.Fprint(
 					logFile,
-					"\n--- End of Stack Trace ---\n\n",
+					"\n┌── Panic Log ────────────────────────────────────────────────────────────────────────────────────────────────\n│\n",
+				)
+
+				fmt.Fprintf(
+					logFile,
+					"│   endpoint.... %s\n" +
+					"│   time........ %s\n│\n",
+					r.Method+" "+r.URL.Path,
+					formatDate(time.Now()),
+				)
+
+				logFile.Write(buf[:nBytes])
+				if len(buf) > maxStackTraceLen {
+					fmt.Fprint(logFile, "\n│  [...]\n│")
+				}
+
+				fmt.Fprint(
+					logFile,
+					"\n│\n└─────────────────────────────────────────────────────────────────────────────────────────────────────────────\n",
 				)
 
 				// Only write a response if one hasn't already been written.
@@ -65,4 +87,8 @@ func Recovery(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func formatDate(t time.Time) string {
+	return t.Format("2006-01-02 15:04:05.000")
 }
