@@ -33,6 +33,8 @@ func Connect(databaseFilepath string) (Querier, *sql.DB, error) {
 		return nil, nil, err
 	}
 
+	db.SetMaxOpenConns(1)
+
 	if err := initialize(db); err != nil {
 		return nil, nil, err
 	}

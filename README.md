@@ -16,7 +16,7 @@ Since we use OpenCV as a dependency the program takes a while to build. Refer to
 Once the image is built, you can run the app via docker:
 
 ```sh
-docker run --rm -p 3000:3000 omr_server
+docker run --rm -p 3000:3000 --name omr omr_server
 ```
 
 This will log a URL to the documentation on startup. Follow that link to view details about the endpoints.
@@ -24,14 +24,20 @@ This will log a URL to the documentation on startup. Follow that link to view de
 If you want the container to persist and maintain its stored data (volume), instead run:
 
 ```sh
-docker run -p 3000:3000 -v omr-data:/app/data omr_server
+docker run -p 3000:3000 -v omr-data:/app/data --name omr omr_server
+```
+
+If you want to run tests in a running container (named `omr` in this case), run
+
+```sh
+docker exec -t omr sh -c "go test ./..."
 ```
 
 >The Go version set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
 
 ## Setting Up a Local Environment
 
-In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/) and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
+In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/), [ghostscript](https://www.ghostscript.com/), [ImageMagick6](https://legacy.imagemagick.org/#gsc.tab=0), and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
 
 ```sh
 go run .
@@ -40,6 +46,65 @@ go run .
 This should print a help message that describes the subcommands for the program. 
 
 If you get an error that mentions missing C/C++ objects, it's likely that GoCV isn't seeing your OpenCV installation. Refer to [their documentation](https://gocv.io/getting-started/) to correct this.
+
+### Setting Up `pkg-config`
+
+Our source code is using CGo now. In [`magick.go`](./internal/pdf/magick.go) you'll see the following directives:
+
+```go
+// #cgo pkg-config: MagickWand
+// #cgo pkg-config: opencv4
+```
+
+In order for the build to work, Go needs to be able to call `pkg-config` with `MagickWand` and `opencv4` packages. If you don't have `pkg-config` installed, you can install it for your OS:
+- On Linux, run `sudo apt install pkg-config`
+- On MacOS, run `brew install pkgconf`
+- On Windows, download a release from [this website](https://sourceforge.net/projects/pkgconfiglite/files/). Extract the archive and then put the `pkg-config.exe` file somewhere where you'll remember it.
+
+Next, ensure that Go can find the `pkg-config` executable. To do this you must set the `PKG_CONFIG` environment variable to the absolute path of the executable. If you're not sure where it is on Linux or MacOS, use `which pkg-config`.
+
+The last step is to ensure that `pkg-config` can see the configuration files for OpenCV and ImageMagick. Normal installations of those packages on Linux will come with `.pc` files out of the box, but on Windows you might need to make your own. I've written mine down below.
+
+`/path/to/stuff/MagickWand.pc`:
+```
+prefix=E:/Tooling/imagemagick6/ImageMagick-6.9.13-Q16-HDRI
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: MagickWand
+Description: ImageMagick 6 image processing library
+Version: 6.9.13
+Requires:
+Libs: -L${libdir} -lCORE_RL_wand_ -lCORE_RL_magick_
+Cflags: -I${includedir}
+```
+
+`/path/to/stuff/opencv4.pc` (I'm using MingW on Windows):
+```
+prefix=E:/Tooling/opencv/build
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${prefix}/x64/mingw/lib
+
+Name: OpenCV
+Description: Open Source Computer Vision Library
+Version: 4.13.0
+
+Cflags: -I${includedir}
+Libs: -L${libdir} \
+    -lopencv_core4130 \
+    -lopencv_imgproc4130 \
+    -lopencv_imgcodecs4130 \
+    -lopencv_highgui4130 \
+    -lopencv_videoio4130 \
+    -lopencv_features2d4130 \
+    -lopencv_calib3d4130 \
+    -lopencv_objdetect4130 \
+    -lopencv_dnn4130
+```
+
+You'll need to adjust these files so that they actually point to your installations, but you get the gist. To make sure that `pkg-config` and Go can see these files, make sure you set the `PKG_CONFIG_PATH` variable to the directory where you keep them.
 
 ## File Structure
 
@@ -52,9 +117,7 @@ In keeping with Go conventions, the top-level directories are as follows:
     - [`dto`](./internal/httpserver/dto/) contains the data transfer objects (DTOs) for the server. Any complex object that will be sent or received from the server is put there, along with relevant deserialization and validation functions.
     - [`handler`](./internal/httpserver/handler/) includes the bulk of the HTTP server's logic.
   - [`fs`](./internal/fs/) exposes a simple interface for file storage, particularly images. Internally, it currently has two implementations; one wraps the local file system (suitable for testing) and the other wraps an S3 client.
-- [`config`](./config) wraps configuration data.
-  - Conventionally, this folder would simply include `.env` files and stuff. However in this project we define it as an actual Go package that's responsible for wrapping configuration variables and ensuring that they're all set, as opposed to littering the codebase with `os.Getenv()` calls and error checks. This also allows us to set environment variables based on the runtime mode (development, production, or test) and validate them when the program starts, instead of postponing potential runtime errors.
-  - We expect environment variables to be set outside of the application (e.g., by a Docker configuration or in the command line).
+  - [`pdf`](./internal/pdf) handles PDF rendering.
 
 For more info about the top-level directory naming standards, refer to [this document](https://github.com/golang-standards/project-layout). This is not an "official" project setup, but it is a popular one.
 
@@ -69,6 +132,9 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 - [Cobra](https://cobra.dev/) is used to set up the command-line interface. It's only used in the [cmd](./cmd) package.
 - [sqlc](https://sqlc.dev/) is used to generate Go functions from SQL queries (read more [here](./internal/database/sqlc/README.md)). sqlc is strictly for code generation; it is not a runtime dependency.
 - [lz4](https://github.com/pierrec/lz4/v4) is used to compress OpenCV matrices when we save them to persistent storage.
+- [ImageMagick6](https://legacy.imagemagick.org/#gsc.tab=0) is used to convert PDFs to images. 
+- [ghostscript](https://www.ghostscript.com/) is a required dependency for ImageMagick to render PDFs. 
+  - Since we're only using ImageMagick to render PDFs (at the time of writing), we could remove ImageMagick and just use the ghostscript API directly. However, the API is OS-specific and the overhead from ImageMagick is negligible. It's just not worth the effort at this time.
 
 ## Development Notes
 
@@ -77,9 +143,5 @@ The following is a list of dependencies. You can also refer to the [go.mod](./go
 The following is a list of known improvements that can be made to the system.
 - The database layer currently only uses SQLite3 as an interim approach. Given that we are using sqlc for code generation, it would be very straightforward to implement a version for Postgres.
   - More generally, the storage should be slightly refactored so that it's easier to swap between using external services vs a single container. The configuration should be exposed via the command line or environment variables.
-- The API spec assumes the domain and port are `localhost:3000`. However, we could rewrite it as a template and have those values populated at runtime.
 - The service, in its current form, manages its own database and file storage. If this is the approach we want to stick with, we should include endpoints to manage that data (e.g., delete old data, compress unused images periodically, etc). It would also be feasible to make a small web UI to expose that functionality.
-- Logs are currently printed by directly calling `slog` functions that write to stdout. We should change this so that the logger is on the `ServerResources` struct instead. This way we could conveniently also log errors to a database, a log file, or whatever else.
-- The whole `config` package needs to be refactored or removed entirely. I don't know why I thought it would be a good idea.
-- The tests in `httpserver/handlers` cover the normal path, but they don't exhaust all of the bad inputs. We could make the test suite a little more comprehensive.
-  - Those tests also have a good amount of copy+pasted code, since some handlers depend on others for setup. This can probably be refactored.
+- **More testing**

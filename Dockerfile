@@ -3,10 +3,33 @@ FROM ghcr.io/hybridgroup/opencv:4.13.0
 
 ENV GOPATH=/go
 
+# 
+# Install the ImageMagick dependency.
+# 
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        imagemagick \
+        libmagickwand-dev \
+        ghostscript
+
+# Update permissions policy so that ImageMagick is cool
+RUN sed -i \
+    '/pattern="PDF"/ s/rights="none"/rights="read|write"/' \
+    /etc/ImageMagick-6/policy.xml
+
+#
+# Build the app
+#
+
 COPY . /app
 
 WORKDIR /app
 RUN go build -o /build/omr .
+
+#
+# Run the app
+#
 
 ENTRYPOINT ["/build/omr"]
 CMD ["serve"]
