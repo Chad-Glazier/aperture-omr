@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -15,7 +16,8 @@ import (
 )
 
 // The maximum allowed size for a PDF file upload.
-const maxPdfSize = 200 * 1024 * 1024 // 200 MB
+const maxPdfSize = 200 * 1024 * 1024     // 200 MB
+const maxFileMemSize = 100 * 1024 * 1024 // 100 MB
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +27,24 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		//
 
 		defer r.Body.Close()
-		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+
+		r.Body = http.MaxBytesReader(w, r.Body, maxPdfSize)
+		if err := r.ParseMultipartForm(maxFileMemSize); err != nil {
+
+			var mbe *http.MaxBytesError
+			if errors.As(err, &mbe) {
+				dto.SendError(
+					w,
+					http.StatusRequestEntityTooLarge,
+					dto.ErrContentTooLarge,
+					fmt.Sprintf(
+						"the attached pdf is larger than %.1fMB",
+						float64(maxPdfSize)/(1024.0*1024.0),
+					),
+				)
+				return
+			}
+
 			dto.SendError(
 				w,
 				http.StatusBadRequest,
@@ -63,7 +82,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			density = dpi
 		}
 
-		pdfFile, header, err := r.FormFile("pdf")
+		pdfFile, _, err := r.FormFile("pdf")
 		if err != nil {
 			dto.SendError(
 				w,
@@ -74,19 +93,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			return
 		}
 		defer pdfFile.Close()
-
-		if header.Size > maxPdfSize {
-			dto.SendError(
-				w,
-				http.StatusRequestEntityTooLarge,
-				dto.ErrContentTooLarge,
-				fmt.Sprintf(
-					"the attached pdf is larger than %.1fMB",
-					float64(maxPdfSize)/(1024.0*1024.0),
-				),
-			)
-			return
-		}
 
 		//
 		// Load the resources.

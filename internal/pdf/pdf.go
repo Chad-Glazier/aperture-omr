@@ -92,7 +92,6 @@ func RenderPageBatches(
 	//
 
 	inUse.Lock()
-	defer inUse.Unlock()
 
 	if parallelization <= 0 {
 		parallelization = runtime.GOMAXPROCS(0)
@@ -106,6 +105,7 @@ func RenderPageBatches(
 
 	spans, err := Split(r, batchSize, conf)
 	if err != nil {
+		inUse.Unlock()
 		return nil, 0, err
 	}
 
@@ -157,6 +157,7 @@ func RenderPageBatches(
 			}
 
 			if threadCount.Add(-1) == 0 {
+				inUse.Unlock()
 				close(ch)
 			}
 
