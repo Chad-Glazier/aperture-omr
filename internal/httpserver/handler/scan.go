@@ -39,10 +39,6 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		//
-		// Load the template's anchors.
-		//
-
 		anchors, err := s.LoadAnchors(templateId)
 		if err != nil {
 			dto.SendError(
@@ -149,5 +145,11 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		dto.SendJson(w, map[string]string{
 			"scanId": id,
 		})
+	}
+}
+
+func DeleteScans(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		
 	}
 }

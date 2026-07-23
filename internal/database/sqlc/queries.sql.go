@@ -141,6 +141,81 @@ func (q *Queries) CreateScanPage(ctx context.Context, arg CreateScanPageParams) 
 	return err
 }
 
+const deleteAnchorsForTemplate = `-- name: DeleteAnchorsForTemplate :execrows
+DELETE FROM
+    anchors
+WHERE
+    template_id = ?
+`
+
+func (q *Queries) DeleteAnchorsForTemplate(ctx context.Context, templateID string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAnchorsForTemplate, templateID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteMarkingTemplate = `-- name: DeleteMarkingTemplate :execrows
+DELETE FROM
+    marking_templates
+WHERE
+    id = ?
+`
+
+func (q *Queries) DeleteMarkingTemplate(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteMarkingTemplate, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deletePagesForScan = `-- name: DeletePagesForScan :execrows
+DELETE FROM
+    scan_pages
+WHERE
+    scan_id = ?
+`
+
+func (q *Queries) DeletePagesForScan(ctx context.Context, scanID string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePagesForScan, scanID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deletePreprocessingTemplate = `-- name: DeletePreprocessingTemplate :execrows
+DELETE FROM
+    preprocessing_templates
+WHERE
+    id = ?
+`
+
+func (q *Queries) DeletePreprocessingTemplate(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePreprocessingTemplate, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteScan = `-- name: DeleteScan :execrows
+DELETE FROM
+    scans
+WHERE
+    id = ?
+`
+
+func (q *Queries) DeleteScan(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteScan, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getAnchorsForTemplate = `-- name: GetAnchorsForTemplate :many
 SELECT
     id, template_id, page_index, anchor_index
@@ -226,6 +301,45 @@ func (q *Queries) GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorF
 	return i, err
 }
 
+const getPagesForScan = `-- name: GetPagesForScan :many
+SELECT 
+    id, picture_key, page_index, scan_id
+FROM
+    scan_pages
+WHERE
+    scan_id = ?
+ORDER BY
+    page_index ASC
+`
+
+func (q *Queries) GetPagesForScan(ctx context.Context, scanID string) ([]ScanPage, error) {
+	rows, err := q.db.QueryContext(ctx, getPagesForScan, scanID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ScanPage
+	for rows.Next() {
+		var i ScanPage
+		if err := rows.Scan(
+			&i.ID,
+			&i.PictureKey,
+			&i.PageIndex,
+			&i.ScanID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPreprocessingTemplate = `-- name: GetPreprocessingTemplate :one
 SELECT
     id, json
@@ -268,43 +382,4 @@ func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanP
 		&i.ScanID,
 	)
 	return i, err
-}
-
-const getScanPages = `-- name: GetScanPages :many
-SELECT 
-    id, picture_key, page_index, scan_id
-FROM
-    scan_pages
-WHERE
-    scan_id = ?
-ORDER BY
-    page_index ASC
-`
-
-func (q *Queries) GetScanPages(ctx context.Context, scanID string) ([]ScanPage, error) {
-	rows, err := q.db.QueryContext(ctx, getScanPages, scanID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ScanPage
-	for rows.Next() {
-		var i ScanPage
-		if err := rows.Scan(
-			&i.ID,
-			&i.PictureKey,
-			&i.PageIndex,
-			&i.ScanID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

@@ -327,7 +327,7 @@ func TestPostScanPdf_FailedPreprocessing(t *testing.T) {
 	//
 	// When sending PDFs to the OMR, using a DPI that's too low will make it
 	// impossible for the preprocessor to make sense of them. In this case we
-	// expect all scans to fail, which should give us a status of 422.
+	// expect all scans to fail which should give us a status of 422.
 	//
 
 	req := newScanPdfRequest(

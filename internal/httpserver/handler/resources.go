@@ -29,11 +29,18 @@ type ServerResources interface {
 	// Loads a marking template and returns the new ID for it.
 	LoadMarkingTemplate(id string) (*dto.MarkingTemplate, error)
 
+	// Deletes a marking template. Redundant calls are safe.
+	DeleteMarkingTemplate(id string)
+
 	// Saves a preprocessing template and returns the new ID for it.
 	SavePreprocessingTemplate(tmpl *dto.PreprocessingTemplate) (string, error)
 
 	// Loads a preprocessing template and returns the ID for it.
 	LoadPreprocessingTemplate(id string) (*dto.PreprocessingTemplate, error)
+
+	// Deletes a preprocessing template and its anchors. Redundant calls are 
+	// safe.
+	DeletePreprocessingTemplate(id string)
 
 	// Loads anchor matrices. To get the i-th page's j-th anchor, you would
 	// index [i][j] from the returned slice.
@@ -59,6 +66,9 @@ type ServerResources interface {
 
 	// Loads a preprocessed scan's binarized pages.
 	LoadScan(scanId string) ([]*gocv.Mat, error)
+
+	// Deletes a scan and its pages. Redundant calls are safe.
+	DeleteScan(scanId string)
 
 	// Loads a picture from a scan. The "picture" of a scan is the version that
 	// is maintained for human viewers. (Preprocessing leaves the main scan
@@ -170,6 +180,10 @@ func (s *localResources) LoadMarkingTemplate(
 	return tmpl, nil
 }
 
+func (s *localResources) DeleteMarkingTemplate(id string) {
+	s.DB.DeleteMarkingTemplate(context.Background(), id)
+}
+
 //
 // Preprocessing Templates
 //
@@ -216,6 +230,15 @@ func (s *localResources) LoadPreprocessingTemplate(
 	}
 
 	return tmpl, nil
+}
+
+func (s *localResources) DeletePreprocessingTemplate(id string) {
+	s.DB.DeletePreprocessingTemplate(context.Background(), id)
+	anchors, _ := s.DB.GetAnchorsForTemplate(context.Background(), id)
+	for _, anchor := range anchors {
+		s.Mats.Delete(anchor.ID)
+	}
+	s.DB.DeleteAnchorsForTemplate(context.Background(), id)
 }
 
 //
@@ -348,7 +371,7 @@ func (s *localResources) SaveScan(
 }
 
 func (s *localResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
-	records, err := s.DB.GetScanPages(context.Background(), scanId)
+	records, err := s.DB.GetPagesForScan(context.Background(), scanId)
 	if err != nil {
 		return nil, err
 	}
@@ -366,6 +389,16 @@ func (s *localResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 	}
 
 	return mats, nil
+}
+
+func (s *localResources) DeleteScan(id string) {
+	s.DB.DeleteScan(context.Background(), id)
+	pages, _ := s.DB.GetPagesForScan(context.Background(), id)
+	for _, page := range pages {
+		s.Images.Delete(page.PictureKey)
+		s.Mats.Delete(page.ID)
+	}
+	s.DB.DeletePagesForScan(context.Background(), id)
 }
 
 func (s *localResources) LoadScanPicture(

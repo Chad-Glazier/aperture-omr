@@ -19,12 +19,14 @@ const maxPdfSize = 200 * 1024 * 1024 // 200 MB
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		
 		//
 		// Read and validate the body
 		//
 
+		defer debug.FreeOSMemory()
 		defer r.Body.Close()
+		
 		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 			dto.SendError(
 				w,
@@ -239,8 +241,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		//
 		// Tidy up and send the response.
 		//
-
-		debug.FreeOSMemory()
 
 		results := dto.NewScanResult(scanIds, errorMsgs)
 
