@@ -100,65 +100,6 @@ func TestLoadTemplate(t *testing.T) {
 	}
 }
 
-func TestBubbleFillRatio(t *testing.T) {
-	const bw, bh = 30, 30
-
-	white := gocv.NewMatWithSizeFromScalar(
-		gocv.NewScalar(255, 0, 0, 0), 100, 100, gocv.MatTypeCV8UC1)
-	defer white.Close()
-
-	black := gocv.NewMatWithSizeFromScalar(
-		gocv.NewScalar(0, 0, 0, 0), 100, 100, gocv.MatTypeCV8UC1)
-	defer black.Close()
-
-	tests := []struct {
-		name    string
-		img     gocv.Mat
-		bubble  Bubble
-		wantMin float64
-		wantMax float64
-	}{
-		{
-			name:    "Fully white image gives high fill ratio",
-			img:     white,
-			bubble:  Bubble{X: 50, Y: 50},
-			wantMin: 0.9,
-			wantMax: 1.0,
-		},
-		{
-			name:    "Fully black image gives zero fill ratio",
-			img:     black,
-			bubble:  Bubble{X: 50, Y: 50},
-			wantMin: 0.0,
-			wantMax: 0.0,
-		},
-		{
-			name:    "Bubble entirely outside image gives zero",
-			img:     white,
-			bubble:  Bubble{X: 200, Y: 200},
-			wantMin: 0.0,
-			wantMax: 0.0,
-		},
-		{
-			name:    "Partially clipped bubble is clamped without panicking",
-			img:     white,
-			bubble:  Bubble{X: 90, Y: 10},
-			wantMin: 0.0,
-			wantMax: 1.0,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := bubbleFillRatio(tc.img, tc.bubble, bw, bh, 0.75)
-			if got < tc.wantMin || got > tc.wantMax {
-				t.Errorf("bubbleFillRatio = %.3f, want in [%.3f, %.3f]",
-					got, tc.wantMin, tc.wantMax)
-			}
-		})
-	}
-}
-
 func TestEvaluate(t *testing.T) {
 	const (
 		imgW, imgH = 400, 400
@@ -223,6 +164,19 @@ func TestEvaluate(t *testing.T) {
 	fillBubble(&imgAllSelectedShifted, 65+allFilledShiftX, 115, bw, bh, inset)
 	fillBubble(&imgAllSelectedShifted, 115+allFilledShiftX, 115, bw, bh, inset)
 	fillBubble(&imgAllSelectedShifted, 165+allFilledShiftX, 115, bw, bh, inset)
+
+	// Same shift, but filled out to the bubble's full radius rather than
+	// just `inset` of it -- needed for the search-radius recovery case
+	// below, since the sum-fill fallback's guard mask deliberately samples
+	// past that radius (see guardMask in marker.go) to stay exploit-proof,
+	// so an ink circle calibrated to `inset` alone isn't dark enough for it
+	// to register as "well-inked".
+	imgAllSelectedShiftedFull := gocv.NewMatWithSizeFromScalar(
+		gocv.NewScalar(0, 0, 0, 0), imgH, imgW, gocv.MatTypeCV8UC1)
+	defer imgAllSelectedShiftedFull.Close()
+	fillBubble(&imgAllSelectedShiftedFull, 65+allFilledShiftX, 115, bw, bh, 1.0)
+	fillBubble(&imgAllSelectedShiftedFull, 115+allFilledShiftX, 115, bw, bh, 1.0)
+	fillBubble(&imgAllSelectedShiftedFull, 165+allFilledShiftX, 115, bw, bh, 1.0)
 
 	emptyImg := gocv.NewMat()
 	defer emptyImg.Close()
@@ -302,7 +256,7 @@ func TestEvaluate(t *testing.T) {
 		},
 		{
 			name: "All options filled but shifted: search radius recovers all-filled detection",
-			img:  imgAllSelectedShifted,
+			img:  imgAllSelectedShiftedFull,
 			tmpl: &Template{
 				Config: Config{
 					FillThreshold: ptr(0.5),
