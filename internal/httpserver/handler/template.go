@@ -20,7 +20,7 @@ func decodeImg(r io.Reader) (image.Image, error) {
 }
 
 func encodeImg(w io.Writer, img image.Image) error {
-	return jpeg.Encode(w, img, nil)
+	return jpeg.Encode(w, img, &jpeg.Options{Quality: 90})
 }
 
 const imgType = "image/jpeg"
