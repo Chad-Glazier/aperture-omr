@@ -150,7 +150,7 @@ func PostScan(s ServerResources) http.HandlerFunc {
 
 func DeleteScans(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		
+
 		//
 		// Validate the request
 		//
@@ -180,7 +180,7 @@ func DeleteScans(s ServerResources) http.HandlerFunc {
 		}
 
 		//
-		// Delete the scans and send back 200, whether or not the scans are 
+		// Delete the scans and send back 200, whether or not the scans are
 		// actually present.
 		//
 

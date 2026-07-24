@@ -14,6 +14,7 @@ import (
 )
 
 const logFilePath = "debug.log"
+
 var logFileMu sync.Mutex
 var logFile io.WriteCloser
 
@@ -58,9 +59,9 @@ func Recovery(next http.Handler) http.Handler {
 
 				fmt.Fprintf(
 					logFile,
-					"│   endpoint..... %s\n" +
-					"│   time......... %s\n" +
-					"│   recovered.... %v\n│\n",
+					"│   endpoint..... %s\n"+
+						"│   time......... %s\n"+
+						"│   recovered.... %v\n│\n",
 					r.Method+" "+r.URL.Path,
 					formatDate(time.Now()),
 					err,

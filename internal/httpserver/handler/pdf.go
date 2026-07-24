@@ -21,14 +21,14 @@ const maxFileMemSize = 100 * 1024 * 1024 // 100 MB
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		
+
 		//
 		// Read and validate the body
 		//
 
 		defer debug.FreeOSMemory()
 		defer r.Body.Close()
-		
+
 		r.Body = http.MaxBytesReader(w, r.Body, maxPdfSize)
 		if err := r.ParseMultipartForm(maxFileMemSize); err != nil {
 

@@ -54,11 +54,11 @@ func TestPostScan(t *testing.T) {
 	//
 
 	tests := []struct {
-		name          string
-		templateID    string
-		pages         []multipartImage
-		wantStatus    int
-		wantError     dto.ErrReason
+		name       string
+		templateID string
+		pages      []multipartImage
+		wantStatus int
+		wantError  dto.ErrReason
 	}{
 		{
 			name:       "no pages",
@@ -174,7 +174,7 @@ func TestDeleteScan(t *testing.T) {
 	//
 
 	pTemplId := postNewPreprocessingTemplate(t, s)
-	
+
 	//
 	// Upload a few scans.
 	//
@@ -206,7 +206,7 @@ func TestDeleteScan(t *testing.T) {
 	// Delete two scans.
 	//
 
-	body := dto.ScanDeleteRequest{ deleteID1, deleteID2 }
+	body := dto.ScanDeleteRequest{deleteID1, deleteID2}
 	jsonBuf, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("failed to serialize request body: %s", err.Error())

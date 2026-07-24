@@ -38,7 +38,7 @@ type ServerResources interface {
 	// Loads a preprocessing template and returns the ID for it.
 	LoadPreprocessingTemplate(id string) (*dto.PreprocessingTemplate, error)
 
-	// Deletes a preprocessing template and its anchors. Redundant calls are 
+	// Deletes a preprocessing template and its anchors. Redundant calls are
 	// safe.
 	DeletePreprocessingTemplate(id string)
 
