@@ -507,7 +507,12 @@ paths:
         - Mark
       description: |
         This endpoint can be used to compute marks by specifying a list of scans
-        to mark and a template to mark them with. 
+        to mark and a template to mark them with.
+
+        A scan-specific failure (a missing scan, a page-count mismatch against
+        the template, or a marking failure) doesn't abort the rest of the
+        batch. It's reported in the `errors` list instead, and the other
+        scans are still marked.
       requestBody:
         content:
           application/json:
@@ -530,8 +535,11 @@ paths:
       responses:
         200:
           description: |
-            The marking job is complete. The marks are included in the response body.
-          content: 
+            At least one scan in the batch was successfully marked. To see how
+            many scans failed/succeeded, refer to the lists in the response
+            body (if the length of the `errors` array is zero, then all scans
+            were marked successfully).
+          content:
             application/json:
               schema:
                 type: object
@@ -539,15 +547,38 @@ paths:
                   - scans
                   - pagesMarked
                   - templateId
+                  - errors
                 properties:
                   pagesMarked:
                     type: integer
                     description: |
-                      The total number of pages processed.
+                      The total number of pages processed across successfully
+                      marked scans.
                   templateId:
                     type: string
-                    description: | 
+                    description: |
                       The ID of the marking template that was used.
+                  errors:
+                    type: array
+                    description: |
+                      One entry per scan in the batch that failed to mark,
+                      e.g. the scan ID wasn't found, its page count didn't
+                      match the template, or marking itself failed.
+                    items:
+                      type: object
+                      required:
+                        - scanId
+                        - debug
+                      properties:
+                        scanId:
+                          type: string
+                          description: |
+                            The scan ID (as given in the request) that failed.
+                        debug:
+                          type: string
+                          description: |
+                            The error message. This is meant for debugging,
+                            not for end-users.
                   scans:
                     type: array
                     items:
@@ -675,7 +706,7 @@ paths:
                                         Height of the bubble.
         400:
           description: |
-            The request was missing something. Check the error message for 
+            The request was missing something. Check the error message for
             details.
           content:
             text/plain:
@@ -685,21 +716,45 @@ paths:
                   A description of the error.
         404:
           description: |
-            Some resource that the request specified (e.g., a template or scan 
-            ID) could not be found. 
+            The requested marking template could not be found. Note that an
+            unrecognized scan ID does *not* 404 the whole request. It's
+            reported per-scan in the 200/422 response's `errors` list instead.
           content:
             text/plain:
               schema:
                 type: string
                 description: |
                   A description of which resource couldn't be found.
+        422:
+          description: |
+            The template was found, but every scan in the batch failed to
+            mark. Check the error messages for details.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - scanId
+                    - debug
+                  properties:
+                    scanId:
+                      type: string
+                      description: |
+                        The scan ID (as given in the request) that failed.
+                    debug:
+                      type: string
+                      description: |
+                        The error message. This is meant for debugging, not
+                        for end-users.
         500:
           description: |
             Something went wrong on the OMR's side. Check the OMR's logs and
             the error message for details.
           content:
             text/plain:
-              schema: 
+              schema:
                 type: string
                 description: |
                   A description of the error.
