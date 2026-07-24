@@ -34,120 +34,9 @@ func TestGetSnippet(t *testing.T) {
 	// there is a snippet returned for each question.
 	//
 
-	//
-	// 1) Upload the preprocessing template.
-	//
-
-	req, err := makeMultipartRequest(
-		t,
-		"testdata/preprocessing_template.json",
-		multipartImage{
-			name:     "page0anchor0",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page0anchor1",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page0anchor2",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page1anchor0",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page1anchor1",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-		multipartImage{
-			name:     "page1anchor2",
-			filename: "testdata/anchors/anchor.jpeg",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-
-	PostPreprocessingTemplate(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("failed to upload preprocessing template")
-	}
-
-	v := make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	preprocessingTemplateId, ok := v["templateId"]
-	if !ok {
-		t.Fatalf("templateId wasn't found in response body")
-	}
-
-	//
-	// 2) Upload the scan of the exam.
-	//
-
-	req, err = makeMultipartRequest(
-		t,
-		"",
-		multipartImage{
-			name:     "page0",
-			filename: "testdata/pages/exam0page0.jpeg",
-		},
-		multipartImage{
-			name:     "page1",
-			filename: "testdata/pages/exam0page1.jpeg",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.URL.RawQuery += "template=" + preprocessingTemplateId
-
-	rr = httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
-	}
-
-	v = make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	scanId, ok := v["scanId"]
-	if !ok {
-		t.Fatalf("scanId wasn't found in response body")
-	}
-
-	//
-	// 3) Upload the marking template.
-	//
-
-	req, err = makeJsonRequest(t, "testdata/marking_template.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr = httptest.NewRecorder()
-	PostMarkingTemplate(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status=%d body%s", rr.Code, rr.Body.String())
-	}
-
-	v = make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	markingTemplateId, ok := v["templateId"]
-	if !ok {
-		t.Fatalf("templateId wasn't found in response body")
-	}
+	pTmplId := postNewPreprocessingTemplate(t, s)
+	scanId := postNewScan(t, s, pTmplId)
+	mTmplId := postNewMarkingTemplate(t, s)
 
 	//
 	// 4) Get the snippets.
@@ -162,13 +51,13 @@ func TestGetSnippet(t *testing.T) {
 		"question=1234&template=1234",
 	}
 	for _, query := range badQueries400 {
-		req, err = http.NewRequest(http.MethodGet, "/", nil)
+		req, err := http.NewRequest(http.MethodGet, "/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		req.URL.RawQuery = query
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		GetSnippet(s).ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusBadRequest {
@@ -185,16 +74,16 @@ func TestGetSnippet(t *testing.T) {
 	badQueries404 := []string{
 		"question=1234&scan=1234&template=1234",
 		"question=1234&scan=" + scanId + "&template=1234",
-		"question=1234&scan=1234&template=" + markingTemplateId,
+		"question=1234&scan=1234&template=" + mTmplId,
 	}
 	for _, query := range badQueries404 {
-		req, err = http.NewRequest(http.MethodGet, "/", nil)
+		req, err := http.NewRequest(http.MethodGet, "/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		req.URL.RawQuery = query
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		GetSnippet(s).ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusNotFound {
@@ -217,16 +106,16 @@ func TestGetSnippet(t *testing.T) {
 	for _, page := range tmpl.Pages {
 		for _, question := range page.Questions {
 
-			req, err = http.NewRequest(http.MethodGet, "/", nil)
+			req, err := http.NewRequest(http.MethodGet, "/", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			req.URL.RawQuery = fmt.Sprintf(
 				"question=%s&scan=%s&template=%s",
-				question.ID, scanId, markingTemplateId,
+				question.ID, scanId, mTmplId,
 			)
-			rr = httptest.NewRecorder()
+			rr := httptest.NewRecorder()
 			GetSnippet(s).ServeHTTP(rr, req)
 
 			if rr.Code != http.StatusOK {

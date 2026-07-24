@@ -4,22 +4,8 @@ info:
   title: OMR Service
   version: "0.0.1"
   description: |
-    A service to perform Optical Mark Recognition (OMR) on scans of 
-    bubblesheets. The general workflow is described below:
-    1) Upload a preprocessing template. This will be used to handle the
-       scaling and orientation of uploaded scans. If done correctly, the
-       response will include a new ID for the template.
-    2) Upload a scan and specify its preprocessing template. The OMR will
-       take the uploaded page image(s) and preprocess them according to
-       the identified template. Upon success, the response will include
-       a new ID for the scan.
-    3) Upload a marking template. This template defines identifiers for
-       questions on the scanned pages and how the OMR can find them.
-    4) Request marks by specifying a scan and the marking template to use.
-       The scan will be parsed according to the marking template and 
-       a mapping of questions to answers will be generated and returned.
-    In the future, more endpoints will be added to list and delete any
-    uploaded resources.
+    A service to perform Optical Mark Recognition (OMR) on scanned 
+    bubblesheets.
 
 servers:
   - url: http://localhost:3000/
@@ -28,17 +14,17 @@ tags:
   - name: Status
     description: Service status and availability
   - name: Scan
-    description: Image scans of exams
-  - name: Preprocessing
-    description: Data for preprocessing scans
-  - name: Marking
-    description: Data for marking scans
+    description: Tasks related to uploading and preprocessing scans
+  - name: Mark
+    description: Tasks related to marking uploaded scans
+  - name: Inspect
+    description: Tasks related to inspecting uploaded scans
 
 paths:
   /health:
     get:
       summary: |
-        Check OMR status
+        Check the System Status
       description: |
         A simple endpoint to check that the OMR is up and running.
       tags:
@@ -60,17 +46,17 @@ paths:
   /template/preprocess:
     post:
       summary: |
-        Upload a preprocessing template
+        Upload a Preprocessing Template
       description: |
         This endpoint is used to upload a preprocessing template. Such a
         template must be uploaded before any scans.
       tags:
-        - Preprocessing
+        - Scan
       requestBody:
         description: |
-          The body defines a preprocessing template in a `multipart/form-data`
-          format. The `template` field is a JSON-encoded string, and the 
-          image fields are expected to be in `image/jpeg` encoding.
+          The body defines a preprocessing template. The `template` field is a
+          JSON-encoded string, and the image fields are expected to be in 
+          `image/jpeg` encoding.
 
           Each page has at least three anchors. The anchor `pageXanchorY` 
           corresponds to `template.pages[X].anchors[Y]`.
@@ -159,12 +145,12 @@ paths:
   /template/mark:
     post:
       summary: |
-        Upload a marking template
+        Upload a Marking Template
       description: |
         This endpoint is used to upload a marking template. Such a template
         must be uploaded before any scans can be marked.
       tags:
-        - Marking
+        - Mark
       requestBody:
         description: |
           The body describes the marking template for an exam.
@@ -207,15 +193,16 @@ paths:
                 type: string
                 description: |
                   A description of the error.
-  /scan:
+  /scan/images:
     post:
-      summary: Upload a scan
+      summary: Upload a Scan
       description: |
+        > This endpoint previously used the path `/scan`. That path is still supported at the time of writing. 
         This endpoint lets you upload a scan. The OMR will perform any
         preprocessing according to the specified template and store the
         scans.
       tags:
-        - Preprocessing
+        - Scan
       parameters:
         - in: query
           name: template
@@ -226,8 +213,11 @@ paths:
               The ID of the preprocessing template to use.
       requestBody:
         description: |
-          The JPEG image(s) used for the scan. There should be one image per 
+          The image(s) used for the scan. There should be one image per 
           page.
+
+          The image files can be in any format that is supported by version 4 
+          of OpenCV. The complete list is available [here](https://docs.opencv.org/4.12.0/d4/da8/group__imgcodecs.html#gacbaa02cffc4ec2422dfa2e24412a99e2).
         content: 
           multipart/form-data:
             schema:
@@ -241,11 +231,6 @@ paths:
                 page1:
                   type: string
                   format: binary
-            encoding:
-              page0:
-                contentType: image/jpeg
-              page1:
-                contentType: image/jpeg
       responses: 
         200:
           description: |
@@ -288,19 +273,120 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /scan/pdf:
+    post:
+      summary: Upload PDF Scans
+      description: |
+        This endpoint lets you upload scanned exam(s) in PDF format. The OMR 
+        will perform any preprocessing according to the specified template 
+        and store the scans for marking.
+
+        The PDF may include as many exams as you want provided that each exam's
+        pages are grouped together. The preprocessor will tolerate pages that 
+        are out of order or flipped upside-down.
+      tags:
+        - Scan
+      requestBody:
+        description: |
+          The PDF containing the scanned exam(s).
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                pdf:
+                  type: string
+                  format: binary
+                  description: |
+                    The PDF file containing the scanned exams.
+                preprocessingTemplate:
+                  type: string
+                  description: |
+                    The ID of the preprocessing template to use.
+                dpi:
+                  type: integer
+                  description: |
+                    The DPI (dots per inch) of the rendered images. Higher DPIs
+                    are much slower to compute but yield higher resolution 
+                    images, which may be necessary for the OMR to function 
+                    correctly. As a rule of thumb, 300 is high resolution (the
+                    default) and 74 is low. 
+                    
+                    If you want to maximize performance I would recommended 
+                    that you test out a few different DPI's for a given scan 
+                    template and use the lowest number you can get away with.
+                  example: 250
+              required:
+                - pdf
+                - preprocessingTemplate
+      responses: 
+        200:
+          description: |
+            At least one of the exams in the PDF was successfully preprocessed
+            and stored. To see how many exams failed/succeeded, refer to the
+            lists in the response body (if the length of the `"errors"` array 
+            is zero, then all of the exams were processed successfully).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResult'
+        400:
+          description: |
+            The request was missing something or the PDF was malformed. Check 
+            the error message for details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        404:
+          description: |
+            The requested preprocessing template could not be found.
+          content: 
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        413:
+          description: |
+            The attached PDF is too large.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        422:
+          description: |
+            The PDF was well-formed, but none of the exams passed preprocessing.
+            Check the error messages and consider increasing the DPI.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScanError'
+        500:
+          description: |
+            Something went wrong on the OMR's side. Check the OMR's logs and
+            the error message for details.
+          content:
+            text/plain:
+              schema: 
+                type: string
+                description: |
+                  A description of the error.
   /mark:
     post:
-      summary: Run a marking job
+      summary: Request Marks
       tags:
-        - Marking
+        - Mark
       description: |
-        This endpoint can be used to run a marking job by specifying a list of 
-        scans to mark and a template to mark them with. 
-
-        Previously, this functionality was broken into two endpoints: one to
-        start the marking job, and another to retrieve the results. However,
-        the marking job is faster than expected (~3ms per page), so it makes 
-        more sense to just send the results back immediately.
+        This endpoint can be used to compute marks by specifying a list of scans
+        to mark and a template to mark them with. 
       requestBody:
         content:
           application/json:
@@ -330,38 +416,9 @@ paths:
                 type: object
                 required:
                   - scans
-                  - performanceMetrics
                   - pagesMarked
                   - templateId
                 properties:
-                  performanceMetrics:
-                    type: object
-                    required:
-                      - startTime
-                      - endTime
-                      - diskTime
-                      - omrTime
-                    properties:
-                      startTime:
-                        type: integer
-                        description: |
-                          A UNIX timestamp for the time when the job was 
-                          initiated.
-                      endTime:
-                        type: integer
-                        description: |
-                          A UNIX timestamp for the time when the job was 
-                          completed.
-                      diskTime:
-                        type: integer
-                        description: |
-                          The number of milliseconds that the system spent on
-                          reading/writing files to disk.
-                      omrTime:
-                        type: integer
-                        description: |
-                          The number of milliseconds that the system spent on
-                          marking the loaded scans.
                   pagesMarked:
                     type: integer
                     description: |
@@ -527,14 +584,12 @@ paths:
                   A description of the error.
   /image:
     get:
-      summary: Get a page's image
+      summary: View a Page
       description: |
-        This endpoint lets you retrieve the human-viewable picture for a
-        single page of a scan, unmodified. Pages are fetched one at a time
-        so callers can skip pages they don't need (e.g. a back page holding
-        only name/ID fields).
+        This endpoint lets you retrieve the page image from a previously 
+        uploaded scan.
       tags:
-        - Scan
+        - Inspect
       parameters:
         - in: query
           name: scan
@@ -589,14 +644,15 @@ paths:
                 description: |
                   A description of the error.
 
-  /snippet:
+  /image/snippet:
     get:
-      summary: Get a question snippet
+      summary: View a Question
       description: |
-        This endpoint lets you retrieve a cropped snippet of a question for
-        review purposes.
+        > This endpoint previously used the path `/snippet`. That path is still supported at the time of writing. 
+        This endpoint lets you retrieve a cropped image that isolates a 
+        question.
       tags:
-        - Marking
+        - Inspect
       parameters:
         - in: query
           name: template
@@ -897,3 +953,42 @@ components:
                 type: array
                 items: 
                   $ref: "#/components/schemas/Question"
+    ScanError:
+      type: object
+      description: Describes an error that occurred while scanning a range of PDF pages.
+      required:
+        - from
+        - thru
+        - debug
+      properties:
+        from:
+          type: integer
+          format: uint32
+          minimum: 1
+          description: The starting page (1-based) of the PDF where the error occurred.
+        thru:
+          type: integer
+          format: uint32
+          minimum: 1
+          description: The ending page (1-based, inclusive) of the PDF where the error occurred.
+        debug:
+          type: string
+          description: The error message. Intended for debugging, not for end users.
+
+    ScanResult:
+      type: object
+      required:
+        - scanIds
+        - errors
+      properties:
+        scanIds:
+          type: array
+          description: Identifiers for the successfully processed scans.
+          items:
+            type: string
+
+        errors:
+          type: array
+          description: Errors encountered while processing the PDF.
+          items:
+            $ref: '#/components/schemas/ScanError'

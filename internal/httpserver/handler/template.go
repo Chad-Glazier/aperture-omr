@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -21,17 +20,10 @@ func decodeImg(r io.Reader) (image.Image, error) {
 }
 
 func encodeImg(w io.Writer, img image.Image) error {
-	return jpeg.Encode(w, img, nil)
+	return jpeg.Encode(w, img, &jpeg.Options{Quality: 90})
 }
 
 const imgType = "image/jpeg"
-
-func sendJson(w http.ResponseWriter, v any) {
-	w.Header().Add("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "error writing response", http.StatusInternalServerError)
-	}
-}
 
 //
 // Marking templates
@@ -66,7 +58,7 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		sendJson(w, map[string]string{
+		dto.SendJson(w, map[string]string{
 			"templateId": id,
 		})
 	}
@@ -172,7 +164,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 			}
 		}
 
-		sendJson(w, map[string]string{
+		dto.SendJson(w, map[string]string{
 			"templateId": templateId,
 		})
 	}

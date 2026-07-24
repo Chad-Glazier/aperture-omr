@@ -16,6 +16,8 @@ const (
 	ErrPageOutOfOrder    ErrReason = "page_out_of_order"
 	ErrInternal          ErrReason = "internal_error"
 	ErrMissingAnchor     ErrReason = "missing_anchor"
+	ErrMalformedPdf      ErrReason = "malformed_pdf"
+	ErrContentTooLarge   ErrReason = "content_too_large"
 )
 
 // Sends a JSON error response with a classifier (reason) so that the client
@@ -36,5 +38,13 @@ func SendError(
 	}
 	if err := enc.Encode(resp); err != nil {
 		panic(err)
+	}
+}
+
+// Sends a JSON body.
+func SendJson(w http.ResponseWriter, v any) {
+	w.Header().Add("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		http.Error(w, "error writing response", http.StatusInternalServerError)
 	}
 }

@@ -485,12 +485,12 @@ func findAnchorCenter(
 	//
 	// We run an iterative refining search here:
 	//
-	// - We start by picking a specific middle point and a breadth.
-	// - Next, we select a few equidistant points in that search area and
-	//   iterate over all of them.
-	// - We take note of the one with the highest value and restart the search
-	//   with it as the new middle point, except that breadth has been shrunk
-	//   by some factor (the "refining factor").
+	// 1) We start by picking a specific middle point and a breadth.
+	// 2) We select a few equidistant points in that search area and
+	//    iterate over all of them.
+	// 3) We take note of the one with the highest value and restart the search
+	//    with it as the new middle point, except that breadth has been shrunk
+	//    by some factor (the "refining factor").
 	//
 	// We could use a more sophisticated convex optimization method, but since
 	// we can't really guarantee the convex-ness (?) of the objective function

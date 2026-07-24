@@ -148,7 +148,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 
 		results.PerformanceMetrics = perf
 
-		sendJson(w, results)
+		dto.SendJson(w, results)
 	}
 }
 

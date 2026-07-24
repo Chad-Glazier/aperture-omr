@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,70 +16,14 @@ func TestGetImage(t *testing.T) {
 	defer s.Close()
 
 	//
-	// 1) Upload the preprocessing template.
+	// Setup
 	//
 
-	req, err := makeMultipartRequest(
-		t,
-		"testdata/preprocessing_template.json",
-		multipartImage{name: "page0anchor0", filename: "testdata/anchors/anchor.jpeg"},
-		multipartImage{name: "page0anchor1", filename: "testdata/anchors/anchor.jpeg"},
-		multipartImage{name: "page0anchor2", filename: "testdata/anchors/anchor.jpeg"},
-		multipartImage{name: "page1anchor0", filename: "testdata/anchors/anchor.jpeg"},
-		multipartImage{name: "page1anchor1", filename: "testdata/anchors/anchor.jpeg"},
-		multipartImage{name: "page1anchor2", filename: "testdata/anchors/anchor.jpeg"},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	PostPreprocessingTemplate(s).ServeHTTP(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("failed to upload preprocessing template")
-	}
-
-	v := make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	preprocessingTemplateId, ok := v["templateId"]
-	if !ok {
-		t.Fatalf("templateId wasn't found in response body")
-	}
+	pTmplId := postNewPreprocessingTemplate(t, s)
+	scanId := postNewScan(t, s, pTmplId)
 
 	//
-	// 2) Upload the scan of the exam (two pages).
-	//
-
-	req, err = makeMultipartRequest(
-		t,
-		"",
-		multipartImage{name: "page0", filename: "testdata/pages/exam0page0.jpeg"},
-		multipartImage{name: "page1", filename: "testdata/pages/exam0page1.jpeg"},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.URL.RawQuery += "template=" + preprocessingTemplateId
-
-	rr = httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
-	}
-
-	v = make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	scanId, ok := v["scanId"]
-	if !ok {
-		t.Fatalf("scanId wasn't found in response body")
-	}
-
-	//
-	// 3) Get the page images.
+	// Get the page images.
 	//
 
 	badQueries400 := []string{
@@ -90,12 +33,12 @@ func TestGetImage(t *testing.T) {
 		"scan=" + scanId + "&page=notanumber",
 	}
 	for _, query := range badQueries400 {
-		req, err = http.NewRequest(http.MethodGet, "/", nil)
+		req, err := http.NewRequest(http.MethodGet, "/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		req.URL.RawQuery = query
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		GetImage(s).ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusBadRequest {
@@ -111,12 +54,12 @@ func TestGetImage(t *testing.T) {
 		"scan=" + scanId + "&page=99",
 	}
 	for _, query := range badQueries404 {
-		req, err = http.NewRequest(http.MethodGet, "/", nil)
+		req, err := http.NewRequest(http.MethodGet, "/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		req.URL.RawQuery = query
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		GetImage(s).ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusNotFound {
@@ -128,12 +71,12 @@ func TestGetImage(t *testing.T) {
 	}
 
 	for pageIdx := range 2 {
-		req, err = http.NewRequest(http.MethodGet, "/", nil)
+		req, err := http.NewRequest(http.MethodGet, "/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		req.URL.RawQuery = fmt.Sprintf("scan=%s&page=%d", scanId, pageIdx)
-		rr = httptest.NewRecorder()
+		rr := httptest.NewRecorder()
 		GetImage(s).ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {

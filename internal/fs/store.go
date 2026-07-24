@@ -7,6 +7,7 @@ package fs
 import (
 	"errors"
 	"image"
+	"io"
 
 	"gocv.io/x/gocv"
 )
@@ -30,6 +31,8 @@ type ImageStore interface {
 	SetBytes(key string, buf []byte) error
 	// Deletes an image from the store.
 	Delete(key string) error
+	// Opens an existing image for reading.
+	Open(key string) (io.ReadCloser, error)
 }
 
 // Represents an OpenCV matrix store, implementing a map-like interface to
