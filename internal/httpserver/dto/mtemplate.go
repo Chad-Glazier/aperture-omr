@@ -18,7 +18,7 @@ func ParseMarkingTemplate(jsonBuf []byte) (*MarkingTemplate, error) {
 	if err := json.Unmarshal(jsonBuf, v); err != nil {
 		return nil, err
 	}
-	if err := v.Validate(); err != nil {
+	if err := v.validate(); err != nil {
 		return nil, err
 	}
 	return v, nil
@@ -58,8 +58,8 @@ type QuestionOption struct {
 // Validators.
 //
 
-func (t *MarkingTemplate) Validate() error {
-	if err := t.Config.Validate(); err != nil {
+func (t *MarkingTemplate) validate() error {
+	if err := t.Config.validate(); err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
 
@@ -70,7 +70,7 @@ func (t *MarkingTemplate) Validate() error {
 	questionIDs := make(map[string]struct{})
 
 	for i, page := range t.Pages {
-		if err := page.Validate(questionIDs); err != nil {
+		if err := page.validate(questionIDs); err != nil {
 			return fmt.Errorf("pages[%d]: %w", i, err)
 		}
 	}
@@ -78,7 +78,7 @@ func (t *MarkingTemplate) Validate() error {
 	return nil
 }
 
-func (c *MarkingConfig) Validate() error {
+func (c *MarkingConfig) validate() error {
 	if c.FillThreshold < 0 || c.FillThreshold > 1 {
 		return fmt.Errorf("fillThreshold must be between 0 and 1")
 	}
@@ -98,7 +98,7 @@ func (c *MarkingConfig) Validate() error {
 	return nil
 }
 
-func (p *MarkingPage) Validate(ids map[string]struct{}) error {
+func (p *MarkingPage) validate(ids map[string]struct{}) error {
 	if len(p.Questions) == 0 {
 		return fmt.Errorf("questions must contain at least one question")
 	}
@@ -110,7 +110,7 @@ func (p *MarkingPage) Validate(ids map[string]struct{}) error {
 
 		ids[q.ID] = struct{}{}
 
-		if err := q.Validate(); err != nil {
+		if err := q.validate(); err != nil {
 			return fmt.Errorf("questions[%d]: %w", i, err)
 		}
 	}
@@ -118,7 +118,7 @@ func (p *MarkingPage) Validate(ids map[string]struct{}) error {
 	return nil
 }
 
-func (q *Question) Validate() error {
+func (q *Question) validate() error {
 
 	switch {
 	case q.BubbleWidth <= 0:
@@ -143,7 +143,7 @@ func (q *Question) Validate() error {
 
 		labels[option.Label] = struct{}{}
 
-		if err := option.Validate(); err != nil {
+		if err := option.validate(); err != nil {
 			return fmt.Errorf("options[%d]: %w", i, err)
 		}
 	}
@@ -151,7 +151,7 @@ func (q *Question) Validate() error {
 	return nil
 }
 
-func (o *QuestionOption) Validate() error {
+func (o *QuestionOption) validate() error {
 	if strings.TrimSpace(o.Label) == "" {
 		return fmt.Errorf("label cannot be empty")
 	}

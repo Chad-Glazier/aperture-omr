@@ -16,7 +16,7 @@ func ParseMarkingJobRequest(jsonBuf []byte) (*MarkingJobRequest, error) {
 	if err := json.Unmarshal(jsonBuf, v); err != nil {
 		return nil, err
 	}
-	if err := v.Validate(); err != nil {
+	if err := v.validate(); err != nil {
 		return nil, err
 	}
 	return v, nil
@@ -27,7 +27,7 @@ type MarkingJobRequest struct {
 	ScanIds    []string `json:"scans"`
 }
 
-func (m *MarkingJobRequest) Validate() error {
+func (m *MarkingJobRequest) validate() error {
 
 	switch {
 	case m.TemplateId == "":

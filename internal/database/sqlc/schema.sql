@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS anchors (
 CREATE TABLE IF NOT EXISTS scans (
     id TEXT PRIMARY KEY,
     preprocessing_template_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
     FOREIGN KEY(preprocessing_template_id) REFERENCES preprocessing_templates(id)
 );
 

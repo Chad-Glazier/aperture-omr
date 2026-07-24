@@ -458,6 +458,7 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /scan:
     delete:
       summary: |
         Remove Scans

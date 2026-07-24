@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
 
@@ -299,5 +300,117 @@ func TestPostMarkingTemplate_OK(t *testing.T) {
 	if _, err := s.LoadMarkingTemplate(templateId); err != nil {
 		t.Log(err)
 		t.Fatal("Preprocessing template not found in database")
+	}
+}
+
+func TestDeletePreprocessingTemplate(t *testing.T) {
+
+	s, err := NewLocalResources(t.TempDir())
+	if err != nil {
+		t.Fatal("error initializing server resources: " + err.Error())
+	}
+	defer s.Close()
+
+	templateID := postNewPreprocessingTemplate(t, s)
+
+	tests := []struct {
+		name       string
+		templateID string
+		wantStatus int
+	}{
+		{
+			name:       "missing id",
+			templateID: "",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "template not found",
+			templateID: "do you belieeeeve in life after looove",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "normal path",
+			templateID: templateID,
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(
+				http.MethodDelete,
+				"/template/preprocess?id="+url.QueryEscape(tt.templateID),
+				nil,
+			)
+
+			rr := httptest.NewRecorder()
+			DeletePreprocessingTemplate(s).ServeHTTP(rr, req)
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+			}
+
+			if tt.name == "normal path" {
+				if _, err := s.LoadPreprocessingTemplate(templateID); err == nil {
+					t.Fatal("template still exists after deletion")
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteMarkingTemplate(t *testing.T) {
+
+	s, err := NewLocalResources(t.TempDir())
+	if err != nil {
+		t.Fatal("error initializing server resources: " + err.Error())
+	}
+	defer s.Close()
+
+	templateID := postNewMarkingTemplate(t, s)
+
+	tests := []struct {
+		name       string
+		templateID string
+		wantStatus int
+	}{
+		{
+			name:       "missing id",
+			templateID: "",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "template not found",
+			templateID: "i can feel something inside me say, 'I really don't think it's strong enough noo'",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "normal path",
+			templateID: templateID,
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(
+				http.MethodDelete,
+				"/template/mark?id="+url.QueryEscape(tt.templateID),
+				nil,
+			)
+
+			rr := httptest.NewRecorder()
+			DeleteMarkingTemplate(s).ServeHTTP(rr, req)
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+			}
+
+			if tt.name == "normal path" {
+				if _, err := s.LoadMarkingTemplate(templateID); err == nil {
+					t.Fatal("template still exists after deletion")
+				}
+			}
+		})
 	}
 }

@@ -52,6 +52,26 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 	}
 }
 
+func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(
+				w,
+				"id query parameter is missing",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		s.DeleteMarkingTemplate(id)
+
+		w.WriteHeader(http.StatusOK)
+
+	}
+}
+
 //
 // Preprocessing templates
 //
@@ -155,5 +175,25 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 		dto.SendJson(w, map[string]string{
 			"templateId": templateId,
 		})
+	}
+}
+
+func DeletePreprocessingTemplate(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(
+				w,
+				"id query parameter is missing",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		s.DeletePreprocessingTemplate(id)
+
+		w.WriteHeader(http.StatusOK)
+
 	}
 }
