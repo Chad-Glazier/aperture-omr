@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"ubco-team15/omr/internal/marker"
 )
 
 // Parses and validates a marking template from JSON text.
@@ -17,7 +18,7 @@ func ParseMarkingTemplate(jsonBuf []byte) (*MarkingTemplate, error) {
 	if err := json.Unmarshal(jsonBuf, v); err != nil {
 		return nil, err
 	}
-	if err := v.Validate(); err != nil {
+	if err := v.validate(); err != nil {
 		return nil, err
 	}
 	return v, nil
@@ -28,8 +29,37 @@ type MarkingTemplate struct {
 	Pages  []MarkingPage `json:"pages"`
 }
 
-func (t *MarkingTemplate) Validate() error {
-	if err := t.Config.Validate(); err != nil {
+type MarkingConfig struct {
+	FillThreshold float64 `json:"fillThreshold"`
+	BubbleInset   float64 `json:"bubbleInset"`
+	FlagThreshold float64 `json:"flagThreshold"`
+	SearchRadius  int     `json:"searchRadius"`
+}
+
+type MarkingPage struct {
+	Questions []Question `json:"questions"`
+}
+
+type Question struct {
+	ID           string           `json:"id"`
+	BubbleWidth  int              `json:"bubbleWidth"`
+	BubbleHeight int              `json:"bubbleHeight"`
+	Type         string           `json:"type,omitempty"`
+	Options      []QuestionOption `json:"options"`
+}
+
+type QuestionOption struct {
+	Label string `json:"label"`
+	X     int    `json:"x"`
+	Y     int    `json:"y"`
+}
+
+//
+// Validators.
+//
+
+func (t *MarkingTemplate) validate() error {
+	if err := t.Config.validate(); err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
 
@@ -40,7 +70,7 @@ func (t *MarkingTemplate) Validate() error {
 	questionIDs := make(map[string]struct{})
 
 	for i, page := range t.Pages {
-		if err := page.Validate(questionIDs); err != nil {
+		if err := page.validate(questionIDs); err != nil {
 			return fmt.Errorf("pages[%d]: %w", i, err)
 		}
 	}
@@ -48,14 +78,7 @@ func (t *MarkingTemplate) Validate() error {
 	return nil
 }
 
-type MarkingConfig struct {
-	FillThreshold float64 `json:"fillThreshold"`
-	BubbleInset   float64 `json:"bubbleInset"`
-	FlagThreshold float64 `json:"flagThreshold"`
-	SearchRadius  int     `json:"searchRadius"`
-}
-
-func (c *MarkingConfig) Validate() error {
+func (c *MarkingConfig) validate() error {
 	if c.FillThreshold < 0 || c.FillThreshold > 1 {
 		return fmt.Errorf("fillThreshold must be between 0 and 1")
 	}
@@ -75,11 +98,7 @@ func (c *MarkingConfig) Validate() error {
 	return nil
 }
 
-type MarkingPage struct {
-	Questions []Question `json:"questions"`
-}
-
-func (p *MarkingPage) Validate(ids map[string]struct{}) error {
+func (p *MarkingPage) validate(ids map[string]struct{}) error {
 	if len(p.Questions) == 0 {
 		return fmt.Errorf("questions must contain at least one question")
 	}
@@ -91,7 +110,7 @@ func (p *MarkingPage) Validate(ids map[string]struct{}) error {
 
 		ids[q.ID] = struct{}{}
 
-		if err := q.Validate(); err != nil {
+		if err := q.validate(); err != nil {
 			return fmt.Errorf("questions[%d]: %w", i, err)
 		}
 	}
@@ -99,15 +118,7 @@ func (p *MarkingPage) Validate(ids map[string]struct{}) error {
 	return nil
 }
 
-type Question struct {
-	ID           string           `json:"id"`
-	BubbleWidth  int              `json:"bubbleWidth"`
-	BubbleHeight int              `json:"bubbleHeight"`
-	Type         string           `json:"type,omitempty"`
-	Options      []QuestionOption `json:"options"`
-}
-
-func (q *Question) Validate() error {
+func (q *Question) validate() error {
 
 	switch {
 	case q.BubbleWidth <= 0:
@@ -132,7 +143,7 @@ func (q *Question) Validate() error {
 
 		labels[option.Label] = struct{}{}
 
-		if err := option.Validate(); err != nil {
+		if err := option.validate(); err != nil {
 			return fmt.Errorf("options[%d]: %w", i, err)
 		}
 	}
@@ -140,13 +151,7 @@ func (q *Question) Validate() error {
 	return nil
 }
 
-type QuestionOption struct {
-	Label string `json:"label"`
-	X     int    `json:"x"`
-	Y     int    `json:"y"`
-}
-
-func (o *QuestionOption) Validate() error {
+func (o *QuestionOption) validate() error {
 	if strings.TrimSpace(o.Label) == "" {
 		return fmt.Errorf("label cannot be empty")
 	}
@@ -160,4 +165,51 @@ func (o *QuestionOption) Validate() error {
 	}
 
 	return nil
+}
+
+//
+// Adaptors.
+//
+
+// Converts a MarkingTemplate into a marker template (i.e., one that the marker
+// package can use).
+func AdaptMarkerTemplate(tmpl *MarkingTemplate) *marker.Template {
+
+	template := marker.Template{
+		Config: marker.Config{
+			FillThreshold: &tmpl.Config.FillThreshold,
+			BubbleInset:   &tmpl.Config.BubbleInset,
+			FlagThreshold: &tmpl.Config.FlagThreshold,
+			SearchRadius:  &tmpl.Config.SearchRadius,
+		},
+		Pages: make([]marker.Page, len(tmpl.Pages)),
+	}
+
+	for i, p := range tmpl.Pages {
+
+		template.Pages[i].Questions = make(
+			[]marker.Question,
+			len(p.Questions),
+		)
+		for j, q := range p.Questions {
+
+			template.Pages[i].Questions[j].ID = q.ID
+			template.Pages[i].Questions[j].Type = q.Type
+			template.Pages[i].Questions[j].BubbleWidth = q.BubbleWidth
+			template.Pages[i].Questions[j].BubbleHeight = q.BubbleHeight
+			template.Pages[i].Questions[j].Options = make(
+				[]marker.Bubble, len(q.Options),
+			)
+
+			for k, o := range q.Options {
+				template.Pages[i].Questions[j].Options[k].Label = o.Label
+				template.Pages[i].Questions[j].Options[k].X = o.X
+				template.Pages[i].Questions[j].Options[k].Y = o.Y
+			}
+
+		}
+	}
+
+	return &template
+
 }

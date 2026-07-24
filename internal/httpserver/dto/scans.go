@@ -1,5 +1,7 @@
 package dto
 
+import "encoding/json"
+
 //
 // Scan Results (Outgoing)
 //
@@ -42,4 +44,18 @@ func NewScanResult(scanIds []string, errors []*ScanError) ScanResult {
 		Errors:  errs,
 	}
 
+}
+
+//
+// Scan Deletion Request (incoming)
+//
+
+type ScanDeleteRequest []string
+
+func ParseScanDeleteRequest(jsonBuf []byte) (*ScanDeleteRequest, error) {
+	v := &ScanDeleteRequest{}
+	if err := json.Unmarshal(jsonBuf, v); err != nil {
+		return nil, err
+	}
+	return v, nil
 }

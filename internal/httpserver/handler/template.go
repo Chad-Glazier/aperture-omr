@@ -2,8 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"image"
-	"image/jpeg"
 	"io"
 	"net/http"
 
@@ -14,16 +12,6 @@ import (
 )
 
 const maxUploadSize = 32 * 1024 * 1024 // 32 MB
-
-func decodeImg(r io.Reader) (image.Image, error) {
-	return jpeg.Decode(r)
-}
-
-func encodeImg(w io.Writer, img image.Image) error {
-	return jpeg.Encode(w, img, &jpeg.Options{Quality: 90})
-}
-
-const imgType = "image/jpeg"
 
 //
 // Marking templates
@@ -61,6 +49,26 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 		dto.SendJson(w, map[string]string{
 			"templateId": id,
 		})
+	}
+}
+
+func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(
+				w,
+				"id query parameter is missing",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		s.DeleteMarkingTemplate(id)
+
+		w.WriteHeader(http.StatusOK)
+
 	}
 }
 
@@ -167,5 +175,25 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 		dto.SendJson(w, map[string]string{
 			"templateId": templateId,
 		})
+	}
+}
+
+func DeletePreprocessingTemplate(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(
+				w,
+				"id query parameter is missing",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		s.DeletePreprocessingTemplate(id)
+
+		w.WriteHeader(http.StatusOK)
+
 	}
 }

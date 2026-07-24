@@ -24,6 +24,7 @@ type PreprocessingTemplate struct {
 type Scan struct {
 	ID                      string
 	PreprocessingTemplateID string
+	CreatedAt               int64
 }
 
 type ScanPage struct {

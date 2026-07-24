@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -52,127 +53,209 @@ func TestPostScan(t *testing.T) {
 	// and then the normal path.
 	//
 
+	tests := []struct {
+		name       string
+		templateID string
+		pages      []multipartImage
+		wantStatus int
+		wantError  dto.ErrReason
+	}{
+		{
+			name:       "no pages",
+			templateID: templateId,
+			wantStatus: http.StatusBadRequest,
+			wantError:  dto.ErrPageCountMismatch,
+		},
+		{
+			name:       "wrong number of pages",
+			templateID: templateId,
+			pages: []multipartImage{
+				{
+					name:     "page0",
+					filename: "testdata/pages/exam0page0.jpeg",
+				},
+			},
+			wantStatus: http.StatusBadRequest,
+			wantError:  dto.ErrPageCountMismatch,
+		},
+		{
+			name:       "unrecognized template",
+			templateID: "chickenturtleduck",
+			pages: []multipartImage{
+				{
+					name:     "page0",
+					filename: "testdata/pages/exam0page0.jpeg",
+				},
+				{
+					name:     "page1",
+					filename: "testdata/pages/exam0page1.jpeg",
+				},
+			},
+			wantStatus: http.StatusNotFound,
+			wantError:  dto.ErrTemplateNotFound,
+		},
+		{
+			name:       "normal path",
+			templateID: templateId,
+			pages: []multipartImage{
+				{
+					name:     "page0",
+					filename: "testdata/pages/exam0page0.jpeg",
+				},
+				{
+					name:     "page1",
+					filename: "testdata/pages/exam0page1.jpeg",
+				},
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := makeMultipartRequest(t, "", tt.pages...)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req.URL.RawQuery = "template=" + tt.templateID
+
+			rr := httptest.NewRecorder()
+			PostScan(s).ServeHTTP(rr, req)
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+			}
+
+			if tt.wantError != "" {
+				assertError(t, rr, tt.wantError)
+				return
+			}
+
+			var v struct {
+				ScanID string `json:"scanId"`
+			}
+
+			if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
+				t.Fatalf("failed to parse JSON response: %s", err)
+			}
+
+			if v.ScanID == "" {
+				t.Fatal("scanId wasn't found in response body")
+			}
+
+			pages, err := s.LoadScan(v.ScanID)
+			if err != nil {
+				t.Fatalf("scan wasn't saved: %s", err)
+			}
+			defer func() {
+				for _, page := range pages {
+					page.Close()
+				}
+			}()
+
+			if len(pages) != 2 {
+				t.Fatalf("got %d pages, want 2", len(pages))
+			}
+		})
+	}
+}
+
+func TestDeleteScan(t *testing.T) {
+
+	s, err := NewLocalResources(t.TempDir())
+	if err != nil {
+		t.Fatal("error initializing server resources: " + err.Error())
+	}
+	defer s.Close()
+
 	//
-	// 400: No pages.
+	// Uploading scans requires that we first have a preprocessing template.
 	//
 
-	req, err := makeMultipartRequest(
-		t,
-		"",
-	)
-	if err != nil {
-		t.Fatal(err)
+	pTemplId := postNewPreprocessingTemplate(t, s)
+
+	//
+	// Upload a few scans.
+	//
+
+	keepID := postNewScan(t, s, pTemplId)
+	deleteID1 := postNewScan(t, s, pTemplId)
+	deleteID2 := postNewScan(t, s, pTemplId)
+
+	//
+	// Verify they exist before deletion.
+	//
+
+	for _, id := range []string{keepID, deleteID1, deleteID2} {
+		pages, err := s.LoadScan(id)
+		if err != nil {
+			t.Fatalf("scan %s was not created: %s", id, err)
+		}
+
+		for _, page := range pages {
+			page.Close()
+		}
+
+		if _, err := s.LoadScanPicture(id, 0); err != nil {
+			t.Fatalf("scan picture %s was not created: %s", id, err)
+		}
 	}
-	req.URL.RawQuery += "template=" + templateId
+
+	//
+	// Delete two scans.
+	//
+
+	body := dto.ScanDeleteRequest{deleteID1, deleteID2}
+	jsonBuf, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("failed to serialize request body: %s", err.Error())
+	}
+	req := httptest.NewRequest(
+		http.MethodDelete,
+		"/scans",
+		bytes.NewReader(jsonBuf),
+	)
 
 	rr := httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	assertError(t, rr, dto.ErrPageCountMismatch)
-
-	//
-	// 400: Wrong number of pages.
-	//
-
-	req, err = makeMultipartRequest(
-		t,
-		"",
-		multipartImage{
-			name:     "page0",
-			filename: "testdata/pages/exam0page0.jpeg",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.URL.RawQuery += "template=" + templateId
-
-	rr = httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	assertError(t, rr, dto.ErrPageCountMismatch)
-
-	//
-	// 404: Unrecognized template.
-	//
-
-	req, err = makeMultipartRequest(
-		t,
-		"",
-		multipartImage{
-			name:     "page0",
-			filename: "testdata/pages/exam0page0.jpeg",
-		},
-		multipartImage{
-			name:     "page1",
-			filename: "testdata/pages/exam0page1.jpeg",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.URL.RawQuery += "template=" + "chickenturtleduck"
-
-	rr = httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	assertError(t, rr, dto.ErrTemplateNotFound)
-
-	//
-	// 200: Normal path.
-	//
-
-	req, err = makeMultipartRequest(
-		t,
-		"",
-		multipartImage{
-			name:     "page0",
-			filename: "testdata/pages/exam0page0.jpeg",
-		},
-		multipartImage{
-			name:     "page1",
-			filename: "testdata/pages/exam0page1.jpeg",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.URL.RawQuery += "template=" + templateId
-
-	rr = httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
+	DeleteScans(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+		t.Fatalf("delete failed: status=%d body=%s", rr.Code, rr.Body.String())
 	}
 
-	v := make(map[string]string)
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("failed to parse JSON response: %s", err.Error())
-	}
-	scanId, ok := v["scanId"]
-	if !ok {
-		t.Fatalf("scanId wasn't found in response body")
+	//
+	// Deleted scans should no longer exist.
+	//
+
+	for _, id := range []string{deleteID1, deleteID2} {
+		pages, err := s.LoadScan(id)
+		if err == nil {
+			for _, page := range pages {
+				page.Close()
+			}
+			t.Fatalf("deleted scan %s still exists", id)
+		}
+
+		if _, err := s.LoadScanPicture(id, 0); err == nil {
+			t.Fatalf("deleted scan picture %s still exists", id)
+		}
 	}
 
-	pages, err := s.LoadScan(scanId)
+	//
+	// Non-deleted scan should still exist.
+	//
+
+	pages, err := s.LoadScan(keepID)
 	if err != nil {
-		t.Fatalf("scan wasn't saved: %s", err.Error())
-	}
-	for i := range pages {
-		pages[i].Close()
+		t.Fatalf("undeleted scan disappeared: %s", err)
 	}
 
-	if len(pages) != 2 {
-		t.Fatal("scan pages failed to load")
+	for _, page := range pages {
+		page.Close()
+	}
+
+	if _, err := s.LoadScanPicture(keepID, 0); err != nil {
+		t.Fatalf("undeleted scan picture disappeared: %s", err)
 	}
 }

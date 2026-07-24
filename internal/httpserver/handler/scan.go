@@ -39,10 +39,6 @@ func PostScan(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		//
-		// Load the template's anchors.
-		//
-
 		anchors, err := s.LoadAnchors(templateId)
 		if err != nil {
 			dto.SendError(
@@ -149,5 +145,50 @@ func PostScan(s ServerResources) http.HandlerFunc {
 		dto.SendJson(w, map[string]string{
 			"scanId": id,
 		})
+	}
+}
+
+func DeleteScans(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		//
+		// Validate the request
+		//
+
+		defer r.Body.Close()
+
+		jsonBuf, err := io.ReadAll(r.Body)
+		if err != nil {
+			dto.SendError(
+				w,
+				http.StatusBadRequest,
+				dto.ErrInvalidRequest,
+				"error reading body: "+err.Error(),
+			)
+			return
+		}
+
+		scanIds, err := dto.ParseScanDeleteRequest(jsonBuf)
+		if err != nil {
+			dto.SendError(
+				w,
+				http.StatusBadRequest,
+				dto.ErrInvalidRequest,
+				"error parsing body: "+err.Error(),
+			)
+			return
+		}
+
+		//
+		// Delete the scans and send back 200, whether or not the scans are
+		// actually present.
+		//
+
+		for _, scanId := range *scanIds {
+			s.DeleteScan(scanId)
+		}
+
+		w.WriteHeader(http.StatusOK)
+
 	}
 }

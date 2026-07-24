@@ -39,7 +39,7 @@ func ParsePreprocessingTemplate(
 	if err := json.Unmarshal(jsonBuf, v); err != nil {
 		return nil, err
 	}
-	if err := v.Validate(); err != nil {
+	if err := v.validate(); err != nil {
 		return nil, err
 	}
 	return v, nil
@@ -75,7 +75,7 @@ type PreprocessingTemplate struct {
 	} `json:"pages"`
 }
 
-func (p *PreprocessingTemplate) Validate() error {
+func (p *PreprocessingTemplate) validate() error {
 	switch {
 	case p.Width <= 0:
 		return fmt.Errorf("width must be positive")

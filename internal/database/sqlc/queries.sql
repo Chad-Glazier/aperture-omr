@@ -12,6 +12,12 @@ FROM
 WHERE
     id = ?;
 
+-- name: DeleteMarkingTemplate :execrows
+DELETE FROM
+    marking_templates
+WHERE
+    id = ?;
+
 -- name: CreatePreprocessingTemplate :exec
 INSERT INTO
     preprocessing_templates (id, json)
@@ -22,6 +28,12 @@ VALUES
 SELECT
     *
 FROM
+    preprocessing_templates
+WHERE
+    id = ?;
+
+-- name: DeletePreprocessingTemplate :execrows
+DELETE FROM
     preprocessing_templates
 WHERE
     id = ?;
@@ -64,6 +76,12 @@ WHERE
     AND page_index = ?
     AND anchor_index = ?;
 
+-- name: DeleteAnchorsForTemplate :execrows
+DELETE FROM
+    anchors
+WHERE
+    template_id = ?;
+
 -- name: CreateScan :exec
 INSERT INTO
     scans (id, preprocessing_template_id)
@@ -82,15 +100,11 @@ SELECT
 FROM
     scans;
 
--- name: GetScanPages :many
-SELECT 
-    *
-FROM
-    scan_pages
+-- name: DeleteScan :execrows
+DELETE FROM
+    scans
 WHERE
-    scan_id = ?
-ORDER BY
-    page_index ASC;
+    id = ?;
 
 -- name: GetScanPage :one
 SELECT 
@@ -101,3 +115,19 @@ WHERE
     scan_id = ? AND
     page_index = ?
 LIMIT 1;
+
+-- name: GetPagesForScan :many
+SELECT 
+    *
+FROM
+    scan_pages
+WHERE
+    scan_id = ?
+ORDER BY
+    page_index ASC;
+
+-- name: DeletePagesForScan :execrows
+DELETE FROM
+    scan_pages
+WHERE
+    scan_id = ?;

@@ -16,12 +16,17 @@ type Querier interface {
 	CreatePreprocessingTemplate(ctx context.Context, arg CreatePreprocessingTemplateParams) error
 	CreateScan(ctx context.Context, arg CreateScanParams) error
 	CreateScanPage(ctx context.Context, arg CreateScanPageParams) error
+	DeleteAnchorsForTemplate(ctx context.Context, templateID string) (int64, error)
+	DeleteMarkingTemplate(ctx context.Context, id string) (int64, error)
+	DeletePagesForScan(ctx context.Context, scanID string) (int64, error)
+	DeletePreprocessingTemplate(ctx context.Context, id string) (int64, error)
+	DeleteScan(ctx context.Context, id string) (int64, error)
 	GetAnchorsForTemplate(ctx context.Context, templateID string) ([]Anchor, error)
 	GetMarkingTemplate(ctx context.Context, id string) (MarkingTemplate, error)
 	GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorForTemplateParams) (Anchor, error)
+	GetPagesForScan(ctx context.Context, scanID string) ([]ScanPage, error)
 	GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error)
 	GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanPage, error)
-	GetScanPages(ctx context.Context, scanID string) ([]ScanPage, error)
 }
 
 var _ Querier = (*Queries)(nil)

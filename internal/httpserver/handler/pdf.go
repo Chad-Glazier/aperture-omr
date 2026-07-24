@@ -26,6 +26,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		// Read and validate the body
 		//
 
+		defer debug.FreeOSMemory()
 		defer r.Body.Close()
 
 		r.Body = http.MaxBytesReader(w, r.Body, maxPdfSize)
@@ -137,7 +138,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		}
 
 		//
-		// Do the rendering.
+		// Start the PDF rendering.
 		//
 
 		pagesPerExam := len(pTempl.Pages)
@@ -148,25 +149,26 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			pagesPerExam,
 			min(runtime.GOMAXPROCS(0), 8),
 		)
-		if err != nil {
-			if err == pdf.ErrMalformedPdf {
-				dto.SendError(
-					w,
-					http.StatusBadRequest,
-					dto.ErrMalformedPdf,
-					err.Error(),
-				)
-				return
-			}
-			if err == pdf.ErrPageCountMismatch {
-				dto.SendError(
-					w,
-					http.StatusBadRequest,
-					dto.ErrPageCountMismatch,
-					err.Error(),
-				)
-				return
-			}
+		switch err {
+		case nil:
+			break
+		case pdf.ErrMalformedPdf:
+			dto.SendError(
+				w,
+				http.StatusBadRequest,
+				dto.ErrMalformedPdf,
+				err.Error(),
+			)
+			return
+		case pdf.ErrPageCountMismatch:
+			dto.SendError(
+				w,
+				http.StatusBadRequest,
+				dto.ErrPageCountMismatch,
+				err.Error(),
+			)
+			return
+		default:
 			dto.SendError(
 				w,
 				http.StatusInternalServerError,
@@ -175,9 +177,13 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
+
+		// Clean up the incoming file resources. These calls have already been
+		// deferred, but that won't lead to any panics (the standard library
+		// generally keeps close operations idempotent).
 		r.MultipartForm.RemoveAll()
-		pdfFile.Close() // We've also deferred these Close calls, but these
-		r.Body.Close()  // types ignore redundant closes.
+		pdfFile.Close()
+		r.Body.Close()
 
 		//
 		// Process the exam scans as they're rendered.
@@ -240,8 +246,6 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		//
 		// Tidy up and send the response.
 		//
-
-		debug.FreeOSMemory()
 
 		results := dto.NewScanResult(scanIds, errorMsgs)
 
