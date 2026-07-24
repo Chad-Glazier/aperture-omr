@@ -18,15 +18,6 @@ const logFilePath = "debug.log"
 var logFileMu sync.Mutex
 var logFile io.WriteCloser
 
-func init() {
-	f, err := os.Create(logFilePath)
-	if err != nil {
-		panic("failed to create debug.log file")
-	}
-
-	logFile = f
-}
-
 // Makes it so that handlers will gracefully recover from panics and send back
 // an error message.
 func Recovery(next http.Handler) http.Handler {
@@ -42,6 +33,14 @@ func Recovery(next http.Handler) http.Handler {
 
 				logFileMu.Lock()
 				defer logFileMu.Unlock()
+
+				if logFile == nil {
+					f, err := os.Create(logFilePath)
+					if err != nil {
+						panic("failed to create debug.log file")
+					}
+					logFile = f
+				}
 
 				const maxStackTraceLen = 4 << 20 // 4 KB
 				buf := make([]byte, maxStackTraceLen)
