@@ -256,6 +256,23 @@ func (q *Queries) GetAnchorsForTemplate(ctx context.Context, templateID string) 
 	return items, nil
 }
 
+const getCachedSystemInfo = `-- name: GetCachedSystemInfo :one
+SELECT 
+    entry_id, pdf_render_baseline, pdf_render_increment
+FROM
+    cached_system_info
+ORDER BY
+    entry_id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetCachedSystemInfo(ctx context.Context) (CachedSystemInfo, error) {
+	row := q.db.QueryRowContext(ctx, getCachedSystemInfo)
+	var i CachedSystemInfo
+	err := row.Scan(&i.EntryID, &i.PdfRenderBaseline, &i.PdfRenderIncrement)
+	return i, err
+}
+
 const getMarkingTemplate = `-- name: GetMarkingTemplate :one
 SELECT
     id, json
@@ -382,4 +399,21 @@ func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanP
 		&i.ScanID,
 	)
 	return i, err
+}
+
+const setCachedSystemInfo = `-- name: SetCachedSystemInfo :exec
+INSERT INTO
+    cached_system_info (pdf_render_baseline, pdf_render_increment)
+VALUES
+    (?, ?)
+`
+
+type SetCachedSystemInfoParams struct {
+	PdfRenderBaseline  int64
+	PdfRenderIncrement int64
+}
+
+func (q *Queries) SetCachedSystemInfo(ctx context.Context, arg SetCachedSystemInfoParams) error {
+	_, err := q.db.ExecContext(ctx, setCachedSystemInfo, arg.PdfRenderBaseline, arg.PdfRenderIncrement)
+	return err
 }

@@ -11,6 +11,12 @@ type Anchor struct {
 	AnchorIndex int64
 }
 
+type CachedSystemInfo struct {
+	EntryID            int64
+	PdfRenderBaseline  int64
+	PdfRenderIncrement int64
+}
+
 type MarkingTemplate struct {
 	ID   string
 	Json []byte

@@ -131,3 +131,18 @@ DELETE FROM
     scan_pages
 WHERE
     scan_id = ?;
+
+-- name: GetCachedSystemInfo :one
+SELECT 
+    *
+FROM
+    cached_system_info
+ORDER BY
+    entry_id DESC
+LIMIT 1;
+
+-- name: SetCachedSystemInfo :exec
+INSERT INTO
+    cached_system_info (pdf_render_baseline, pdf_render_increment)
+VALUES
+    (?, ?);

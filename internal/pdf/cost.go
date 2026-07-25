@@ -2,12 +2,16 @@ package pdf
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
 	"runtime/debug"
 	"time"
+	"ubco-team15/omr/internal/database"
+	"ubco-team15/omr/internal/database/sqlc"
 
 	"github.com/shirou/gopsutil/v4/process"
 )
@@ -24,18 +28,47 @@ func getRss() uint64 {
 }
 
 var (
-	baseline  uint64
-	increment uint64
+	baseline  uint64 = 320 << 20 // 320 MB
+	increment uint64 = 160 << 20 // 160 MB
 )
 
-func init() {
-	slog.Info("sampling pdf render cost...")
+// Initializes the package by sampling PDF render operations to get an estimate
+// of the memory cost. If the given database has cached results from such 
+// sampling, then those values will be used instead.
+//
+// It's important that this function be run while no other major operations are
+// in progress. Such operations would pollute the memory profiling and thereby 
+// lead to poor estimations.
+//
+// If this function is never run, then the very generous default estimates will
+// be used to predict rendering costs.
+func Init(db database.Querier) {
+
+	slog.Info("loading cached pdf render cost...")
+	info, err := db.GetCachedSystemInfo(context.Background())
+	if err == nil {
+		baseline = uint64(info.PdfRenderBaseline)
+		increment = uint64(info.PdfRenderIncrement)
+		slog.Info(
+			"cache loaded", 
+			"baseline", fmt.Sprintf("%dMB", baseline/1024/1024),
+			"increment", fmt.Sprintf("%dMB", increment/1024/1024),		
+		)
+		return
+	}
+	slog.Info("cache empty; sampling pdf render cost...")
 	baseline, increment = sampleMemCostVars()
 	slog.Info(
 		"sampling complete",
 		"baseline", fmt.Sprintf("%dMB", baseline/1024/1024),
 		"increment", fmt.Sprintf("%dMB", increment/1024/1024),
 	)
+	slog.Info("caching results")
+	db.SetCachedSystemInfo(context.Background(), sqlc.SetCachedSystemInfoParams{
+		PdfRenderBaseline: int64(baseline),
+		PdfRenderIncrement: int64(increment),
+	})
+
 }
 
 //go:embed testdata/samples/*
@@ -62,7 +95,7 @@ func sampleMemCostVars() (uint64, uint64) {
 				bytes.NewReader(buf),
 				MaxDpi,
 				i+1,
-				1,
+				0,
 			)
 			if err != nil {
 				panic(err)
@@ -94,7 +127,7 @@ func sampleMemCostVars() (uint64, uint64) {
 
 	//
 	// We use the max values because it's just better to overestimate memory
-	// costs than it is to overestimate them.
+	// costs than it is to underestimate them.
 	//
 
 	var (
@@ -125,10 +158,28 @@ func sampleMemCostVars() (uint64, uint64) {
 	return maxBaseline, maxIncrement
 }
 
+// Gives a generous estimate for the peak memory usage of a batch rendering
+// process.
 func estimateMemCost(batchSize, parallelization int) uint64 {
 
 	cost := uint64(baseline)
 	cost += increment * uint64(batchSize*parallelization-1)
 
 	return cost
+}
+
+// Returns the maximum number of concurrent batches that can be rendered 
+// without exceeding the allotted memory. If the batch size is too large or the
+// allotted memory is too small, then the operation is impossible and the 
+// returned value is 0.
+func maxParallelization(
+	batchSize int,
+	allottedMemory uint64,
+) int {
+	for i := 1; i < runtime.GOMAXPROCS(0); i++ {
+		if estimateMemCost(batchSize, i) > allottedMemory {
+			return i - 1
+		}
+	}
+	return runtime.GOMAXPROCS(0)
 }

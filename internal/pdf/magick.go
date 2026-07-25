@@ -88,7 +88,10 @@ func (s *PageMats) Close() {
 	s.Pages = nil
 }
 
-func pdfBytesToMats(pdf []byte, density int) (result *PageMats, err error) {
+func pdfBytesToMats(
+	pdf []byte, 
+	density int,
+) (result *PageMats, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {

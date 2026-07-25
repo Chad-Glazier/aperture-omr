@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -21,12 +20,14 @@ import (
 )
 
 var (
-	ErrMalformedPdf      = errors.New("the given file does not form a PDF")
-	ErrPageCountMismatch = errors.New("the given PDF page count is not a multiple of the batch size")
+	ErrInsufficientMemory = errors.New("the allotted memory is insufficient to complete the operation")
+	ErrMalformedPdf       = errors.New("the given file does not form a PDF")
+	ErrPageCountMismatch  = errors.New("the given PDF page count is not a multiple of the batch size")
 )
 
 const (
 	MaxDpi = 300
+	DefaultMaxMemUsage uint64 = 2 << 30 // 2 GB
 )
 
 // Represents a batch of pages in a PDF. If there was an error in the rendering
@@ -67,27 +68,39 @@ var inUse sync.Mutex
 // it's done being used. Notably, the reader given to this function may also be
 // closed when it returns.
 //
-// The parallelization argument determines how many batches will be processed
-// simultaneously. Setting it to zero will fall back to using GOMAXPROCS. DPI
-// is capped at 300.
+// The maxMemory argument specifies the number of bytes that this operation
+// should be restricted to (setting it to zero defaults to DefaultMaxMemUsage).
+// It will determine the number of concurrent batches to process by estimating 
+// the maximum number of cores it can use without violating that limit. Note 
+// that the limit is only an estimation based on prior sampling; it is not 
+// guaranteed to be a hard upper bound.
+//
+// Density/DPI is capped at MaxDpi. If a density greater than that maximum is
+// given, it will be ignored and MaxDpi will be used instead.
 //
 // Batches will preserve their original order. E.g., if the batch size is 3,
 // then the first batch (index 0) will include pages 1-3, the next batch will
 // include pages 4-6, and so on. The pages within a batch also match their
 // original order.
 //
-// If this function returns an error, it will either be because the reader does
-// not describe a PDF (ErrMalformedPdf) or the page count of the PDF is not
-// a multiple of the batch size (ErrPageCountMismatch). Other kinds of errors,
-// like those that arise during the actual rendering of a PDF batch, are
-// attached to the batch that concerns them. The occurrence of such an error
-// will not halt this process.
+// If this function returns an error, it will either be because the reader 
+// does not describe a PDF (ErrMalformedPdf), the page count of the PDF is
+// not a multiple of the batch size (ErrPageCountMismatch), or the operation is
+// impossible to execute with the given batch size and memory limit 
+// (ErrInsufficientMemory). Other kinds of errors, like those that arise during
+// the actual rendering of a PDF batch, are attached to the batch that concerns 
+// them. The occurrence of such an error will not halt this process.
 func RenderPageBatches(
 	r io.ReadSeeker,
 	density,
-	batchSize,
-	parallelization int,
+	batchSize int,
+	allottedMemory uint64,
 ) (chan Batch, int, error) {
+
+	density = min(MaxDpi, density)
+	if allottedMemory == 0 {
+		allottedMemory = DefaultMaxMemUsage
+	}
 
 	//
 	// PDF rendering is hard, and it uses a lot of memory. We could, at some
@@ -98,8 +111,9 @@ func RenderPageBatches(
 
 	inUse.Lock()
 
-	if parallelization <= 0 {
-		parallelization = runtime.GOMAXPROCS(0)
+	parallelization := maxParallelization(batchSize, allottedMemory)
+	if parallelization == 0 {
+		return nil, 0, ErrInsufficientMemory
 	}
 
 	//
@@ -263,4 +277,17 @@ func pageSpan(
 		Thru: uint32(thru),
 		Buf:  b,
 	}, nil
+}
+
+// Counts the number of pages in a PDF. If there is an error, it will be
+// ErrMalformedPdf.
+func CountPages(r io.ReadSeeker) (int, error) {
+	conf := api.LoadConfiguration()
+
+	count, err := api.PageCount(r, conf)
+	if err != nil {
+		return 0, ErrMalformedPdf
+	}
+
+	return count, nil
 }

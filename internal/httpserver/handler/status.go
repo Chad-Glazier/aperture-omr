@@ -7,7 +7,7 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 
 		// Get server resource utilization
 		// - Memory (RSS bytes; total available memory)
-		// - CPU (per core; cumulative)
+		// - CPU (per core; cumulative; cpu stats)
 		// - Disk
 		//   - templates/scans stored (abstract data)
 		//   - matrices/pictures stored + bytes (raw data)

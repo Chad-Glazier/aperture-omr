@@ -7,6 +7,7 @@ import (
 
 	"ubco-team15/omr/internal/httpserver/handler"
 	"ubco-team15/omr/internal/httpserver/middleware"
+	"ubco-team15/omr/internal/pdf"
 )
 
 func Start(hostname, port string) {
@@ -17,6 +18,8 @@ func Start(hostname, port string) {
 		os.Exit(1)
 	}
 	defer res.Close()
+
+	pdf.Init(res.DB)
 
 	mux := http.NewServeMux()
 

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -18,6 +17,7 @@ import (
 // The maximum allowed size for a PDF file upload.
 const maxPdfSize = 200 * 1024 * 1024     // 200 MB
 const maxFileMemSize = 100 * 1024 * 1024 // 100 MB
+const maxPdfMemUsage = 4 << 30           // 4 GB
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +147,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			pdfFile,
 			density,
 			pagesPerExam,
-			min(runtime.GOMAXPROCS(0), 12),
+			maxPdfMemUsage,
 		)
 		switch err {
 		case nil:
