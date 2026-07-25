@@ -271,3 +271,99 @@ func TestPostMark(t *testing.T) {
 		}
 	}
 }
+
+// A batch with one good scan and one bogus scan ID should still mark the
+// good scan and report the bogus one in errors, rather than aborting the
+// whole request.
+func TestPostMarkPartialFailure(t *testing.T) {
+
+	s, err := NewLocalResources(t.TempDir())
+	if err != nil {
+		t.Fatal("error initializing server resources: " + err.Error())
+	}
+	defer s.Close()
+
+	pTmplId := postNewPreprocessingTemplate(t, s)
+	scanId := postNewScan(t, s, pTmplId)
+	mTmplId := postNewMarkingTemplate(t, s)
+
+	body := fmt.Appendf(nil,
+		`{
+			"template": "%s",
+			"scans": [
+				"%s",
+				"does-not-exist"
+			]
+		}`,
+		mTmplId,
+		scanId,
+	)
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	PostMarkingJob(s).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	actual := &dto.MarkingResult{}
+	if err := json.Unmarshal(rr.Body.Bytes(), actual); err != nil {
+		t.Fatal("failed to unmarshal response body")
+	}
+
+	if len(actual.Scans) != 1 {
+		t.Fatalf("expected 1 successfully marked scan, got %d", len(actual.Scans))
+	}
+	if actual.Scans[0].ScanId != scanId {
+		t.Fatalf("expected result scanId to be %s, got %s", scanId, actual.Scans[0].ScanId)
+	}
+	if len(actual.Errors) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(actual.Errors))
+	}
+	if actual.Errors[0].ScanId != "does-not-exist" {
+		t.Fatalf("expected error scanId to be does-not-exist, got %s", actual.Errors[0].ScanId)
+	}
+}
+
+// A batch where every scan ID is bogus should 422 with an error per scan,
+// and no partial 200.
+func TestPostMarkAllScansFail(t *testing.T) {
+
+	s, err := NewLocalResources(t.TempDir())
+	if err != nil {
+		t.Fatal("error initializing server resources: " + err.Error())
+	}
+	defer s.Close()
+
+	mTmplId := postNewMarkingTemplate(t, s)
+
+	body := fmt.Appendf(nil,
+		`{
+			"template": "%s",
+			"scans": [
+				"does-not-exist-1",
+				"does-not-exist-2"
+			]
+		}`,
+		mTmplId,
+	)
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	PostMarkingJob(s).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var actual []dto.MarkingError
+	if err := json.Unmarshal(rr.Body.Bytes(), &actual); err != nil {
+		t.Fatal("failed to unmarshal response body")
+	}
+	if len(actual) != 2 {
+		t.Fatalf("expected 2 errors, got %d", len(actual))
+	}
+}
