@@ -48,12 +48,23 @@ func ParsePreprocessingTemplate(
 type PreprocessingTemplate struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
-	Config struct {
+	// NativeDpi is the DPI this template's anchor/binarization tuning is
+	// calibrated against, so /scan/pdf can request a matching-resolution
+	// render by default instead of falling back to a fixed constant. Zero
+	// means unknown (templates authored before this field existed).
+	NativeDpi float64 `json:"nativeDpi"`
+	Config    struct {
 		BlurSize            int     `json:"blurSize"`
 		MorphCloseSize      int     `json:"morphCloseSize"`
 		MinAnchorConfidence float64 `json:"minAnchorConfidence"`
 		AdaptiveBlockSize   int     `json:"adaptiveBlockSize"`
 		AdaptiveC           float64 `json:"adaptiveC"`
+		// ReferenceRatio is the imgSize/templateSize ratio (see
+		// scanner.sizeRatio) that BlurSize/AdaptiveBlockSize/
+		// MorphCloseSize above were tuned against. Zero means unknown, in
+		// which case those values are used unscaled regardless of the
+		// actual scan's resolution.
+		ReferenceRatio float64 `json:"referenceRatio"`
 	} `json:"config"`
 	Pages []struct {
 		Anchors []struct {
@@ -81,6 +92,10 @@ func (p *PreprocessingTemplate) validate() error {
 		return fmt.Errorf("width must be positive")
 	case p.Height <= 0:
 		return fmt.Errorf("height must be positive")
+	case p.NativeDpi < 0:
+		return fmt.Errorf("nativeDpi must be nonnegative")
+	case p.Config.ReferenceRatio < 0:
+		return fmt.Errorf("referenceRatio must be nonnegative")
 	case p.Config.BlurSize <= 0:
 		return fmt.Errorf("blurSize must be nonnegative")
 	case p.Config.BlurSize%2 == 0:
@@ -165,14 +180,16 @@ func AdaptScannerTemplate(
 	}
 
 	scannerTmpl := scanner.Template{
-		Width:  tmpl.Width,
-		Height: tmpl.Height,
+		Width:     tmpl.Width,
+		Height:    tmpl.Height,
+		NativeDpi: tmpl.NativeDpi,
 		Config: scanner.Config{
 			BlurSize:            tmpl.Config.BlurSize,
 			MorphCloseSize:      tmpl.Config.MorphCloseSize,
 			MinAnchorConfidence: float32(tmpl.Config.MinAnchorConfidence),
 			AdaptiveBlockSize:   tmpl.Config.AdaptiveBlockSize,
 			AdaptiveC:           float32(tmpl.Config.AdaptiveC),
+			ReferenceRatio:      tmpl.Config.ReferenceRatio,
 		},
 		Pages: make([]scanner.ScanPage, nPages),
 	}

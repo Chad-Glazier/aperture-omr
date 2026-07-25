@@ -1,12 +1,14 @@
 {
   "width": 1200,
   "height": 1700,
+  "nativeDpi": 216,
   "config": {
     "blurSize": 3,
     "morphCloseSize": 3,
     "minAnchorConfidence": 0.5,
     "adaptiveBlockSize": 121,
-    "adaptiveC": 12
+    "adaptiveC": 12,
+    "referenceRatio": 1.4638
   },
   "pages": [
     {

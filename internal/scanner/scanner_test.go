@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -215,6 +216,24 @@ func marker(size int) gocv.Mat {
 	return m
 }
 
+// bullseyeMarker draws a black outer disk -> white ring -> black centre dot,
+// the same anchor pattern exam_generator.py's _draw_anchor_image produces
+// for real exam templates. Unlike marker's plain inset square, this keeps
+// enough contrast after Binarize's blur/adaptive-threshold/morph-close to
+// still match reliably, so it's used by tests that (unlike
+// TestDetectMisplacedPage) exercise the full Binarize+warp pipeline.
+func bullseyeMarker(size int) gocv.Mat {
+	m := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(255, 255, 255, 255), size, size, gocv.MatTypeCV8UC1)
+	center := image.Pt(size/2, size/2)
+	r := size / 2
+	black := color.RGBA{A: 255}
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	gocv.Circle(&m, center, r, black, -1)
+	gocv.Circle(&m, center, r*3/4, white, -1)
+	gocv.Circle(&m, center, r/3, black, -1)
+	return m
+}
+
 // stampMarkers draws a copy of mark centered at each point in centers onto
 // canvas.
 func stampMarkers(canvas gocv.Mat, mark gocv.Mat, centers []image.Point) {
@@ -299,6 +318,98 @@ func TestDetectMisplacedPage(t *testing.T) {
 	}
 	if detected != 1 {
 		t.Errorf("expected detected page 1, got %d", detected)
+	}
+}
+
+// TestScanMultipleDpi exercises preprocessPage's ratio-based scaling
+// (scaleConfig, and scaleAnchorTemplate's direction-aware interpolation)
+// across scans captured well below, at, and above a template's calibration
+// point, asserting warp still succeeds at each instead of only at the one
+// DPI a template happens to be tuned for.
+func TestScanMultipleDpi(t *testing.T) {
+	const (
+		nativeW, nativeH = 1200, 1700
+		markSize         = 40
+		// referenceRatio mirrors production, where exam templates are
+		// uploaded via /scan/pdf at roughly 1.4x their own canvas size (the
+		// historically known-good ~216 DPI operating point).
+		referenceRatio = 1.4
+		referenceDpi   = 216.0
+	)
+
+	conf := Config{
+		BlurSize:            5,
+		MorphCloseSize:      3,
+		MinAnchorConfidence: 0.5,
+		ReferenceRatio:      referenceRatio,
+	}
+
+	// The stored anchor image must be binarized the same way a real
+	// template's anchor crop is at load time (see loadAnchorFromReader):
+	// it's matched against an already-binarized scan, so matching a raw
+	// grayscale template against that loses most of its confidence.
+	mark := bullseyeMarker(markSize)
+	defer mark.Close()
+	if err := Binarize(&mark, &mark, &conf); err != nil {
+		t.Fatalf("binarize anchor: %v", err)
+	}
+
+	centers := []image.Point{
+		{X: 150, Y: 150},
+		{X: nativeW - 150, Y: 150},
+		{X: 150, Y: nativeH - 150},
+	}
+
+	tmpl := &Template{
+		Width:  nativeW,
+		Height: nativeH,
+		Config: conf,
+		Pages:  []ScanPage{{Anchors: anchorsAt(mark, centers, 80)}},
+	}
+
+	for _, dpi := range []float64{150, 216, 300} {
+		t.Run(fmt.Sprintf("%.0fdpi", dpi), func(t *testing.T) {
+			// scale is how big a scan at dpi is relative to the template's
+			// own canvas size, following the same physical relationship
+			// production scans have (see referenceRatio above).
+			scale := referenceRatio * dpi / referenceDpi
+
+			w := int(float64(nativeW)*scale + 0.5)
+			h := int(float64(nativeH)*scale + 0.5)
+			// Not deferred: on success, ownership passes into the returned
+			// ScanData (same pattern as scanPage's img), which is what gets
+			// closed below. Closing both would double-free the same Mat.
+			canvas := gocv.NewMatWithSizeFromScalar(
+				gocv.NewScalar(0, 0, 0, 0), h, w, gocv.MatTypeCV8UC1)
+
+			scaledMark := bullseyeMarker(int(float64(markSize)*scale + 0.5))
+			defer scaledMark.Close()
+
+			scaledCenters := make([]image.Point, len(centers))
+			for i, c := range centers {
+				scaledCenters[i] = image.Pt(
+					int(float64(c.X)*scale+0.5),
+					int(float64(c.Y)*scale+0.5),
+				)
+			}
+			stampMarkers(canvas, scaledMark, scaledCenters)
+
+			data, err := preprocessPage(canvas, tmpl, 0)
+			if err != nil {
+				t.Fatalf(
+					"preprocessPage failed at %.0f DPI (scale %.3f): %v",
+					dpi, scale, err,
+				)
+			}
+			defer data.Close()
+
+			if data.Picture.Cols() != nativeW || data.Picture.Rows() != nativeH {
+				t.Errorf(
+					"expected warped output %dx%d, got %dx%d",
+					nativeW, nativeH, data.Picture.Cols(), data.Picture.Rows(),
+				)
+			}
+		})
 	}
 }
 

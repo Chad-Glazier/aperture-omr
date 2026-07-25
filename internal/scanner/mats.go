@@ -180,35 +180,14 @@ func scanPageMat(
 	pageIdx int,
 ) (*ScanData, error) {
 
-	data := &ScanData{
-		Picture: page.Clone(),
-		Binary:  gocv.NewMat(),
-	}
-
-	err := Binarize(&data.Picture, &data.Binary, &tmpl.Config)
-	if err != nil {
-		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
-	}
-
-	err = warp(
-		data, data,
-		tmpl.Pages[pageIdx].Anchors,
-		tmpl.Width,
-		tmpl.Height,
-		tmpl.Config,
-	)
+	data, err := preprocessPage(page.Clone(), tmpl, pageIdx)
 	if err != nil {
 		var qerr *QualityError
 		if !errors.As(err, &qerr) {
-			data.Close()
-			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+			return nil, err
 		}
-		rotErr := recoverUpsideDown(data, tmpl.Pages[pageIdx].Anchors, tmpl)
-		if rotErr != nil {
-			data.Close()
-			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
-		}
+		data.Close()
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
 	return data, nil
