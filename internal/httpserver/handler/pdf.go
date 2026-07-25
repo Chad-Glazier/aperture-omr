@@ -147,7 +147,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			pdfFile,
 			density,
 			pagesPerExam,
-			min(runtime.GOMAXPROCS(0), 8),
+			min(runtime.GOMAXPROCS(0), 12),
 		)
 		switch err {
 		case nil:

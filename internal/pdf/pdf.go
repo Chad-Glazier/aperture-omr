@@ -25,6 +25,10 @@ var (
 	ErrPageCountMismatch = errors.New("the given PDF page count is not a multiple of the batch size")
 )
 
+const (
+	MaxDpi = 300
+)
+
 // Represents a batch of pages in a PDF. If there was an error in the rendering
 // of this batch it will be included in the Error field (and the Pages field
 // will be nil).
@@ -63,13 +67,14 @@ var inUse sync.Mutex
 // it's done being used. Notably, the reader given to this function may also be
 // closed when it returns.
 //
+// The parallelization argument determines how many batches will be processed
+// simultaneously. Setting it to zero will fall back to using GOMAXPROCS. DPI
+// is capped at 300.
+//
 // Batches will preserve their original order. E.g., if the batch size is 3,
 // then the first batch (index 0) will include pages 1-3, the next batch will
 // include pages 4-6, and so on. The pages within a batch also match their
 // original order.
-//
-// The parallelization argument determines how many batches will be processed
-// simultaneously. Setting it to zero will fall back to using GOMAXPROCS.
 //
 // If this function returns an error, it will either be because the reader does
 // not describe a PDF (ErrMalformedPdf) or the page count of the PDF is not
@@ -79,8 +84,8 @@ var inUse sync.Mutex
 // will not halt this process.
 func RenderPageBatches(
 	r io.ReadSeeker,
-	density int,
-	batchSize int,
+	density,
+	batchSize,
 	parallelization int,
 ) (chan Batch, int, error) {
 
