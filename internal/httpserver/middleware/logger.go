@@ -3,13 +3,32 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
 
+var omittedEndpoints = []string{
+	"GET /system/utilization",
+}
+
 // Creates middleware that logs each request and response.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if slices.Contains(omittedEndpoints, r.Method+" "+r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// We also skip any simple file endpoints (i.e., from the static pages
+		// files). We check these by just looking for a file extension.
+		if strings.Contains(r.URL.Path, ".") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+
 		slog.Info("incoming", "endpoint", r.Method+" "+r.URL.Path)
 		start := time.Now()
 		wrappedWriter := &loggedResponseWriter{

@@ -1,0 +1,74 @@
+body {
+    font-family: "Space Grotesk", sans-serif;
+    margin: 2rem;
+    background: #000;
+    color: #eee;
+}
+
+h1 {
+    margin-bottom: 1.5rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.card {
+    background: #111;
+    padding: 1.25rem;
+}
+
+.card h2 {
+    margin-top: 0;
+    font-size: 1.25rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem;
+}
+
+.card .metric:nth-of-type(even) {
+    background-color: #222;
+}
+
+.label {
+    color: #888;
+}
+
+.value {
+    font-weight: 600;
+}
+
+.bar {
+    height: 24px;
+    background: #333;
+    overflow: hidden;
+    margin: 0.5rem 0 1rem;
+}
+
+.bar > div {
+    height: 100%;
+    background: #00eeff;
+    transition: width 1000ms linear;
+}
+
+.core {
+    margin-bottom: 0.5rem;
+}
+
+.error {
+    color: #b00020;
+    font-weight: bold;
+}
+
+#updated {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
