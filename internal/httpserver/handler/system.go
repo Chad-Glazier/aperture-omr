@@ -49,7 +49,7 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		//
-		// Get server resource utilization
+		// Get server resource utilization:
 		// - Memory (RSS bytes; total available memory)
 		// - CPU (per core; cumulative; cpu stats)
 		// - Disk
