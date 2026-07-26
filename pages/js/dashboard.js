@@ -60,8 +60,14 @@ async function update() {
 
         setText("memory-used", formatBytes(memoryUsed))
         setBar(
-            "memory-bar",
-            (data.memory.inUseOmr+data.memory.inUseOther) 
+            "other-memory-bar",
+            data.memory.inUseOther
+                / (data.memory.totalAvailable+data.memory.inUseOther)
+                * 100,
+        )
+        setBar(
+            "omr-memory-bar",
+            data.memory.inUseOmr
                 / (data.memory.totalAvailable+data.memory.inUseOther)
                 * 100,
         )
@@ -73,9 +79,17 @@ async function update() {
         setText("disk-used", formatBytes(data.disk.used))
         setText("disk-total", formatBytes(data.disk.total))
 
+        let omrUsage = 
+            data.disk.database + 
+            data.disk.matrices +
+            data.disk.pictures
         setBar(
-            "disk-bar",
-            (data.disk.used / data.disk.total) * 100
+            "omr-disk-bar",
+            (omrUsage / data.disk.total) * 100
+        )
+        setBar(
+            "other-disk-bar",
+            ((data.disk.used - omrUsage) / data.disk.total) * 100
         )
 
         setText("disk-db", formatBytes(data.disk.database))

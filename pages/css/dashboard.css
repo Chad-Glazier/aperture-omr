@@ -50,12 +50,19 @@ h1 {
     background: #333;
     overflow: hidden;
     margin: 0.5rem 0 1rem;
+
+    display: flex;
+    flex-direction: row;
 }
 
 .bar > div {
     height: 100%;
-    background: #00eeff;
+    background: #727272;
     transition: width 1000ms linear;
+}
+
+.bar > div:nth-of-type(odd) {
+    background-color: #00fffb;
 }
 
 .core {
