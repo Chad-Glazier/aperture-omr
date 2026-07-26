@@ -27,7 +27,7 @@
     <div id="updated"></div>
     <div id="error" class="error"></div>
 
-    <div class="grid">
+    <div class="resource-card-container">
 
         <div class="card">
             <h2>CPU</h2>
@@ -37,18 +37,18 @@
             </div>
 
             <div class="metric">
-                <span class="label">Overall</span>
-                <span class="value" id="cpu-overall"></span>
-            </div>
-
-            <div class="metric">
-                <span class="label">CPU</span>
-                <span class="value" id="cpu-description"></span>
+                <span class="label highlight">Overall Usage</span>
+                <span class="value highlight" id="cpu-overall"></span>
             </div>
 
             <div class="metric">
                 <span class="label">Frequency</span>
                 <span class="value" id="cpu-mhz"></span>
+            </div>
+
+            <div class="metric">
+                <span class="label">CPU Threads</span>
+                <span class="value" id="cpu-threads"></span>
             </div>
         </div>
 
@@ -62,13 +62,13 @@
             </div>
 
             <div class="metric">
-                <span class="label">OMR Process</span>
-                <span class="value" id="memory-omr"></span>
+                <span class="label highlight">OMR Memory Use</span>
+                <span class="value highlight" id="memory-omr"></span>
             </div>
-
+            
             <div class="metric">
-                <span class="label">Other</span>
-                <span class="value" id="memory-other"></span>
+                <span class="label">Total Memory Use</span>
+                <span class="value" id="memory-used"></span>
             </div>
 
             <div class="metric">
@@ -76,10 +76,6 @@
                 <span class="value" id="memory-available"></span>
             </div>
 
-            <div class="metric">
-                <span class="label">Used</span>
-                <span class="value" id="memory-used"></span>
-            </div>
         </div>
 
 
@@ -92,38 +88,18 @@
             </div>
 
             <div class="metric">
-                <span class="label">Used</span>
+                <span class="label highlight">OMR Disk Use</span>
+                <span class="value highlight" id="disk-omr-total"></span>
+            </div>
+
+            <div class="metric">
+                <span class="label">Total Disk Use</span>
                 <span class="value" id="disk-used"></span>
             </div>
 
             <div class="metric">
-                <span class="label">Total</span>
-                <span class="value" id="disk-total"></span>
-            </div>
-
-            <div class="metric">
-                <span class="label">Database</span>
-                <span class="value" id="disk-db"></span>
-            </div>
-
-            <div class="metric">
-                <span class="label">Matrices</span>
-                <span class="value" id="disk-matrices"></span>
-            </div>
-
-            <div class="metric">
-                <span class="label">Pictures</span>
-                <span class="value" id="disk-pictures"></span>
-            </div>
-
-            <div class="metric">
-                <span class="label">Matrix Count</span>
-                <span class="value" id="matrix-count"></span>
-            </div>
-
-            <div class="metric">
-                <span class="label">Picture Count</span>
-                <span class="value" id="picture-count"></span>
+                <span class="label">Available Disk</span>
+                <span class="value" id="disk-available"></span>
             </div>
         </div>
     </div>

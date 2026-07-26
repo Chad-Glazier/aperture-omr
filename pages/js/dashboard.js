@@ -40,9 +40,9 @@ async function update() {
         // CPU
         //
 
-        setText("cpu-description", data.cpu.description)
         setText("cpu-mhz", `${data.cpu.mhz.toFixed(0)} MHz`)
         setText("cpu-overall", `${data.cpu.overallPercent.toFixed(1)}%`)
+        setText("cpu-threads", `${data.cpu.threads.length}`)
 
         setBar("cpu-bar", data.cpu.overallPercent)
 
@@ -51,7 +51,6 @@ async function update() {
         //
 
         setText("memory-omr", formatBytes(data.memory.inUseOmr))
-        setText("memory-other", formatBytes(data.memory.inUseOther))
         setText("memory-available", formatBytes(data.memory.totalAvailable))
 
         const memoryUsed =
@@ -77,7 +76,6 @@ async function update() {
         //
 
         setText("disk-used", formatBytes(data.disk.used))
-        setText("disk-total", formatBytes(data.disk.total))
 
         let omrUsage = 
             data.disk.database + 
@@ -92,12 +90,8 @@ async function update() {
             ((data.disk.used - omrUsage) / data.disk.total) * 100
         )
 
-        setText("disk-db", formatBytes(data.disk.database))
-        setText("disk-matrices", formatBytes(data.disk.matrices))
-        setText("disk-pictures", formatBytes(data.disk.pictures))
-        setText("matrix-count", data.disk.numberOfMatrices)
-        setText("picture-count", data.disk.numberOfPictures)
-
+        setText("disk-available", formatBytes(data.disk.total - data.disk.used))
+        setText("disk-omr-total", formatBytes(omrUsage))
 
         setText(
             "updated",
