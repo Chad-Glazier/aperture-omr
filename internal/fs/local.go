@@ -87,7 +87,6 @@ func (s *localImageStore) Count() (int, uint64) {
 	return len(files), totalBytes
 }
 
-
 //
 // Local MatStore implementation.
 //

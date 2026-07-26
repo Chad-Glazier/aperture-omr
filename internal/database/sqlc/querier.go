@@ -22,13 +22,11 @@ type Querier interface {
 	DeletePreprocessingTemplate(ctx context.Context, id string) (int64, error)
 	DeleteScan(ctx context.Context, id string) (int64, error)
 	GetAnchorsForTemplate(ctx context.Context, templateID string) ([]Anchor, error)
-	GetCachedSystemInfo(ctx context.Context) (CachedSystemInfo, error)
 	GetMarkingTemplate(ctx context.Context, id string) (MarkingTemplate, error)
 	GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorForTemplateParams) (Anchor, error)
 	GetPagesForScan(ctx context.Context, scanID string) ([]ScanPage, error)
 	GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error)
 	GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanPage, error)
-	SetCachedSystemInfo(ctx context.Context, arg SetCachedSystemInfoParams) error
 }
 
 var _ Querier = (*Queries)(nil)

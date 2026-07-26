@@ -1,15 +1,16 @@
 package middleware
 
 import (
-	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
+	"ubco-team15/omr/internal/sys"
 )
 
 var omittedEndpoints = []string{
 	"GET /system/utilization",
+	"GET /system/logs",
 }
 
 // Creates middleware that logs each request and response.
@@ -28,30 +29,20 @@ func Logger(next http.Handler) http.Handler {
 			return
 		}
 
-
-		slog.Info("incoming", "endpoint", r.Method+" "+r.URL.Path)
+		sys.Log("incoming", "endpoint", r.Method+" "+r.URL.Path)
 		start := time.Now()
 		wrappedWriter := &loggedResponseWriter{
 			resp:       w,
 			statusCode: http.StatusOK,
 		}
 		next.ServeHTTP(wrappedWriter, r)
-		if wrappedWriter.plainTextContent != "" {
-			slog.Info(
-				"outgoing",
-				"endpoint", r.Method+" "+r.URL.Path,
-				"status", wrappedWriter.statusCode,
-				"time_ms", time.Since(start).Milliseconds(),
-				"text_content", wrappedWriter.plainTextContent,
-			)
-		} else {
-			slog.Info(
-				"outgoing",
-				"endpoint", r.Method+" "+r.URL.Path,
-				"status", wrappedWriter.statusCode,
-				"time_ms", time.Since(start).Milliseconds(),
-			)
-		}
+
+		sys.Log(
+			"outgoing",
+			"endpoint", r.Method+" "+r.URL.Path,
+			"status", wrappedWriter.statusCode,
+			"time ms", time.Since(start).Milliseconds(),
+		)
 	})
 }
 

@@ -3,12 +3,12 @@ package middleware
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+	"ubco-team15/omr/internal/sys"
 
 	"os"
 )
@@ -24,10 +24,10 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				slog.Error(
+				sys.Error(
 					"panic recovered",
 					"endpoint", r.Method+" "+r.URL.Path,
-					"log_file", logFilePath,
+					"log file", logFilePath,
 					"err", err,
 				)
 

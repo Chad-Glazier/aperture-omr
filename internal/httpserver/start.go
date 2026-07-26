@@ -1,25 +1,22 @@
 package httpserver
 
 import (
-	"log/slog"
 	"net/http"
 	"os"
 
 	"ubco-team15/omr/internal/httpserver/handler"
 	"ubco-team15/omr/internal/httpserver/middleware"
-	"ubco-team15/omr/internal/pdf"
+	"ubco-team15/omr/internal/sys"
 )
 
 func Start(hostname, port string) {
 
 	res, err := handler.NewLocalResources("data")
 	if err != nil {
-		slog.Error("error getting server resources", "err", err)
+		sys.Error("error getting server resources", "err", err)
 		os.Exit(1)
 	}
 	defer res.Close()
-
-	pdf.Init(res.DB)
 
 	mux := http.NewServeMux()
 
@@ -50,6 +47,7 @@ func Start(hostname, port string) {
 	mux.HandleFunc("GET /image", handler.GetImage(res))
 
 	mux.HandleFunc("GET /system/utilization", handler.GetResourceUtilization(res))
+	mux.HandleFunc("GET /system/logs", handler.GetLogs(res))
 
 	//
 	// Deprecated endpoints
@@ -81,6 +79,6 @@ func Start(hostname, port string) {
 		Handler: httpHandler,
 	}
 
-	slog.Info("starting server at http://" + hostname + ":" + port)
+	sys.Info("starting server at http://" + hostname + ":" + port)
 	server.ListenAndServe()
 }

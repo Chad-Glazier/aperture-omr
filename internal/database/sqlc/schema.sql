@@ -30,9 +30,3 @@ CREATE TABLE IF NOT EXISTS scan_pages (
     scan_id TEXT NOT NULL,
     FOREIGN KEY(scan_id) REFERENCES scans(id)
 );
-
-CREATE TABLE IF NOT EXISTS cached_system_info (
-    entry_id INTEGER PRIMARY KEY,
-    pdf_render_baseline INT NOT NULL,
-    pdf_render_increment INT NOT NULL
-);

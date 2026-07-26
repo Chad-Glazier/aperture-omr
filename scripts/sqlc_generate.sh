@@ -3,6 +3,11 @@
 # Tiny script to update the generated SQLc code.
 #
 
-cd .\internal\database\sqlc
+cd ./internal/database/sqlc
 sqlc generate
-cd ..\..\..\
+cd ../../../
+
+cd ./internal/sys/sqlc
+sqlc generate
+cd ../../../
+

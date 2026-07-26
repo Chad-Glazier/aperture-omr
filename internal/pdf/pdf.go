@@ -26,7 +26,7 @@ var (
 )
 
 const (
-	MaxDpi = 300
+	MaxDpi                    = 300
 	DefaultMaxMemUsage uint64 = 2 << 30 // 2 GB
 )
 
@@ -70,9 +70,9 @@ var inUse sync.Mutex
 //
 // The maxMemory argument specifies the number of bytes that this operation
 // should be restricted to (setting it to zero defaults to DefaultMaxMemUsage).
-// It will determine the number of concurrent batches to process by estimating 
-// the maximum number of cores it can use without violating that limit. Note 
-// that the limit is only an estimation based on prior sampling; it is not 
+// It will determine the number of concurrent batches to process by estimating
+// the maximum number of cores it can use without violating that limit. Note
+// that the limit is only an estimation based on prior sampling; it is not
 // guaranteed to be a hard upper bound.
 //
 // Density/DPI is capped at MaxDpi. If a density greater than that maximum is
@@ -83,12 +83,12 @@ var inUse sync.Mutex
 // include pages 4-6, and so on. The pages within a batch also match their
 // original order.
 //
-// If this function returns an error, it will either be because the reader 
+// If this function returns an error, it will either be because the reader
 // does not describe a PDF (ErrMalformedPdf), the page count of the PDF is
 // not a multiple of the batch size (ErrPageCountMismatch), or the operation is
-// impossible to execute with the given batch size and memory limit 
+// impossible to execute with the given batch size and memory limit
 // (ErrInsufficientMemory). Other kinds of errors, like those that arise during
-// the actual rendering of a PDF batch, are attached to the batch that concerns 
+// the actual rendering of a PDF batch, are attached to the batch that concerns
 // them. The occurrence of such an error will not halt this process.
 func RenderPageBatches(
 	r io.ReadSeeker,

@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"sync"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/scanner"
+	"ubco-team15/omr/internal/sys"
 
 	"gocv.io/x/gocv"
 )
@@ -17,10 +19,34 @@ import (
 // The maximum allowed size for a PDF file upload.
 const maxPdfSize = 200 * 1024 * 1024     // 200 MB
 const maxFileMemSize = 100 * 1024 * 1024 // 100 MB
-const maxPdfMemUsage = 2 << 30           // 2 GB
+
+func pdfRenderingMemoryLimit() uint64 {
+	var maxPdfMemUsage uint64 = 2 << 30 // 2 GB
+	maxPdfMemUsageGB := os.Getenv("OMR_PDF_RENDERING_MEMORY_LIMIT_GB")
+	if maxPdfMemUsageGB != "" {
+		gb, err := strconv.Atoi(maxPdfMemUsageGB)
+		if err != nil {
+			panic(
+				"OMR_PDF_RENDERING_MEMORY_LIMIT_GB " +
+					"environment variable is invalid",
+			)
+		}
+		maxPdfMemUsage = uint64(gb) << 30
+	}
+	return maxPdfMemUsage
+}
+
+func setPdfRenderingMemoryLimit(limit uint64) {
+	os.Setenv(
+		"OMR_PDF_RENDERING_MEMORY_LIMIT_GB",
+		strconv.FormatUint(limit, 10),
+	)
+}
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		sys.Log("rendering pdf", "limit", pdfRenderingMemoryLimit())
 
 		//
 		// Read and validate the body
@@ -147,7 +173,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			pdfFile,
 			density,
 			pagesPerExam,
-			maxPdfMemUsage,
+			pdfRenderingMemoryLimit(),
 		)
 		switch err {
 		case nil:

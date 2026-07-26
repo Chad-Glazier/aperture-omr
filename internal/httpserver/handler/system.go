@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"ubco-team15/omr/internal/httpserver/dto"
+	"ubco-team15/omr/internal/sys"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
@@ -13,10 +14,10 @@ import (
 
 type ResourceUtilization struct {
 	CPU struct {
-		Description string `json:"description"`
+		Description    string  `json:"description"`
 		OverallPercent float64 `json:"overallPercent"`
-		FrequencyMhz float64 `json:"mhz"`
-		Threads []struct{
+		FrequencyMhz   float64 `json:"mhz"`
+		Threads        []struct {
 			Percent float64 `json:"percent"`
 		} `json:"threads"`
 	} `json:"cpu"`
@@ -27,20 +28,23 @@ type ResourceUtilization struct {
 	} `json:"memory"`
 	Disk struct {
 		Database         uint64 `json:"database"`
-		NumberOfMatrices int `json:"numberOfMatrices"`
+		NumberOfMatrices int    `json:"numberOfMatrices"`
 		Matrices         uint64 `json:"matrices"`
-		NumberOfPictures int `json:"numberOfPictures"`
+		NumberOfPictures int    `json:"numberOfPictures"`
 		Pictures         uint64 `json:"pictures"`
 
 		Total uint64 `json:"total"`
 		Used  uint64 `json:"used"`
 	} `json:"disk"`
+	Config struct {
+		MaxPdfRenderingMemory uint64 `json:"maxPdfRenderingMemory"`
+	} `json:"config"`
 }
 
 func sendErr(w http.ResponseWriter) {
 	http.Error(
-		w, 
-		"unexpected error calculating system resources", 
+		w,
+		"unexpected error calculating system resources",
 		http.StatusInternalServerError,
 	)
 }
@@ -139,7 +143,22 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 		result.Disk.Total = d.Total
 		result.Disk.Used = d.Used
 
+		//
+		// Config
+		//
+
+		result.Config.MaxPdfRenderingMemory = pdfRenderingMemoryLimit()
+
 		dto.SendJson(w, result)
+
+	}
+}
+
+func GetLogs(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Add("Content-Type", "text/plain")
+		sys.DumpLogs(w)
 
 	}
 }

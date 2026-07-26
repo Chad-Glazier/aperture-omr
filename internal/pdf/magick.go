@@ -89,7 +89,7 @@ func (s *PageMats) Close() {
 }
 
 func pdfBytesToMats(
-	pdf []byte, 
+	pdf []byte,
 	density int,
 ) (result *PageMats, err error) {
 

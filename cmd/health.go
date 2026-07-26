@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"log/slog"
 	"net/http"
 	"os"
+	"ubco-team15/omr/internal/sys"
 
 	"github.com/spf13/cobra"
 )
@@ -17,13 +17,13 @@ var healthcheckCmd = &cobra.Command{
 
 		resp, err := http.Get("http://localhost:" + port + "/health")
 		if err != nil {
-			slog.Error("health check error", "error", err)
+			sys.Error("health check error", "error", err)
 			os.Exit(1)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			slog.Error("health check failed", "response status", resp.Status)
+			sys.Error("health check failed", "response status", resp.Status)
 			os.Exit(1)
 		}
 

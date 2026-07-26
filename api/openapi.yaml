@@ -7,6 +7,9 @@ info:
     A service to perform Optical Mark Recognition (OMR) on scanned 
     bubblesheets.
 
+    View system resource usage [here](http://localhost:3000/dashboard.html)
+    
+
 servers:
   - url: http://localhost:3000/
 

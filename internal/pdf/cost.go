@@ -2,16 +2,12 @@ package pdf
 
 import (
 	"bytes"
-	"context"
 	"embed"
 	"fmt"
-	"log/slog"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"time"
-	"ubco-team15/omr/internal/database"
-	"ubco-team15/omr/internal/database/sqlc"
 
 	"github.com/shirou/gopsutil/v4/process"
 )
@@ -27,58 +23,29 @@ func getRss() uint64 {
 	return m.RSS
 }
 
-var (
-	baseline  uint64 = 320 << 20 // 320 MB
-	increment uint64 = 160 << 20 // 160 MB
-)
-
-// Initializes the package by sampling PDF render operations to get an estimate
-// of the memory cost. If the given database has cached results from such 
-// sampling, then those values will be used instead.
-//
-// It's important that this function be run while no other major operations are
-// in progress. Such operations would pollute the memory profiling and thereby 
-// lead to poor estimations.
-//
-// If this function is never run, then the very generous default estimates will
-// be used to predict rendering costs.
-func Init(db database.Querier) {
-
-	slog.Info("loading cached pdf render cost...")
-	info, err := db.GetCachedSystemInfo(context.Background())
-	if err == nil {
-		baseline = uint64(info.PdfRenderBaseline)
-		increment = uint64(info.PdfRenderIncrement)
-		slog.Info(
-			"cache loaded", 
-			"baseline", fmt.Sprintf("%dMB", baseline/1024/1024),
-			"increment", fmt.Sprintf("%dMB", increment/1024/1024),		
-		)
-		return
-	}
-	slog.Info("cache empty; sampling pdf render cost...")
-	baseline, increment = sampleMemCostVars()
-	slog.Info(
-		"sampling complete",
-		"baseline", fmt.Sprintf("%dMB", baseline/1024/1024),
-		"increment", fmt.Sprintf("%dMB", increment/1024/1024),
-	)
-	slog.Info("caching results")
-	db.SetCachedSystemInfo(context.Background(), sqlc.SetCachedSystemInfoParams{
-		PdfRenderBaseline: int64(baseline),
-		PdfRenderIncrement: int64(increment),
-	})
-
-}
-
 //go:embed testdata/samples/*
 var samples embed.FS
 
+// Stores values used to predict the memory cost of a PDF rendering operation.
+type MemCostVars struct {
+	Baseline  uint64 // The cost of rendering a single page PDF.
+	Increment uint64 // The added cost from rendering one more page.
+}
+
+var memCost = MemCostVars{
+	Baseline:  320 << 20, // 320 MB
+	Increment: 160 << 20, // 160 MB
+}
+
+// Configures the pdf package to estimate rendering costs with the given values
+// instead of the defaults.
+func SetMemoryCostVars(newMemCost MemCostVars) {
+	memCost = newMemCost
+}
+
 // Computes values used for estimating the memory cost of a PDF batch rendering
-// operation by running a few samples. The first value returned is the baseline
-// cost of starting up ImageMagick/GhostScript and rendering a single page. The
-// second value returned is the cost of adding one more page.
-func sampleMemCostVars() (uint64, uint64) {
+// operation by running a few samples. On failure, this function panics.
+func MustRunSampling() MemCostVars {
 
 	rssValues := [3][3]uint64{}
 
@@ -155,22 +122,23 @@ func sampleMemCostVars() (uint64, uint64) {
 		maxIncrement = maxRss - minRss
 	}
 
-	return maxBaseline, maxIncrement
+	return MemCostVars{
+		Baseline:  maxBaseline,
+		Increment: maxIncrement,
+	}
 }
 
 // Gives a generous estimate for the peak memory usage of a batch rendering
 // process.
 func estimateMemCost(batchSize, parallelization int) uint64 {
-
-	cost := uint64(baseline)
-	cost += increment * uint64(batchSize*parallelization-1)
-
+	cost := memCost.Baseline
+	cost += memCost.Increment * uint64(batchSize*parallelization-1)
 	return cost
 }
 
-// Returns the maximum number of concurrent batches that can be rendered 
+// Returns the maximum number of concurrent batches that can be rendered
 // without exceeding the allotted memory. If the batch size is too large or the
-// allotted memory is too small, then the operation is impossible and the 
+// allotted memory is too small, then the operation is impossible and the
 // returned value is 0.
 func maxParallelization(
 	batchSize int,
