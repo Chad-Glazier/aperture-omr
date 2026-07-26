@@ -33,6 +33,9 @@ type ImageStore interface {
 	Delete(key string) error
 	// Opens an existing image for reading.
 	Open(key string) (io.ReadCloser, error)
+	// Counts the number of stored images and the total number of bytes they
+	// occupy.
+	Count() (int, uint64)
 }
 
 // Represents an OpenCV matrix store, implementing a map-like interface to
@@ -46,4 +49,7 @@ type MatStore interface {
 	Get(key string) (*gocv.Mat, error)
 	// Deletes a stored matrix.
 	Delete(key string) error
+	// Counts the number of stored matrices and the total number of bytes they
+	// occupy.
+	Count() (int, uint64)
 }

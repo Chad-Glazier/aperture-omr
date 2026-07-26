@@ -42,6 +42,32 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /system/utilization:
+    get:
+      summary: |
+        Check Resource Utilization
+      description: |
+        Check the utilization of system resources, including memory, CPU, and
+        disk storage.
+      tags:
+        - Status
+      responses:
+        200:
+          description: |
+            OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceUtilization'
+        500:
+          description: |
+            There's some problem with the service. Check the response message.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
   /template/preprocess:
     post:
       summary: |
@@ -1113,3 +1139,140 @@ components:
           description: Errors encountered while processing the PDF.
           items:
             $ref: '#/components/schemas/ScanError'
+    
+    ResourceUtilization:
+      type: object
+      example:
+        cpu:
+          description: "AMD Ryzen 7 5800X 8-Core Processor"
+          overallPercent: 42.7
+          mhz: 3800.0
+          cores:
+            - percent: 35.2
+            - percent: 41.8
+            - percent: 47.1
+            - percent: 39.6
+        memory:
+          inUseOmr: 524288000
+          inUseOther: 8589934592
+          totalAvailable: 34359738368
+        disk:
+          database: 104857600
+          numberOfMatrices: 1200
+          matrices: 5368709120
+          numberofPictures: 45000
+          pictures: 21474836480
+          total: 1073741824000
+          used: 322122547200
+      properties:
+        cpu:
+          type: object
+          properties:
+            description:
+              type: string
+              description: Human-readable CPU description.
+              example: "AMD Ryzen 7 5800X 8-Core Processor"
+            overallPercent:
+              type: number
+              format: double
+              description: Overall CPU utilization percentage.
+              example: 42.7
+            mhz:
+              type: number
+              format: double
+              description: Current CPU frequency in MHz.
+              example: 3800.0
+            thread:
+              type: array
+              description: |
+                Per-core CPU utilization. On systems with hyperthreading, there
+                will be two entries per core.
+              items:
+                type: object
+                properties:
+                  percent:
+                    type: number
+                    format: double
+                    description: CPU utilization percentage for this core.
+                    example: 35.2
+                required:
+                  - percent
+          required:
+            - description
+            - overallPercent
+            - mhz
+            - threads
+
+        memory:
+          type: object
+          properties:
+            inUseOmr:
+              type: integer
+              format: uint64
+              description: Resident memory used by the OMR process, in bytes.
+              example: 524288000
+            inUseOther:
+              type: integer
+              format: uint64
+              description: Other resident memory used by the system/process environment, in bytes.
+              example: 8589934592
+            totalAvailable:
+              type: integer
+              format: uint64
+              description: Total available system memory, in bytes.
+              example: 34359738368
+          required:
+            - inUseOmr
+            - inUseOther
+            - totalAvailable
+
+        disk:
+          type: object
+          properties:
+            database:
+              type: integer
+              format: uint64
+              description: Database storage used, in bytes.
+              example: 104857600
+            numberOfMatrices:
+              type: integer
+              format: int32
+              description: Number of matrices stored.
+              example: 1200
+            matrices:
+              type: integer
+              format: uint64
+              description: Total storage used by matrices, in bytes.
+              example: 5368709120
+            numberofPictures:
+              type: integer
+              format: int32
+              description: Number of pictures stored.
+              example: 45000
+            pictures:
+              type: integer
+              format: uint64
+              description: Total storage used by pictures, in bytes.
+              example: 21474836480
+            total:
+              type: integer
+              format: uint64
+              description: Total capacity of the filesystem, in bytes.
+              example: 1073741824000
+            used:
+              type: integer
+              format: uint64
+              description: Total disk space currently occupied on the filesystem, in bytes.
+              example: 322122547200
+          required:
+            - database
+            - numberOfMatrices
+            - matrices
+            - numberofPictures
+            - pictures
+            - total
+            - used
+      required:
+        - cpu
+        - memory
+        - disk

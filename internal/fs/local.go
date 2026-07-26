@@ -69,6 +69,25 @@ func (s *localImageStore) Open(key string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(s.root, key))
 }
 
+func (s *localImageStore) Count() (int, uint64) {
+	files, err := os.ReadDir(s.root)
+	if err != nil {
+		return 0, 0
+	}
+
+	var totalBytes uint64
+	for _, file := range files {
+		info, err := file.Info()
+		if err != nil {
+			return 0, 0
+		}
+		totalBytes += uint64(info.Size())
+	}
+
+	return len(files), totalBytes
+}
+
+
 //
 // Local MatStore implementation.
 //
@@ -179,4 +198,22 @@ func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
 
 func (s *localMatStore) Delete(key string) error {
 	return os.Remove(filepath.Join(s.root, key))
+}
+
+func (s *localMatStore) Count() (int, uint64) {
+	files, err := os.ReadDir(s.root)
+	if err != nil {
+		return 0, 0
+	}
+
+	var totalBytes uint64
+	for _, file := range files {
+		info, err := file.Info()
+		if err != nil {
+			return 0, 0
+		}
+		totalBytes += uint64(info.Size())
+	}
+
+	return len(files), totalBytes
 }

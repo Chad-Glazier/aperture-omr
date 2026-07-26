@@ -77,6 +77,17 @@ type ServerResources interface {
 
 	// Opens a scan picture for reading.
 	OpenScanPicture(scanId string, pageIdx int) (io.ReadCloser, error)
+
+	// Returns the total number of pictures stored and the number of bytes they
+	// collectively occupy.
+	CountPictures() (int, uint64)
+
+	// Returns the total number of matrices stored and the number of bytes they
+	// collectively occupy.
+	CountMats() (int, uint64)
+
+	// Returns the number of bytes used by the database.
+	DBSize() uint64
 }
 
 //
@@ -86,6 +97,7 @@ type ServerResources interface {
 type localResources struct {
 	DBCnx  io.Closer
 	DB     database.Querier
+	DBPath string
 	Images fs.ImageStore
 	Mats   fs.MatStore
 }
@@ -101,7 +113,8 @@ func NewLocalResources(rootDir string) (*localResources, error) {
 		return nil, err
 	}
 
-	db, cnx, err := database.Connect(rootDir + "/database.sqlite3")
+	dbPath := rootDir + "/database.sqlite3"
+	db, cnx, err := database.Connect(dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +132,7 @@ func NewLocalResources(rootDir string) (*localResources, error) {
 	res := &localResources{
 		DBCnx:  cnx,
 		DB:     db,
+		DBPath: dbPath,
 		Images: images,
 		Mats:   mats,
 	}
@@ -448,4 +462,21 @@ func (s *localResources) OpenScanPicture(
 
 	return img, nil
 
+}
+
+func (s *localResources) CountPictures() (int, uint64) {
+	return s.Images.Count()
+}
+
+func (s *localResources) CountMats() (int, uint64) {
+	return s.Mats.Count()
+}
+
+func (s *localResources) DBSize() uint64 {
+	info, err := os.Stat(s.DBPath)
+	if err != nil {
+		return 0
+	}
+
+	return uint64(info.Size())
 }
