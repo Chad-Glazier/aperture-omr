@@ -1,6 +1,8 @@
 const API_URL = "/system/utilization"
 const INTERVAL = 1000
 
+let peakOmrMemory = 0
+
 function formatBytes(bytes) {
     const units = ["B", "KB", "MB", "GB", "TB"]
 
@@ -97,6 +99,13 @@ async function update() {
             "updated",
             `Updated ${new Date().toLocaleTimeString()}`
         )
+
+        //
+        // Update Peaks
+        //
+
+        peakOmrMemory = Math.max(peakOmrMemory, data.memory.inUseOmr)
+        setText("omr-memory-peak", formatBytes(peakOmrMemory))
 
     } catch (err) {
         document.getElementById("error").textContent =
