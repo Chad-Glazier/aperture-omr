@@ -111,8 +111,8 @@ func RenderPageBatches(
 
 	inUse.Lock()
 
-	parallelization := maxParallelization(batchSize, allottedMemory)
-	if parallelization == 0 {
+	parallelism := maxParallelization(batchSize, allottedMemory)
+	if parallelism == 0 {
 		return nil, 0, ErrInsufficientMemory
 	}
 
@@ -131,9 +131,9 @@ func RenderPageBatches(
 	nextSpanIdx := atomic.Uint32{}
 	threadCount := atomic.Int32{}
 
-	ch := make(chan Batch, parallelization)
+	ch := make(chan Batch, parallelism)
 
-	for range parallelization {
+	for range parallelism {
 		go func() {
 
 			//

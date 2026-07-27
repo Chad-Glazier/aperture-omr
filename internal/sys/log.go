@@ -38,7 +38,7 @@ func log(level level, msg string, args ...any) {
 	s.WriteString(" ")
 	switch level {
 	case levelMisc:
-		s.WriteString("[MISC]  ")
+		s.WriteString("[LOG]   ")
 	case levelInfo:
 		s.WriteString("[INFO]  ")
 	case levelDebug:
