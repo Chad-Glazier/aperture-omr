@@ -53,7 +53,7 @@ func SendJson(w http.ResponseWriter, v any) {
 }
 
 // If the request header indicates that it can handle flate-encoded data, then
-// we will send the data as JSON in that format. As a fallback, the 
+// we will send the data as JSON in that format. As a fallback, the
 // uncompressed JSON will be sent.
 func SendDeflatedJson(w http.ResponseWriter, r *http.Request, v any) error {
 	w.Header().Add("Content-Type", "application/json")

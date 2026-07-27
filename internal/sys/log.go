@@ -84,13 +84,17 @@ func log(level level, msg string, args ...any) {
 }
 
 // Writes a generic log to standard output and caches it in memory.
-func Log(msg string, args ...any)   { log(levelMisc, msg, args...) }
+func Log(msg string, args ...any) { log(levelMisc, msg, args...) }
+
 // Writes an info-level log to standard output and caches it in memory.
-func Info(msg string, args ...any)  { log(levelInfo, msg, args...) }
+func Info(msg string, args ...any) { log(levelInfo, msg, args...) }
+
 // Writes a debug-level log to standard output and caches it in memory.
 func Debug(msg string, args ...any) { log(levelDebug, msg, args...) }
+
 // Writes a warn-level log to standard output and caches it in memory.
-func Warn(msg string, args ...any)  { log(levelWarn, msg, args...) }
+func Warn(msg string, args ...any) { log(levelWarn, msg, args...) }
+
 // Writes a error-level log to standard output and caches it in memory. Use
 // this to log unexpected behavior.
 func Error(msg string, args ...any) { log(levelError, msg, args...) }
@@ -188,20 +192,23 @@ const (
 // func FgCyan(s string) string    { return FG_CYAN + s + RESET_FG }
 // func FgWhite(s string) string   { return FG_WHITE + s + RESET_FG }
 
-func FgBrightBlack(s string) string   { return FG_BRIGHT_BLACK + s + RESET_FG }
-func FgBrightRed(s string) string     { return FG_BRIGHT_RED + s + RESET_FG }
+func FgBrightBlack(s string) string { return FG_BRIGHT_BLACK + s + RESET_FG }
+func FgBrightRed(s string) string   { return FG_BRIGHT_RED + s + RESET_FG }
+
 // func FgBrightGreen(s string) string   { return FG_BRIGHT_GREEN + s + RESET_FG }
-func FgBrightYellow(s string) string  { return FG_BRIGHT_YELLOW + s + RESET_FG }
-func FgBrightBlue(s string) string    { return FG_BRIGHT_BLUE + s + RESET_FG }
+func FgBrightYellow(s string) string { return FG_BRIGHT_YELLOW + s + RESET_FG }
+func FgBrightBlue(s string) string   { return FG_BRIGHT_BLUE + s + RESET_FG }
+
 // func FgBrightMagenta(s string) string { return FG_BRIGHT_MAGENTA + s + RESET_FG }
-func FgBrightCyan(s string) string    { return FG_BRIGHT_CYAN + s + RESET_FG }
+func FgBrightCyan(s string) string { return FG_BRIGHT_CYAN + s + RESET_FG }
+
 // func FgBrightWhite(s string) string   { return FG_BRIGHT_WHITE + s + RESET_FG }
 
 // func Bold(s string) string { return BOLD + s + RESET_INTENSITY }
 // func Dim(s string) string  { return DIM + s + RESET_INTENSITY }
 
 // func Italic(s string) string        { return ITALIC + s + ITALIC_RESET }
-func Underline(s string) string     { return UNDERLINE + s + UNDERLINE_RESET }
+// func Underline(s string) string     { return UNDERLINE + s + UNDERLINE_RESET }
 // func Blink(s string) string         { return BLINK + s + BLINK_RESET }
 // func Reverse(s string) string       { return REVERSE + s + REVERSE_RESET }
 // func Hidden(s string) string        { return HIDDEN + s + HIDDEN_RESET }

@@ -42,14 +42,14 @@ func Logger(next http.Handler) http.Handler {
 				"outgoing",
 				"endpoint", r.Method+" "+r.URL.Path,
 				"status", wrappedWriter.statusCode,
-				"time ms", time.Since(start).Milliseconds(),				
+				"time ms", time.Since(start).Milliseconds(),
 			)
 		} else {
 			sys.Log(
 				"outgoing",
 				"endpoint", r.Method+" "+r.URL.Path,
 				"status", wrappedWriter.statusCode,
-				"time ms", time.Since(start).Milliseconds(),				
+				"time ms", time.Since(start).Milliseconds(),
 			)
 		}
 	})

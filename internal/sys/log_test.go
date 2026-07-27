@@ -34,8 +34,8 @@ func TestLogAppearsInDump(t *testing.T) {
 func TestDumpLogsLimit(t *testing.T) {
 	logCache.Flush()
 	Log("first")
-	Log("second")
-	Log("third")
+	Info("second")
+	Warn("third")
 
 	var buf bytes.Buffer
 	DumpLogs(&buf, 2)
@@ -57,7 +57,7 @@ func TestDumpLogsLimit(t *testing.T) {
 
 func TestDumpLogsZero(t *testing.T) {
 	logCache.Flush()
-	Log("hello")
+	Error("hello")
 
 	var buf bytes.Buffer
 	DumpLogs(&buf, 0)
@@ -69,7 +69,7 @@ func TestDumpLogsZero(t *testing.T) {
 
 func TestDumpLogsNegative(t *testing.T) {
 	logCache.Flush()
-	Log("hello")
+	Debug("hello")
 
 	var buf bytes.Buffer
 	DumpLogs(&buf, -1)

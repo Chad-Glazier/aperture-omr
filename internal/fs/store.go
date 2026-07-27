@@ -45,7 +45,7 @@ type MatStore interface {
 	// with the given key, it will be overwritten.
 	Set(key string, mat *gocv.Mat) error
 	// Loads an OpenCV matrix by the given key. If no matrix is associated with
-	// the key, then ErrNotFound is returned.
+	// the key, then [ErrNotFound] is returned.
 	Get(key string) (*gocv.Mat, error)
 	// Deletes a stored matrix.
 	Delete(key string) error

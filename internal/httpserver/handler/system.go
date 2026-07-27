@@ -36,7 +36,7 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 		if len(diskHistory) > 0 {
 			result.Disk.Usage = diskHistory[0]
 		}
-		
+
 		dbSize := s.DBSize()
 		nPictures, picturesSize := s.CountPictures()
 		nMats, matsSize := s.CountMats()

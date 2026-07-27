@@ -22,19 +22,25 @@ import (
 // resource utilization (CPU, memory), cache it, and retrieve it.
 //
 
-const PollPeriod = time.Second // Poll CPU/Memory stats every 1 second
+const (
+	PollPeriod  = time.Second // Poll CPU/memory/disk stats every 1 second
+	HistorySize = 1 << 12     // Hold up to this many recorded stats.
+)
 
 var (
-	cpuHistory *RingBuffer[CpuInfo]
-	memHistory *RingBuffer[MemInfo]
+	cpuHistory  *RingBuffer[CpuInfo]
+	memHistory  *RingBuffer[MemInfo]
 	diskHistory *RingBuffer[DiskInfo]
+
+	// The maximum amount of memory used by the OMR since startup.
+	lifetimeMaxMem uint64
 )
 
 func init() {
 
-	cpuHistory = NewRingBuffer[CpuInfo](1 << 12)
-	memHistory = NewRingBuffer[MemInfo](1 << 12)
-	diskHistory = NewRingBuffer[DiskInfo](1 << 12)
+	cpuHistory = NewRingBuffer[CpuInfo](HistorySize)
+	memHistory = NewRingBuffer[MemInfo](HistorySize)
+	diskHistory = NewRingBuffer[DiskInfo](HistorySize)
 
 	cpu, err := currentCpuInfo()
 	if err != nil {
@@ -55,6 +61,8 @@ func init() {
 	memHistory.Add(mem)
 	diskHistory.Add(disk)
 
+	lifetimeMaxMem = mem.InUseOmr
+
 	go func() {
 		for range time.Tick(PollPeriod) {
 
@@ -64,15 +72,18 @@ func init() {
 			// also not a big deal if these values are zero since they don't
 			// dictate any behavior.
 			//
-			
+
 			cpu, _ := currentCpuInfo()
 			cpuHistory.Add(cpu)
 
-			mem,_ := currentMemInfo()
+			mem, _ := currentMemInfo()
 			memHistory.Add(mem)
 
-			disk,_ := currentDiskInfo()
+			disk, _ := currentDiskInfo()
 			diskHistory.Add(disk)
+
+			lifetimeMaxMem = max(lifetimeMaxMem, mem.InUseOmr)
+
 		}
 	}()
 }
@@ -84,12 +95,24 @@ func Uptime() time.Duration {
 	return time.Since(startupTime)
 }
 
+// Returns true if the application is running inside of a Docker container.
+func Docker() bool {
+	_, err := os.Stat("/docker.env")
+	return err != nil
+}
+
+// Returns the peak memory usage for the OMR since startup.
+func PeakMem() uint64 {
+	return lifetimeMaxMem
+}
+
 //
 // CPU
 //
 
 // Gets up to the n most recent recorded CPU stats. CPU stats are collected at
-// a rate determined by [PollPeriod]. 
+// a rate determined by [PollPeriod]. The maximum number of stats that can be
+// retrieved is determined by [HistorySize].
 func CpuHistory(n int) []CpuInfo {
 	return cpuHistory.Get(n)
 }
@@ -145,8 +168,9 @@ func currentCpuInfo() (CpuInfo, error) {
 // Memory
 //
 
-// Gets up to the n most recent recorded memory usage stats. Memory stats are 
-// collected at a rate determined by [PollPeriod]. 
+// Gets up to the n most recent recorded memory usage stats. Memory stats are
+// collected at a rate determined by [PollPeriod]. The maximum number of stats
+// that can be retrieved is determined by [HistorySize].
 func MemHistory(n int) []MemInfo {
 	return memHistory.Get(n)
 }
@@ -187,8 +211,9 @@ func currentMemInfo() (MemInfo, error) {
 // Disk
 //
 
-// Gets up to the n most recent recorded disk usage stats. Disk stats are 
-// collected at a rate determined by [PollPeriod]. 
+// Gets up to the n most recent recorded disk usage stats. Disk stats are
+// collected at a rate determined by [PollPeriod]. The maximum number of
+// stats that can be retrieved is determined by [HistorySize].
 func DiskHistory(n int) []DiskInfo {
 	return diskHistory.Get(n)
 }

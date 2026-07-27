@@ -29,7 +29,7 @@ func (r *RingBuffer[T]) Add(item T) {
 
 	r.elements[r.idx] = item
 	r.idx = (r.idx + 1) % r.capacity
-	r.length = min(r.capacity, r.length + 1)
+	r.length = min(r.capacity, r.length+1)
 }
 
 func (r *RingBuffer[T]) Len() int {
@@ -37,7 +37,7 @@ func (r *RingBuffer[T]) Len() int {
 }
 
 func (r *RingBuffer[T]) Flush() {
-	
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

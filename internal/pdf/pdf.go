@@ -69,14 +69,14 @@ var inUse sync.Mutex
 // closed when it returns.
 //
 // The maxMemory argument specifies the number of bytes that this operation
-// should be restricted to (setting it to zero defaults to DefaultMaxMemUsage).
-// It will determine the number of concurrent batches to process by estimating
-// the maximum number of cores it can use without violating that limit. Note
-// that the limit is only an estimation based on prior sampling; it is not
-// guaranteed to be a hard upper bound.
+// should be restricted to (setting it to zero defaults to
+// [DefaultMaxMemUsage]). It will determine the number of concurrent batches to
+// process by estimating the maximum number of cores it can use without
+// violating that limit. Note that the limit is only an estimation based on
+// prior sampling; it is not guaranteed to be a hard upper bound.
 //
-// Density/DPI is capped at MaxDpi. If a density greater than that maximum is
-// given, it will be ignored and MaxDpi will be used instead.
+// Density/DPI is capped at [MaxDpi]. If a density greater than that maximum is
+// given, it will be ignored and [MaxDpi] will be used instead.
 //
 // Batches will preserve their original order. E.g., if the batch size is 3,
 // then the first batch (index 0) will include pages 1-3, the next batch will
@@ -84,12 +84,12 @@ var inUse sync.Mutex
 // original order.
 //
 // If this function returns an error, it will either be because the reader
-// does not describe a PDF (ErrMalformedPdf), the page count of the PDF is
-// not a multiple of the batch size (ErrPageCountMismatch), or the operation is
-// impossible to execute with the given batch size and memory limit
-// (ErrInsufficientMemory). Other kinds of errors, like those that arise during
-// the actual rendering of a PDF batch, are attached to the batch that concerns
-// them. The occurrence of such an error will not halt this process.
+// does not describe a PDF ([ErrMalformedPdf]), the page count of the PDF is
+// not a multiple of the batch size ([ErrPageCountMismatch]), or the operation
+// is impossible to execute with the given batch size and memory limit
+// ([ErrInsufficientMemory]). Other kinds of errors, like those that arise
+// during the actual rendering of a PDF batch, are attached to the batch that
+// concerns them. The occurrence of such an error will not halt this process.
 func RenderPageBatches(
 	r io.ReadSeeker,
 	density,
@@ -200,9 +200,9 @@ type SubPdf struct {
 // of pages equal to the given "span." I.e., if the span is 1, then the
 // resulting PDFs each have one page.
 //
-// If the given reader doesn't form a proper PDF, then ErrMalformedPdf will be
-// returned. If the given span does not divide the total pages in the PDF, then
-// ErrPageCountMismatch will be returned.
+// If the given reader doesn't form a proper PDF, then [ErrMalformedPdf] will
+// be returned. If the given span does not divide the total pages in the PDF,
+// then [ErrPageCountMismatch] will be returned.
 //
 // Note that the package we're using (pdfcpu) has a version of this function
 // already, "SplitRaw." This function internally builds a buffer but it only
@@ -280,7 +280,7 @@ func pageSpan(
 }
 
 // Counts the number of pages in a PDF. If there is an error, it will be
-// ErrMalformedPdf.
+// [ErrMalformedPdf].
 func CountPages(r io.ReadSeeker) (int, error) {
 	conf := api.LoadConfiguration()
 

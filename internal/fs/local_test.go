@@ -2,11 +2,15 @@ package fs
 
 import (
 	"bytes"
-	"os"
+	"embed"
+	"io"
 	"testing"
 
 	"gocv.io/x/gocv"
 )
+
+//go:embed testdata/*
+var testData embed.FS
 
 //
 // Tests
@@ -19,7 +23,7 @@ func TestLocalImageStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := os.Open("./testdata/sample_image.jpg")
+	r, err := testData.Open("testdata/sample_image.jpg")
 	if err != nil {
 		t.Error("error reading test image: " + err.Error())
 	}
@@ -110,7 +114,7 @@ func TestLocalImageStoreSetBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := os.Open("./testdata/sample_image.jpg")
+	r, err := testData.Open("testdata/sample_image.jpg")
 	if err != nil {
 		t.Fatal("error reading test image: " + err.Error())
 	}
@@ -154,7 +158,7 @@ func TestLocalImageStoreOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := os.Open("./testdata/sample_image.jpg")
+	r, err := testData.Open("testdata/sample_image.jpg")
 	if err != nil {
 		t.Fatal("error reading test image: " + err.Error())
 	}
@@ -230,6 +234,170 @@ func TestLocalMatStoreDelete(t *testing.T) {
 	if _, err := store.Get("testkey"); err == nil {
 		t.Fatalf("expected error getting after deletion, got %v", err)
 	}
+}
+
+func TestImageStoreCount(t *testing.T) {
+	t.Run("Empty", func(t *testing.T) {
+		store, err := NewLocalImageStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		count, bytes := store.Count()
+
+		if count != 0 {
+			t.Errorf("count = %d, want 0", count)
+		}
+		if bytes != 0 {
+			t.Errorf("bytes = %d, want 0", bytes)
+		}
+	})
+
+	t.Run("AddDelete", func(t *testing.T) {
+		store, err := NewLocalImageStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		img, err := testData.Open("testdata/sample_image.jpg")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer img.Close()
+
+		buf, err := io.ReadAll(img)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := store.SetBytes("a", buf); err != nil {
+			t.Fatal(err)
+		}
+
+		count, bytes := store.Count()
+		if count != 1 {
+			t.Errorf("count = %d, want 1", count)
+		}
+		if bytes == 0 {
+			t.Error("expected non-zero byte count")
+		}
+
+		if err := store.Delete("a"); err != nil {
+			t.Fatal(err)
+		}
+
+		count, bytes = store.Count()
+		if count != 0 {
+			t.Errorf("count = %d, want 0", count)
+		}
+		if bytes != 0 {
+			t.Errorf("bytes = %d, want 0", bytes)
+		}
+	})
+
+	t.Run("Overwrite", func(t *testing.T) {
+		store, err := NewLocalImageStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		img, err := testData.Open("testdata/sample_image.jpg")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer img.Close()
+
+		buf, err := io.ReadAll(img)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := store.SetBytes("a", buf); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.SetBytes("a", buf); err != nil {
+			t.Fatal(err)
+		}
+
+		count, _ := store.Count()
+		if count != 1 {
+			t.Errorf("count = %d, want 1", count)
+		}
+	})
+}
+
+func TestMatStoreCount(t *testing.T) {
+	t.Run("Empty", func(t *testing.T) {
+		store, err := NewLocalMatStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		count, bytes := store.Count()
+
+		if count != 0 {
+			t.Errorf("count = %d, want 0", count)
+		}
+		if bytes != 0 {
+			t.Errorf("bytes = %d, want 0", bytes)
+		}
+	})
+
+	t.Run("AddDelete", func(t *testing.T) {
+		store, err := NewLocalMatStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mat := gocv.IMRead("testdata/sample_image.jpg", gocv.IMReadGrayScale)
+		defer mat.Close()
+
+		if err := store.Set("a", &mat); err != nil {
+			t.Fatal(err)
+		}
+
+		count, bytes := store.Count()
+		if count != 1 {
+			t.Errorf("count = %d, want 1", count)
+		}
+		if bytes == 0 {
+			t.Error("expected non-zero byte count")
+		}
+
+		if err := store.Delete("a"); err != nil {
+			t.Fatal(err)
+		}
+
+		count, bytes = store.Count()
+		if count != 0 {
+			t.Errorf("count = %d, want 0", count)
+		}
+		if bytes != 0 {
+			t.Errorf("bytes = %d, want 0", bytes)
+		}
+	})
+
+	t.Run("Overwrite", func(t *testing.T) {
+		store, err := NewLocalMatStore(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mat := gocv.IMRead("testdata/sample_image.jpg", gocv.IMReadGrayScale)
+		defer mat.Close()
+
+		if err := store.Set("a", &mat); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.Set("a", &mat); err != nil {
+			t.Fatal(err)
+		}
+
+		count, _ := store.Count()
+		if count != 1 {
+			t.Errorf("count = %d, want 1", count)
+		}
+	})
 }
 
 //

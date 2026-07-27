@@ -81,9 +81,6 @@ func Start(hostname, port string) {
 
 	sys.ClearScreen()
 
-	sys.Info(
-		"starting server at "+ 
-		sys.Underline("http://" + hostname + ":" + port),
-	)
+	sys.Info("starting server at http://" + hostname + ":" + port)
 	server.ListenAndServe()
 }

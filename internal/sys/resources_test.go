@@ -77,7 +77,7 @@ func TestCurrentMemInfo(t *testing.T) {
 func TestCurrentDiskInfo(t *testing.T) {
 	info, err := currentDiskInfo()
 	if err != nil {
-		t.Fatalf("currentDiskInfo() returned error: %v", err)
+		t.Fatalf("currentDiskInfo returned error: %v", err)
 	}
 
 	if info.Total == 0 {
@@ -139,6 +139,14 @@ func TestDiskHistory(t *testing.T) {
 	for i, info := range h {
 		if info.Total == 0 {
 			t.Errorf("entry %d has zero total disk", i)
+		}
+
+		if Docker() {
+			// Docker may give inconsistent counts for free/used/total memory,
+			// so the following condition is not guaranteed to hold. If there
+			// is a substitute condition or an alternative, consistent
+			// implementation, I do not know of it.
+			continue
 		}
 
 		if info.Free+info.Used != info.Total {
