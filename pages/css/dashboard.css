@@ -1,31 +1,52 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
     font-family: "Space Grotesk", sans-serif;
-    margin: 2rem;
     color: #eee;
 
     background-image: url("/img/background.jpg");
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+
+    margin: 0;
+    padding: 0;
 }
 
-h1 {
-    margin-bottom: 1.5rem;
+a {
+    text-decoration: none;
+    color: #eee;
 }
 
-.resource-card-container {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+.grid {
+    height: calc(100vh - 40px);
+    width: calc(100vw - 40px);
+    margin: 20px;
+
+    display: grid;
+    gap: 8px;
+
+    grid-template-columns: 360px 3fr;
+    grid-template-rows: 1fr 1fr 1fr 140px;
 }
 
-.card {
-    background: rgba(0, 0, 0, 0.6);
+.grid > * {
+    background: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(8px);
-    padding: 1.25rem;
-    width: min(400px, 100%);
-    flex: 1;
-    border-radius: 10px;
+    padding: 12px;
+    width: 100%;
+    height: 100%;
+}
+
+.grid > .clickable {
+    transition: background-color 300ms;
+    cursor: pointer;
+}
+
+.grid > .clickable:hover {
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .card h2 {
@@ -35,10 +56,46 @@ h1 {
     padding-bottom: 0.5rem;
 }
 
+.card:nth-of-type(1) {
+    grid-row: 1;
+    grid-column: 1;
+}
+
+.card:nth-of-type(2) {
+    grid-row: 2;
+    grid-column: 1;
+}
+
+.card:nth-of-type(3) {
+    grid-row: 3;
+    grid-column: 1;
+}
+
+.main {
+    grid-column: 2;
+    grid-row: 1 / 4;
+}
+
+.logs {
+    grid-row: 4;
+    grid-column: 2;
+    overflow-y: hidden;
+    overflow-x: hidden;
+
+    padding: 10px;
+}
+
+#logs-output {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    overflow-y: scroll;
+}
+
 .metric {
     display: flex;
     justify-content: space-between;
-    padding: 0.4rem;
+    padding: 4px;
 }
 
 .metric.peak {
@@ -55,7 +112,6 @@ h1 {
 }
 
 .value {
-    font-weight: 600;
     color: #888;
     text-align: right;
 }
@@ -94,15 +150,4 @@ h1 {
 
 .core {
     margin-bottom: 0.5rem;
-}
-
-.error {
-    color: #b00020;
-    font-weight: bold;
-}
-
-#updated {
-    color: #aaa;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
 }

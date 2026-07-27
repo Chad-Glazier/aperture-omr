@@ -1,4 +1,3 @@
-const API_URL = "/system/utilization"
 const INTERVAL = 1000
 
 let peakOmrMemory = 0
@@ -28,7 +27,7 @@ function setBar(id, percent) {
 
 async function update() {
     try {
-        const response = await fetch(API_URL)
+        const response = await fetch("/system/utilization")
 
         if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`)
@@ -36,76 +35,109 @@ async function update() {
 
         const data = await response.json()
 
-        document.getElementById("error").textContent = ""
+        const cpu = data.cpuHistory[data.cpuHistory.length - 1]
+        const memory = data.memoryHistory[data.memoryHistory.length - 1]
+        const disk = data.disk
 
         //
         // CPU
         //
 
-        setText("cpu-mhz", `${data.cpu.mhz.toFixed(0)} MHz`)
-        setText("cpu-overall", `${data.cpu.overallPercent.toFixed(1)}%`)
-        setText("cpu-threads", `${data.cpu.threads.length}`)
+        setText("cpu-mhz", `${cpu.mhz.toFixed(0)} MHz`)
+        setText("cpu-overall", `${cpu.overallPercent.toFixed(1)}%`)
+        setText("cpu-threads", `${cpu.threads.length}`)
 
-        setBar("cpu-bar", data.cpu.overallPercent)
+        setBar("cpu-bar", cpu.overallPercent)
 
         //
         // Memory
         //
 
-        setText("memory-omr", formatBytes(data.memory.inUseOmr))
-        setText("memory-available", formatBytes(data.memory.totalAvailable))
+        setText("memory-omr", formatBytes(memory.inUseOmr))
+        setText("memory-available", formatBytes(memory.totalAvailable))
 
         const memoryUsed =
-            data.memory.inUseOmr +
-            data.memory.inUseOther
+            memory.inUseOmr +
+            memory.inUseOther
+
+        const totalMemory =
+            memory.totalAvailable +
+            memory.inUseOther
 
         setText("memory-used", formatBytes(memoryUsed))
+
         setBar(
             "other-memory-bar",
-            data.memory.inUseOther
-                / (data.memory.totalAvailable+data.memory.inUseOther)
-                * 100,
+            (memory.inUseOther / totalMemory) * 100,
         )
+
         setBar(
             "omr-memory-bar",
-            data.memory.inUseOmr
-                / (data.memory.totalAvailable+data.memory.inUseOther)
-                * 100,
+            (memory.inUseOmr / totalMemory) * 100,
         )
 
         //
         // Disk
         //
 
-        setText("disk-used", formatBytes(data.disk.used))
+        setText("disk-used", formatBytes(disk.usage.used))
 
-        let omrUsage = 
-            data.disk.database + 
-            data.disk.matrices +
-            data.disk.pictures
+        const omrUsage = disk.omrUsage.total
+
         setBar(
             "omr-disk-bar",
-            (omrUsage / data.disk.total) * 100
+            (omrUsage / disk.usage.total) * 100
         )
+
         setBar(
             "other-disk-bar",
-            ((data.disk.used - omrUsage) / data.disk.total) * 100
+            ((disk.usage.used - omrUsage) / disk.usage.total) * 100
         )
 
-        setText("disk-available", formatBytes(data.disk.total - data.disk.used))
-        setText("disk-omr-total", formatBytes(omrUsage))
+        setText(
+            "disk-available",
+            formatBytes(disk.usage.free)
+        )
 
         setText(
-            "updated",
-            `Updated ${new Date().toLocaleTimeString()}`
+            "disk-omr-total",
+            formatBytes(omrUsage)
         )
 
         //
         // Update Peaks
         //
 
-        peakOmrMemory = Math.max(peakOmrMemory, data.memory.inUseOmr)
-        setText("omr-memory-peak", formatBytes(peakOmrMemory))
+        peakOmrMemory = Math.max(
+            peakOmrMemory,
+            memory.inUseOmr,
+        )
+
+        setText(
+            "omr-memory-peak",
+            formatBytes(peakOmrMemory)
+        )
+
+    } catch (err) {
+        alert(`Failed to load stats: ${err.message}`)
+    }
+}
+
+async function updateLogs() {
+    try {
+        const response = await fetch("/system/logs")
+
+        if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`)
+        }
+
+        let data = await response.text()
+        data = data.split("\n").slice(-10).join("\n")
+
+        setText("logs-output", data)
+
+        let logsContainer = document.getElementById("logs-output")
+        logsContainer.scrollTo(0, logsContainer.scrollHeight)
 
     } catch (err) {
         document.getElementById("error").textContent =
@@ -115,3 +147,4 @@ async function update() {
 
 update()
 setInterval(update, INTERVAL)
+setInterval(updateLogs, INTERVAL)

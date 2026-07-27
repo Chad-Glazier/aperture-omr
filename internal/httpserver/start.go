@@ -79,6 +79,8 @@ func Start(hostname, port string) {
 		Handler: httpHandler,
 	}
 
+	sys.ClearScreen()
+
 	sys.Info("starting server at http://" + hostname + ":" + port)
 	server.ListenAndServe()
 }

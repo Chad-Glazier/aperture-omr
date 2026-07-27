@@ -11,7 +11,6 @@ import (
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/scanner"
-	"ubco-team15/omr/internal/sys"
 
 	"gocv.io/x/gocv"
 )
@@ -45,8 +44,6 @@ func setPdfRenderingMemoryLimit(limit uint64) {
 
 func PostScanPdf(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		sys.Log("rendering pdf", "limit", pdfRenderingMemoryLimit())
 
 		//
 		// Read and validate the body
