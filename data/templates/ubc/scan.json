@@ -14,19 +14,19 @@
     {
       "anchors": [
         {
-          "path": "anchors/front_plus.png",
+          "path": "anchors/front_question.png",
           "center": {
-            "X": 1158,
-            "Y": 29
+            "X": 1124,
+            "Y": 173
           },
           "roi": {
             "Min": {
-              "X": 980,
-              "Y": 0
+              "X": 950,
+              "Y": 50
             },
             "Max": {
               "X": 1200,
-              "Y": 160
+              "Y": 300
             }
           }
         },
@@ -86,19 +86,19 @@
     {
       "anchors": [
         {
-          "path": "anchors/back_plus.png",
+          "path": "anchors/back_student_id_header.png",
           "center": {
-            "X": 1165,
-            "Y": 30
+            "X": 546,
+            "Y": 97
           },
           "roi": {
             "Min": {
-              "X": 980,
+              "X": 350,
               "Y": 0
             },
             "Max": {
-              "X": 1200,
-              "Y": 160
+              "X": 750,
+              "Y": 250
             }
           }
         },
