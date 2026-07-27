@@ -22,6 +22,8 @@ type ResourceUtilization struct {
 			Total            uint64 `json:"total"`
 		} `json:"omrUsage"`
 	} `json:"disk"`
+	MemoryPeak uint64 `json:"memoryPeak"`
+	Uptime     uint64 `json:"uptime"`
 }
 
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
@@ -36,6 +38,9 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 		if len(diskHistory) > 0 {
 			result.Disk.Usage = diskHistory[0]
 		}
+
+		result.MemoryPeak = sys.PeakMem()
+		result.Uptime = uint64(sys.Uptime().Seconds())
 
 		dbSize := s.DBSize()
 		nPictures, picturesSize := s.CountPictures()

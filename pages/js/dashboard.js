@@ -16,6 +16,22 @@ function formatBytes(bytes) {
     return `${value.toFixed(2)} ${units[unit]}`
 }
 
+function formatTime(seconds) {
+    let minutes = Math.floor(seconds / 60)
+    seconds %= 60
+    let hours = Math.floor(minutes / 60)
+    minutes %= 60
+    let days = Math.floor(hours / 60)
+    hours %= 60
+
+    let secStr = (seconds < 10 ? "0" : "") + seconds.toString()
+    let minStr = (minutes < 10 ? "0" : "") + minutes.toString()
+    let hourStr = (hours < 10 ? "0" : "") + hours.toString()
+    let dayStr = (days < 10 ? "0" : "") + days.toString()
+
+    return dayStr + ":" + hourStr + ":" + minStr + ":" + secStr
+}
+
 function setText(id, value) {
     document.getElementById(id).textContent = value
 }
@@ -39,10 +55,6 @@ async function update() {
         const memory = data.memoryHistory[data.memoryHistory.length - 1]
         const disk = data.disk
 
-        const peakMem = data.memoryHistory
-            .reduce((a, b) => a.inUseOmr > b.inUseOmr ? a : b)
-            .inUseOmr
-
         //
         // CPU
         //
@@ -58,15 +70,16 @@ async function update() {
         //
 
         setText("memory-omr", formatBytes(memory.inUseOmr))
-        setText("memory-available", formatBytes(memory.totalAvailable))
+        setText("memory-free", formatBytes(memory.free))
 
         const memoryUsed =
             memory.inUseOmr +
             memory.inUseOther
 
         const totalMemory =
-            memory.totalAvailable +
-            memory.inUseOther
+            memory.free +
+            memory.inUseOther +
+            memory.inUseOmr
 
         setText("memory-used", formatBytes(memoryUsed))
 
@@ -109,17 +122,16 @@ async function update() {
         )
 
         //
-        // Update Peaks
+        // Misc
         //
-
-        peakOmrMemory = Math.max(
-            peakOmrMemory,
-            peakMem,
-        )
 
         setText(
             "omr-memory-peak",
-            formatBytes(peakOmrMemory)
+            formatBytes(data.memoryPeak)
+        )
+        setText(
+            "uptime",
+            formatTime(data.uptime)
         )
 
     } catch (err) {

@@ -54,23 +54,8 @@ func TestCurrentMemInfo(t *testing.T) {
 		t.Fatalf("currentMemInfo() returned error: %v", err)
 	}
 
-	if info.TotalAvailable == 0 {
+	if info.Free == 0 {
 		t.Error("total available memory should be positive")
-	}
-
-	if info.InUseOmr > info.TotalAvailable {
-		t.Errorf("OMR memory exceeds total available (%d > %d)",
-			info.InUseOmr, info.TotalAvailable)
-	}
-
-	if info.InUseOther > info.TotalAvailable {
-		t.Errorf("other memory exceeds total available (%d > %d)",
-			info.InUseOther, info.TotalAvailable)
-	}
-
-	if info.InUseOmr+info.InUseOther > info.TotalAvailable {
-		t.Errorf("combined memory usage exceeds total available (%d > %d)",
-			info.InUseOmr+info.InUseOther, info.TotalAvailable)
 	}
 }
 
@@ -119,12 +104,8 @@ func TestMemHistory(t *testing.T) {
 	}
 
 	for i, info := range h {
-		if info.TotalAvailable == 0 {
+		if info.Free == 0 {
 			t.Errorf("entry %d has zero total memory", i)
-		}
-
-		if info.InUseOmr+info.InUseOther > info.TotalAvailable {
-			t.Errorf("entry %d memory accounting invalid", i)
 		}
 	}
 }

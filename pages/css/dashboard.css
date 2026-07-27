@@ -151,3 +151,27 @@ a {
 .core {
     margin-bottom: 0.5rem;
 }
+
+#uptime {
+    font-family: "Fira Code", monospace;
+    position: relative;
+}
+
+.uptime-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.uptime-container > div {
+    position: relative;
+}
+
+.uptime-label {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    color: #888;
+    transform: translateY(1rem);
+}

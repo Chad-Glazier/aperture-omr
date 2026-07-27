@@ -178,7 +178,7 @@ func MemHistory(n int) []MemInfo {
 type MemInfo struct {
 	InUseOmr       uint64 `json:"inUseOmr"`
 	InUseOther     uint64 `json:"inUseOther"`
-	TotalAvailable uint64 `json:"totalAvailable"`
+	Free uint64 `json:"free"`
 }
 
 func currentMemInfo() (MemInfo, error) {
@@ -189,7 +189,7 @@ func currentMemInfo() (MemInfo, error) {
 		return MemInfo{}, nil
 	}
 
-	newInfo.TotalAvailable = vmem.Available
+	newInfo.Free = vmem.Available
 
 	proc, err := process.NewProcess(int32(os.Getpid()))
 	if err != nil {

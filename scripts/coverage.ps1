@@ -8,3 +8,4 @@ go test `
 	./internal/sys `
     -coverprofile="coverage.out"
 go tool cover -func="coverage.out"
+rm coverage.out

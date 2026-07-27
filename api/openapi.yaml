@@ -1155,6 +1155,8 @@ components:
       required:
         - cpuHistory
         - memoryHistory
+        - memoryPeak
+        - uptime
         - disk
       properties:
         cpuHistory:
@@ -1168,6 +1170,20 @@ components:
           description: Historical memory utilization samples.
           items:
             $ref: '#/components/schemas/MemInfo'
+        
+        memoryPeak:
+          type: integer
+          format: uint64
+          example: 2230198
+          description: |
+            The peak memory usage by the OMR since startup.
+
+        uptime:
+          type: integer
+          format: uint64
+          example: 259219
+          description: |
+            The number of seconds that the OMR has been running.
 
         disk:
           $ref: '#/components/schemas/DiskUtilization'
@@ -1219,7 +1235,7 @@ components:
       required:
         - inUseOmr
         - inUseOther
-        - totalAvailable
+        - free
       properties:
         inUseOmr:
           type: integer
@@ -1233,10 +1249,10 @@ components:
           description: Bytes of memory used by all other processes.
           example: 7432491008
 
-        totalAvailable:
+        free:
           type: integer
           format: uint64
-          description: Total available system memory in bytes.
+          description: Total free system memory in bytes.
           example: 17179869184
 
     DiskUtilization:
