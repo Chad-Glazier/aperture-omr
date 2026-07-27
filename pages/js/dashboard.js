@@ -39,6 +39,10 @@ async function update() {
         const memory = data.memoryHistory[data.memoryHistory.length - 1]
         const disk = data.disk
 
+        const peakMem = data.memoryHistory
+            .reduce((a, b) => a.inUseOmr > b.inUseOmr ? a : b)
+            .inUseOmr
+
         //
         // CPU
         //
@@ -110,7 +114,7 @@ async function update() {
 
         peakOmrMemory = Math.max(
             peakOmrMemory,
-            memory.inUseOmr,
+            peakMem,
         )
 
         setText(

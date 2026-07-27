@@ -24,32 +24,22 @@ type ResourceUtilization struct {
 	} `json:"disk"`
 }
 
-func sendErr(w http.ResponseWriter) {
-	http.Error(
-		w,
-		"unexpected error calculating system resources",
-		http.StatusInternalServerError,
-	)
-}
-
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		resourceHistory := sys.ResourceInfoHistory(history)
+		result := ResourceUtilization{}
+
+		result.CpuHistory = sys.CpuHistory(history)
+		result.MemoryHistory = sys.MemHistory(history)
+
+		diskHistory := sys.DiskHistory(1)
+		if len(diskHistory) > 0 {
+			result.Disk.Usage = diskHistory[0]
+		}
+		
 		dbSize := s.DBSize()
 		nPictures, picturesSize := s.CountPictures()
 		nMats, matsSize := s.CountMats()
-
-		result := ResourceUtilization{}
-
-		result.CpuHistory = make([]sys.CpuInfo, len(resourceHistory))
-		result.MemoryHistory = make([]sys.MemInfo, len(resourceHistory))
-		for i := range resourceHistory {
-			result.CpuHistory[i] = resourceHistory[i].Cpu
-			result.MemoryHistory[i] = resourceHistory[i].Memory
-		}
-
-		result.Disk.Usage = resourceHistory[len(resourceHistory)-1].Disk
 
 		result.Disk.OmrUsage.Database = dbSize
 		result.Disk.OmrUsage.Matrices = matsSize
@@ -58,14 +48,13 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 		result.Disk.OmrUsage.NumberOfPictures = nPictures
 		result.Disk.OmrUsage.Total = dbSize + matsSize + picturesSize
 
-		dto.SendJson(w, result)
-
+		dto.SendDeflatedJson(w, r, result)
 	}
 }
 
 func GetLogs(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "text/plain")
-		sys.DumpLogs(w)
+		sys.DumpLogs(w, history)
 	}
 }

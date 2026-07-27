@@ -1,12 +1,16 @@
+/*
+This package provides an interface to collect information about the system in
+which the OMR is running. It passively checks certain statistics and caches
+them in memory and on disk to provide stable access, tracks certain configured
+constants (i.e., user- and runtime-determined resource limits), and exposes
+logging functions that can be used globally.
+*/
 package sys
 
 import (
 	"os"
-	"sort"
-	"strconv"
 	"time"
 
-	"github.com/patrickmn/go-cache"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -18,81 +22,77 @@ import (
 // resource utilization (CPU, memory), cache it, and retrieve it.
 //
 
-var resCache *cache.Cache
+const PollPeriod = time.Second // Poll CPU/Memory stats every 1 second
+
+var (
+	cpuHistory *RingBuffer[CpuInfo]
+	memHistory *RingBuffer[MemInfo]
+	diskHistory *RingBuffer[DiskInfo]
+)
 
 func init() {
-	resCache = cache.New(10*time.Minute, 15*time.Minute)
 
-	go func() {
-		for t := range time.Tick(time.Second) {
-
-			res, _ := currentResourceInfo()
-
-			resCache.Set(
-				strconv.FormatInt(t.UnixNano(), 10),
-				&res,
-				time.Minute*10,
-			)
-		}
-	}()
-}
-
-// Gets all resource info entries from the last n seconds (up to 10 minutes).
-// The most recent entries are at the end of the returned slice.
-func ResourceInfoHistory(n int) []*ResourceInfo {
-	m := resCache.Items()
-
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
-	res := make([]*ResourceInfo, min(n, 0, len(m)))
-	for _, key := range keys {
-		info, ok := m[key].Object.(*ResourceInfo)
-		if ok {
-			res = append(res, info)
-		}
-	}
-
-	return res
-}
-
-type ResourceInfo struct {
-	Cpu    CpuInfo  `json:"cpu"`
-	Memory MemInfo  `json:"memory"`
-	Disk   DiskInfo `json:"disk"`
-}
-
-func currentResourceInfo() (ResourceInfo, error) {
+	cpuHistory = NewRingBuffer[CpuInfo](1 << 12)
+	memHistory = NewRingBuffer[MemInfo](1 << 12)
+	diskHistory = NewRingBuffer[DiskInfo](1 << 12)
 
 	cpu, err := currentCpuInfo()
 	if err != nil {
-		return ResourceInfo{}, err
+		panic("error getting CPU info: " + err.Error())
 	}
 
 	mem, err := currentMemInfo()
 	if err != nil {
-		return ResourceInfo{}, err
+		panic("error getting memory info: " + err.Error())
 	}
 
 	disk, err := currentDiskInfo()
 	if err != nil {
-		return ResourceInfo{}, err
+		panic("error getting disk info: " + err.Error())
 	}
 
-	return ResourceInfo{
-		Cpu:    cpu,
-		Memory: mem,
-		Disk:   disk,
-	}, nil
+	cpuHistory.Add(cpu)
+	memHistory.Add(mem)
+	diskHistory.Add(disk)
+
+	go func() {
+		for range time.Tick(PollPeriod) {
+
+			//
+			// We ignore errors below, under the assumption that if there are
+			// errors, they would've occurred on the initialization. But it's
+			// also not a big deal if these values are zero since they don't
+			// dictate any behavior.
+			//
+			
+			cpu, _ := currentCpuInfo()
+			cpuHistory.Add(cpu)
+
+			mem,_ := currentMemInfo()
+			memHistory.Add(mem)
+
+			disk,_ := currentDiskInfo()
+			diskHistory.Add(disk)
+		}
+	}()
+}
+
+var startupTime = time.Now()
+
+// Returns the duration that the application has been running.
+func Uptime() time.Duration {
+	return time.Since(startupTime)
 }
 
 //
 // CPU
 //
+
+// Gets up to the n most recent recorded CPU stats. CPU stats are collected at
+// a rate determined by [PollPeriod]. 
+func CpuHistory(n int) []CpuInfo {
+	return cpuHistory.Get(n)
+}
 
 type CpuInfo struct {
 	Description    string  `json:"description"`
@@ -145,6 +145,12 @@ func currentCpuInfo() (CpuInfo, error) {
 // Memory
 //
 
+// Gets up to the n most recent recorded memory usage stats. Memory stats are 
+// collected at a rate determined by [PollPeriod]. 
+func MemHistory(n int) []MemInfo {
+	return memHistory.Get(n)
+}
+
 type MemInfo struct {
 	InUseOmr       uint64 `json:"inUseOmr"`
 	InUseOther     uint64 `json:"inUseOther"`
@@ -180,6 +186,12 @@ func currentMemInfo() (MemInfo, error) {
 //
 // Disk
 //
+
+// Gets up to the n most recent recorded disk usage stats. Disk stats are 
+// collected at a rate determined by [PollPeriod]. 
+func DiskHistory(n int) []DiskInfo {
+	return diskHistory.Get(n)
+}
 
 type DiskInfo struct {
 	Total uint64 `json:"total"`

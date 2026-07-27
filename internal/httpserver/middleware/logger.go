@@ -37,12 +37,21 @@ func Logger(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(wrappedWriter, r)
 
-		sys.Log(
-			"outgoing",
-			"endpoint", r.Method+" "+r.URL.Path,
-			"status", wrappedWriter.statusCode,
-			"time ms", time.Since(start).Milliseconds(),
-		)
+		if wrappedWriter.statusCode >= http.StatusInternalServerError {
+			sys.Error(
+				"outgoing",
+				"endpoint", r.Method+" "+r.URL.Path,
+				"status", wrappedWriter.statusCode,
+				"time ms", time.Since(start).Milliseconds(),				
+			)
+		} else {
+			sys.Log(
+				"outgoing",
+				"endpoint", r.Method+" "+r.URL.Path,
+				"status", wrappedWriter.statusCode,
+				"time ms", time.Since(start).Milliseconds(),				
+			)
+		}
 	})
 }
 

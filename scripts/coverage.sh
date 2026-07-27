@@ -5,6 +5,6 @@ go test \
 	./internal/marker \
 	./internal/pdf \
 	./internal/scanner \
+	./internal/sys \
     -coverprofile="coverage.out"
 go tool cover -func="coverage.out"
-rm coverage.out

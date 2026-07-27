@@ -4,11 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
-
-	"github.com/patrickmn/go-cache"
 )
 
 //
@@ -16,10 +13,10 @@ import (
 // the entire application.
 //
 
-var logCache *cache.Cache
+var logCache *RingBuffer[string]
 
 func init() {
-	logCache = cache.New(5*time.Minute, 10*time.Minute)
+	logCache = NewRingBuffer[string](1 << 12)
 }
 
 type level int
@@ -33,8 +30,8 @@ const (
 )
 
 func log(level level, msg string, args ...any) {
-	now := time.Now()
-	t := now.Local().Format("2006-01-02 15:04:05.000")
+
+	t := time.Now().Local().Format("2006-01-02 15:04:05.000")
 
 	s := strings.Builder{}
 	s.WriteString(t)
@@ -66,71 +63,45 @@ func log(level level, msg string, args ...any) {
 	}
 
 	str := s.String()
-	key := fmt.Sprintf("%d", now.UnixNano())
 
 	switch level {
 	case levelMisc:
 		fmt.Println(FgBrightBlack(str))
-		logCache.Set(key, str, 10*time.Minute)
+		logCache.Add(str)
 	case levelInfo:
-		fmt.Println(FgCyan(str))
-		logCache.Set(key, str, 1*time.Hour)
+		fmt.Println(FgBrightCyan(str))
+		logCache.Add(str)
 	case levelDebug:
 		fmt.Println(FgBrightBlue(str))
-		logCache.Set(key, str, 12*time.Hour)
+		logCache.Add(str)
 	case levelWarn:
 		fmt.Println(FgBrightYellow(str))
-		logCache.Set(key, str, 12*time.Hour)
+		logCache.Add(str)
 	case levelError:
 		fmt.Println(FgBrightRed(str))
-		logCache.Set(key, str, 24*time.Hour)
+		logCache.Add(str)
 	}
 }
 
-func Log(msg string, args ...any) {
-	log(levelMisc, msg, args...)
-}
+// Writes a generic log to standard output and caches it in memory.
+func Log(msg string, args ...any)   { log(levelMisc, msg, args...) }
+// Writes an info-level log to standard output and caches it in memory.
+func Info(msg string, args ...any)  { log(levelInfo, msg, args...) }
+// Writes a debug-level log to standard output and caches it in memory.
+func Debug(msg string, args ...any) { log(levelDebug, msg, args...) }
+// Writes a warn-level log to standard output and caches it in memory.
+func Warn(msg string, args ...any)  { log(levelWarn, msg, args...) }
+// Writes a error-level log to standard output and caches it in memory. Use
+// this to log unexpected behavior.
+func Error(msg string, args ...any) { log(levelError, msg, args...) }
 
-func Info(msg string, args ...any) {
-	log(levelInfo, msg, args...)
-}
-
-func Debug(msg string, args ...any) {
-	log(levelDebug, msg, args...)
-}
-
-func Warn(msg string, args ...any) {
-	log(levelWarn, msg, args...)
-}
-
-func Error(msg string, args ...any) {
-	log(levelError, msg, args...)
-}
-
-func DumpLogs(w io.Writer) {
-
-	//
-	// Since the memory cache is unsorted, we have to sort the map entries by
-	// their keys (which should be set to the time of the logging) before
-	// writing them. Since the keys are set as the timestamp when the log was
-	// written, this should be equivalent to a chronological ordering.
-	//
-
-	m := logCache.Items()
-
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
+// Writes up to n of the most recent logs (delimited by newlines) to the given
+// writer.
+func DumpLogs(w io.Writer, n int) {
 	bw := bufio.NewWriter(w)
-	for _, key := range keys {
-		str, ok := m[key].Object.(string)
-		if ok {
-			bw.Write([]byte(str + "\n"))
-		}
+	for _, log := range logCache.Get(n) {
+		bw.WriteString(log)
+		bw.WriteString("\n")
 	}
 	bw.Flush()
 }
@@ -208,60 +179,32 @@ const (
 	SHOW_CURSOR = "\u001B[?25h"
 )
 
-func FgBlack(s string) string   { return FG_BLACK + s + RESET_FG }
-func FgRed(s string) string     { return FG_RED + s + RESET_FG }
-func FgGreen(s string) string   { return FG_GREEN + s + RESET_FG }
-func FgYellow(s string) string  { return FG_YELLOW + s + RESET_FG }
-func FgBlue(s string) string    { return FG_BLUE + s + RESET_FG }
-func FgMagenta(s string) string { return FG_MAGENTA + s + RESET_FG }
-func FgCyan(s string) string    { return FG_CYAN + s + RESET_FG }
-func FgWhite(s string) string   { return FG_WHITE + s + RESET_FG }
+// func FgBlack(s string) string   { return FG_BLACK + s + RESET_FG }
+// func FgRed(s string) string     { return FG_RED + s + RESET_FG }
+// func FgGreen(s string) string   { return FG_GREEN + s + RESET_FG }
+// func FgYellow(s string) string  { return FG_YELLOW + s + RESET_FG }
+// func FgBlue(s string) string    { return FG_BLUE + s + RESET_FG }
+// func FgMagenta(s string) string { return FG_MAGENTA + s + RESET_FG }
+// func FgCyan(s string) string    { return FG_CYAN + s + RESET_FG }
+// func FgWhite(s string) string   { return FG_WHITE + s + RESET_FG }
 
 func FgBrightBlack(s string) string   { return FG_BRIGHT_BLACK + s + RESET_FG }
 func FgBrightRed(s string) string     { return FG_BRIGHT_RED + s + RESET_FG }
-func FgBrightGreen(s string) string   { return FG_BRIGHT_GREEN + s + RESET_FG }
+// func FgBrightGreen(s string) string   { return FG_BRIGHT_GREEN + s + RESET_FG }
 func FgBrightYellow(s string) string  { return FG_BRIGHT_YELLOW + s + RESET_FG }
 func FgBrightBlue(s string) string    { return FG_BRIGHT_BLUE + s + RESET_FG }
-func FgBrightMagenta(s string) string { return FG_BRIGHT_MAGENTA + s + RESET_FG }
+// func FgBrightMagenta(s string) string { return FG_BRIGHT_MAGENTA + s + RESET_FG }
 func FgBrightCyan(s string) string    { return FG_BRIGHT_CYAN + s + RESET_FG }
-func FgBrightWhite(s string) string   { return FG_BRIGHT_WHITE + s + RESET_FG }
+// func FgBrightWhite(s string) string   { return FG_BRIGHT_WHITE + s + RESET_FG }
 
-func BgBlack(s string) string   { return BG_BLACK + s + RESET_BG }
-func BgRed(s string) string     { return BG_RED + s + RESET_BG }
-func BgGreen(s string) string   { return BG_GREEN + s + RESET_BG }
-func BgYellow(s string) string  { return BG_YELLOW + s + RESET_BG }
-func BgBlue(s string) string    { return BG_BLUE + s + RESET_BG }
-func BgMagenta(s string) string { return BG_MAGENTA + s + RESET_BG }
-func BgCyan(s string) string    { return BG_CYAN + s + RESET_BG }
-func BgWhite(s string) string   { return BG_WHITE + s + RESET_BG }
+// func Bold(s string) string { return BOLD + s + RESET_INTENSITY }
+// func Dim(s string) string  { return DIM + s + RESET_INTENSITY }
 
-func BgBrightBlack(s string) string   { return BG_BRIGHT_BLACK + s + RESET_BG }
-func BgBrightRed(s string) string     { return BG_BRIGHT_RED + s + RESET_BG }
-func BgBrightGreen(s string) string   { return BG_BRIGHT_GREEN + s + RESET_BG }
-func BgBrightYellow(s string) string  { return BG_BRIGHT_YELLOW + s + RESET_BG }
-func BgBrightBlue(s string) string    { return BG_BRIGHT_BLUE + s + RESET_BG }
-func BgBrightMagenta(s string) string { return BG_BRIGHT_MAGENTA + s + RESET_BG }
-func BgBrightCyan(s string) string    { return BG_BRIGHT_CYAN + s + RESET_BG }
-func BgBrightWhite(s string) string   { return BG_BRIGHT_WHITE + s + RESET_BG }
-
-func Bold(s string) string { return BOLD + s + RESET_INTENSITY }
-func Dim(s string) string  { return DIM + s + RESET_INTENSITY }
-
-func Italic(s string) string        { return ITALIC + s + ITALIC_RESET }
+// func Italic(s string) string        { return ITALIC + s + ITALIC_RESET }
 func Underline(s string) string     { return UNDERLINE + s + UNDERLINE_RESET }
-func Blink(s string) string         { return BLINK + s + BLINK_RESET }
-func Reverse(s string) string       { return REVERSE + s + REVERSE_RESET }
-func Hidden(s string) string        { return HIDDEN + s + HIDDEN_RESET }
-func Strikethrough(s string) string { return STRIKETHROUGH + s + STRIKETHROUGH_RESET }
+// func Blink(s string) string         { return BLINK + s + BLINK_RESET }
+// func Reverse(s string) string       { return REVERSE + s + REVERSE_RESET }
+// func Hidden(s string) string        { return HIDDEN + s + HIDDEN_RESET }
+// func Strikethrough(s string) string { return STRIKETHROUGH + s + STRIKETHROUGH_RESET }
 
 func ClearScreen() { fmt.Print(ERASE_SCREEN + RESET_CURSOR) }
-
-func SetCursor(row, col int) { fmt.Printf("\u001B[%d;%dH", row, col) }
-
-func MoveCursorUp(rows int)    { fmt.Printf("\u001B[%dA", rows) }
-func MoveCursorDown(rows int)  { fmt.Printf("\u001B[%dB", rows) }
-func MoveCursorLeft(cols int)  { fmt.Printf("\u001B[%dD", cols) }
-func MoveCursorRight(cols int) { fmt.Printf("\u001B[%dC", cols) }
-
-func HideCursor() { fmt.Printf(HIDE_CURSOR) }
-func ShowCursor() { fmt.Printf(SHOW_CURSOR) }

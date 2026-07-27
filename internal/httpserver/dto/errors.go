@@ -1,8 +1,10 @@
 package dto
 
 import (
+	"compress/flate"
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 type ErrReason string
@@ -48,4 +50,24 @@ func SendJson(w http.ResponseWriter, v any) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		http.Error(w, "error writing response", http.StatusInternalServerError)
 	}
+}
+
+// If the request header indicates that it can handle flate-encoded data, then
+// we will send the data as JSON in that format. As a fallback, the 
+// uncompressed JSON will be sent.
+func SendDeflatedJson(w http.ResponseWriter, r *http.Request, v any) error {
+	w.Header().Add("Content-Type", "application/json")
+
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Add("Content-Encoding", "deflate")
+
+		compressor, _ := flate.NewWriter(w, 1)
+		defer compressor.Close()
+
+		encoder := json.NewEncoder(compressor)
+		return encoder.Encode(v)
+	}
+
+	encoder := json.NewEncoder(w)
+	return encoder.Encode(v)
 }
