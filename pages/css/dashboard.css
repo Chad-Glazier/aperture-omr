@@ -21,14 +21,14 @@ a {
 }
 
 .grid {
-    height: calc(100vh - 40px);
-    width: calc(100vw - 40px);
-    margin: 20px;
+    height: calc(100vh - 24px);
+    width: calc(100vw - 24px);
+    margin: 12px;
 
     display: grid;
     gap: 8px;
 
-    grid-template-columns: 360px 3fr;
+    grid-template-columns: 340px 3fr;
     grid-template-rows: 1fr 1fr 1fr 140px;
 }
 
@@ -37,7 +37,7 @@ a {
     backdrop-filter: blur(8px);
     padding: 12px;
     width: 100%;
-    height: 100%;
+    /* height: 100%; */
 }
 
 .grid > .clickable {
@@ -51,9 +51,7 @@ a {
 
 .card h2 {
     margin-top: 0;
-    font-size: 1.25rem;
-    border-bottom: 1px solid #888;
-    padding-bottom: 0.5rem;
+    font-size: 1.15rem;
 }
 
 .card:nth-of-type(1) {
@@ -90,12 +88,36 @@ a {
     padding: 0;
     margin: 0;
     overflow-y: scroll;
+
+    font-family: "Fira Code", monospace;
+    font-size: 0.8rem;
+}
+
+#logs-output span.info {
+    color: rgb(0, 255, 255);
+}
+
+#logs-output span.misc {
+    color: rgb(148, 148, 148);
+}
+
+#logs-output span.warn {
+    color: rgb(255, 217, 0);
+}
+
+#logs-output span.debug {
+    color: rgb(0, 94, 255);
+}
+
+#logs-output span.error {
+    color: rgb(255, 42, 42)
 }
 
 .metric {
     display: flex;
     justify-content: space-between;
-    padding: 4px;
+    padding: 2px;
+    font-size: 0.9rem;
 }
 
 .metric.peak {
@@ -124,10 +146,11 @@ a {
 .highlight {
     color: #00fffb;
     font-weight: 600;
+    font-size: 1rem;
 }
 
 .bar {
-    height: 24px;
+    height: 18px;
     background: rgba(0, 0, 0, 0);
     overflow: hidden;
     margin: 0.5rem 0 1rem;

@@ -32,6 +32,28 @@ function formatTime(seconds) {
     return dayStr + ":" + hourStr + ":" + minStr + ":" + secStr
 }
 
+function formatLogs(logs) {
+    return logs
+        .split("\n")
+        .slice(-11, -1)
+        .map(s => {
+            if (s.includes("[LOG]")) {
+                return `<span class="misc">${s}</span>`
+            } else if (s.includes("[INFO]")) {
+                return `<span class="info">${s}</span>`
+            } else if (s.includes("[WARN]")) {
+                return `<span class="warn">${s}</span>`
+            } else if (s.includes("[DEBUG]")) {
+                return `<span class="debug">${s}</span>`
+            } else if (s.includes("[ERROR]")) {
+                return `<span class="error">${s}</span>`
+            } else {
+                return `<span class="misc">${s}</span>`
+            }
+        })
+        .join("<br />") + "<br />"
+}
+
 function setText(id, value) {
     document.getElementById(id).textContent = value
 }
@@ -148,12 +170,9 @@ async function updateLogs() {
         }
 
         let data = await response.text()
-        data = data.split("\n").slice(-10).join("\n")
-
-        setText("logs-output", data)
-
-        let logsContainer = document.getElementById("logs-output")
-        logsContainer.scrollTo(0, logsContainer.scrollHeight)
+        let logsOutput = document.getElementById("logs-output")
+        logsOutput.innerHTML = formatLogs(data)
+        logsOutput.scrollTo(0, logsOutput.scrollHeight)
 
     } catch (err) {
         document.getElementById("error").textContent =
