@@ -2,11 +2,10 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/sys"
 )
-
-const history = 30
 
 type ResourceUtilization struct {
 	CpuHistory    []sys.CpuInfo `json:"cpuHistory"`
@@ -26,13 +25,30 @@ type ResourceUtilization struct {
 	Uptime     uint64 `json:"uptime"`
 }
 
+const defaultLimit = 30
+
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		limit := defaultLimit
+		limitStr := r.URL.Query().Get("limit")
+		if limitStr != "" {
+			limitVal, err := strconv.Atoi(limitStr)
+			if err != nil || limitVal < 1 {
+				http.Error(
+					w,
+					"limit parameter must be a positive integer",
+					http.StatusBadRequest,
+				)
+				return
+			}
+			limit = limitVal
+		}
+
 		result := ResourceUtilization{}
 
-		result.CpuHistory = sys.CpuHistory(history)
-		result.MemoryHistory = sys.MemHistory(history)
+		result.CpuHistory = sys.CpuHistory(limit)
+		result.MemoryHistory = sys.MemHistory(limit)
 
 		diskHistory := sys.DiskHistory(1)
 		if len(diskHistory) > 0 {
@@ -59,7 +75,25 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 
 func GetLogs(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		limit := defaultLimit
+		limitStr := r.URL.Query().Get("limit")
+		if limitStr != "" {
+			limitVal, err := strconv.Atoi(limitStr)
+			if err != nil || limitVal < 1 {
+				http.Error(
+					w,
+					"limit parameter must be a positive integer",
+					http.StatusBadRequest,
+				)
+				return
+			}
+			limit = limitVal
+		}
+
 		w.Header().Add("Content-Type", "text/plain")
-		sys.DumpLogs(w, history)
+		sys.DumpLogs(w, limit)
 	}
 }
+
+

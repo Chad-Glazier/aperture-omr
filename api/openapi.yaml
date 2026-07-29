@@ -45,6 +45,44 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /system/logs:
+    get:
+      summary: |
+        Check OMR Logs
+      description: |
+        Check the logs from the OMR server for debugging.
+      tags:
+        - Status
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          example: 10
+          schema:
+            type: integer
+            description: |
+              The number of logs to read.
+      responses:
+        200:
+          description: |
+            OK.
+          content:
+            text/plain:
+              schema:
+                description: |
+                  The most recent logs from the OMR.
+                type: string
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+
   /system/utilization:
     get:
       summary: |
@@ -54,6 +92,17 @@ paths:
         disk storage.
       tags:
         - Status
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          example: 10
+          schema:
+            type: integer
+            description: |
+              The number of past resource utilization samples to use. There is
+              one sample per second, so to get the resource utilization over 
+              the past 30 seconds you would use `limit=30`.
       responses:
         200:
           description: |
@@ -62,13 +111,23 @@ paths:
             application/json:
               schema:
                 description: |
-                  The resource utilization from the last 60 seconds. The first
-                  element represents the resources in use 60 seconds ago, the 
-                  second is for 59 seconds ago, and so on up to the last
-                  element which represents the current resource utilization.
+                  The most recent resource utilization for the system. The 
+                  last element represents the most recent utilization sample, 
+                  the second-to-last is the sample from 1 second ago, and so 
+                  on.
                 type: array
                 items:
                   $ref: '#/components/schemas/ResourceUtilization'
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
         500:
           description: |
             There's some problem with the service. Check the response message.
