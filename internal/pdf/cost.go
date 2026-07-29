@@ -63,6 +63,7 @@ func MustRunSampling() MemCostVars {
 				MaxDpi,
 				i+1,
 				0,
+				0,
 			)
 			if err != nil {
 				panic(err)
@@ -130,7 +131,7 @@ func MustRunSampling() MemCostVars {
 
 // Gives a generous estimate for the peak memory usage of a batch rendering
 // process.
-func estimateMemCost(batchSize, parallelization int) uint64 {
+func EstimateMemCost(batchSize, parallelization int) uint64 {
 	cost := memCost.Baseline
 	cost += memCost.Increment * uint64(batchSize*parallelization-1)
 	return cost
@@ -145,7 +146,7 @@ func maxParallelization(
 	allottedMemory uint64,
 ) int {
 	for i := 1; i < runtime.GOMAXPROCS(0); i++ {
-		if estimateMemCost(batchSize, i) > allottedMemory {
+		if EstimateMemCost(batchSize, i) > allottedMemory {
 			return i - 1
 		}
 	}

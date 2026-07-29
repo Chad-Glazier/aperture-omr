@@ -24,6 +24,7 @@ func TestRenderPageBatches_OK(t *testing.T) {
 		74,
 		2,
 		0,
+		0,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +82,7 @@ func TestRenderPageBatches_MalformedData(t *testing.T) {
 		74,
 		2,
 		0,
+		0,
 	)
 	if err != ErrMalformedPdf {
 		t.Fatal("expected ErrMalformedPdf error")
@@ -98,6 +100,7 @@ func TestRenderPageBatches_MalformedData(t *testing.T) {
 		bytes.NewReader(buf),
 		74,
 		2,
+		0,
 		0,
 	)
 	if err != ErrMalformedPdf {
@@ -117,6 +120,7 @@ func TestRenderPageBatches_PageMismatch(t *testing.T) {
 		bytes.NewReader(buf),
 		74,
 		3,
+		0,
 		0,
 	)
 	if err != ErrPageCountMismatch {

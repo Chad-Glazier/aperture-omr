@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -95,11 +96,16 @@ func RenderPageBatches(
 	density,
 	batchSize int,
 	allottedMemory uint64,
+	allottedThreads int,
 ) (chan Batch, int, error) {
 
 	density = min(MaxDpi, density)
 	if allottedMemory == 0 {
 		allottedMemory = DefaultMaxMemUsage
+	}
+
+	if allottedThreads == 0 {
+		allottedThreads = runtime.GOMAXPROCS(0)
 	}
 
 	//
@@ -115,6 +121,7 @@ func RenderPageBatches(
 	if parallelism == 0 {
 		return nil, 0, ErrInsufficientMemory
 	}
+	parallelism = min(allottedThreads, parallelism)
 
 	//
 	// We split the PDF below and then run the threads.

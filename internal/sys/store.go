@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"fmt"
 	"testing"
 	"time"
 
@@ -87,4 +88,15 @@ func init() {
 				Format("2006-01-02 15:04:05"),
 		)
 	}
+
+	//
+	// Next, we set up the resource limits.
+	//
+
+	limits = initLimits()
+	Log(
+		"resource limits loaded",
+		"threads", limits.Threads,
+		"memory", fmt.Sprintf("%d MB", limits.Memory/1024/1024),
+	)
 }

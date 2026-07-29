@@ -51,6 +51,7 @@ a {
 
 .card h2 {
     margin-top: 0;
+    margin-bottom: 0;
     font-size: 1.15rem;
 }
 
@@ -136,6 +137,7 @@ a {
 .value {
     color: #888;
     text-align: right;
+    font-family: "Fira Code", monospace;
 }
 
 .value, .label {
@@ -153,7 +155,7 @@ a {
     height: 18px;
     background: rgba(0, 0, 0, 0);
     overflow: hidden;
-    margin: 0.5rem 0 1rem;
+    margin: 8px 0px;
 
     border: 1px solid #777;
 
@@ -178,6 +180,8 @@ a {
 #uptime {
     font-family: "Fira Code", monospace;
     position: relative;
+    font-weight: normal;
+    color: #aaa;
 }
 
 .uptime-container {
@@ -196,5 +200,6 @@ a {
     bottom: 0;
     right: 0;
     color: #888;
+    font-weight: normal;
     transform: translateY(1rem);
 }

@@ -37,6 +37,7 @@ function formatLogs(logs) {
         .split("\n")
         .slice(-11, -1)
         .map(s => {
+            s = s.replaceAll(" ", "&nbsp;")
             if (s.includes("[LOG]")) {
                 return `<span class="misc">${s}</span>`
             } else if (s.includes("[INFO]")) {

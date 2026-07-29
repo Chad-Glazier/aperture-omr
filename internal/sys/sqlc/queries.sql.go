@@ -9,6 +9,30 @@ import (
 	"context"
 )
 
+const createCpuLimit = `-- name: CreateCpuLimit :exec
+INSERT INTO
+    cpu_limits (max_threads)
+VALUES
+    (?)
+`
+
+func (q *Queries) CreateCpuLimit(ctx context.Context, maxThreads int64) error {
+	_, err := q.db.ExecContext(ctx, createCpuLimit, maxThreads)
+	return err
+}
+
+const createMemoryLimit = `-- name: CreateMemoryLimit :exec
+INSERT INTO
+    memory_limits (max_memory)
+VALUES
+    (?)
+`
+
+func (q *Queries) CreateMemoryLimit(ctx context.Context, maxMemory int64) error {
+	_, err := q.db.ExecContext(ctx, createMemoryLimit, maxMemory)
+	return err
+}
+
 const createPdfRenderCosts = `-- name: CreatePdfRenderCosts :exec
 INSERT INTO
     pdf_render_costs (pdf_render_baseline, pdf_render_increment)
@@ -26,13 +50,71 @@ func (q *Queries) CreatePdfRenderCosts(ctx context.Context, arg CreatePdfRenderC
 	return err
 }
 
+const deleteCpuLimit = `-- name: DeleteCpuLimit :exec
+DELETE FROM
+    cpu_limits
+WHERE
+    ? = entry_id
+`
+
+func (q *Queries) DeleteCpuLimit(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteCpuLimit, entryID)
+	return err
+}
+
+const deleteMemoryLimit = `-- name: DeleteMemoryLimit :exec
+DELETE FROM
+    memory_limits
+WHERE
+    ? = entry_id
+`
+
+func (q *Queries) DeleteMemoryLimit(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMemoryLimit, entryID)
+	return err
+}
+
+const getCpuLimit = `-- name: GetCpuLimit :one
+SELECT 
+    entry_id, created_at, max_threads
+FROM
+    cpu_limits
+ORDER BY
+    created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetCpuLimit(ctx context.Context) (CpuLimit, error) {
+	row := q.db.QueryRowContext(ctx, getCpuLimit)
+	var i CpuLimit
+	err := row.Scan(&i.EntryID, &i.CreatedAt, &i.MaxThreads)
+	return i, err
+}
+
+const getMemoryLimit = `-- name: GetMemoryLimit :one
+SELECT 
+    entry_id, created_at, max_memory
+FROM
+    memory_limits
+ORDER BY
+    created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetMemoryLimit(ctx context.Context) (MemoryLimit, error) {
+	row := q.db.QueryRowContext(ctx, getMemoryLimit)
+	var i MemoryLimit
+	err := row.Scan(&i.EntryID, &i.CreatedAt, &i.MaxMemory)
+	return i, err
+}
+
 const getPdfRenderCosts = `-- name: GetPdfRenderCosts :one
 SELECT 
     entry_id, sampled_at, pdf_render_baseline, pdf_render_increment
 FROM
     pdf_render_costs
 ORDER BY
-    entry_id DESC
+    sampled_at DESC
 LIMIT 1
 `
 

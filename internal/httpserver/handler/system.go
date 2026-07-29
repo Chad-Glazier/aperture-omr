@@ -53,7 +53,7 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 		result.Disk.OmrUsage.NumberOfPictures = nPictures
 		result.Disk.OmrUsage.Total = dbSize + matsSize + picturesSize
 
-		dto.SendDeflatedJson(w, r, result)
+		dto.SendCompressedJson(w, r, result)
 	}
 }
 

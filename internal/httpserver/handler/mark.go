@@ -191,6 +191,6 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		dto.SendJson(w, markingResults)
+		dto.SendCompressedJson(w, r, markingResults)
 	}
 }

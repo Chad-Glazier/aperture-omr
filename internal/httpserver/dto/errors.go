@@ -2,6 +2,7 @@ package dto
 
 import (
 	"compress/flate"
+	"compress/gzip"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -52,13 +53,16 @@ func SendJson(w http.ResponseWriter, v any) {
 	}
 }
 
-// If the request header indicates that it can handle flate-encoded data, then
-// we will send the data as JSON in that format. As a fallback, the
-// uncompressed JSON will be sent.
-func SendDeflatedJson(w http.ResponseWriter, r *http.Request, v any) error {
+// If the request header indicates that it can handle compressed data in one of
+// the recognized formats, then we will send the given data as JSON in that
+// format. Otherwise, the uncompressed JSON will be sent.
+//
+// At the time of writing, supported formats include gzip, deflate, and
+func SendCompressedJson(w http.ResponseWriter, r *http.Request, v any) error {
 	w.Header().Add("Content-Type", "application/json")
 
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+	switch {
+	case strings.Contains(r.Header.Get("Accept-Encoding"), "deflate"):
 		w.Header().Add("Content-Encoding", "deflate")
 
 		compressor, _ := flate.NewWriter(w, 1)
@@ -66,8 +70,18 @@ func SendDeflatedJson(w http.ResponseWriter, r *http.Request, v any) error {
 
 		encoder := json.NewEncoder(compressor)
 		return encoder.Encode(v)
-	}
 
-	encoder := json.NewEncoder(w)
-	return encoder.Encode(v)
+	case strings.Contains(r.Header.Get("Accept-Encoding"), "gzip"):
+		w.Header().Add("Content-Encoding", "gzip")
+
+		compressor := gzip.NewWriter(w)
+		defer compressor.Close()
+
+		encoder := json.NewEncoder(compressor)
+		return encoder.Encode(v)
+
+	default:
+		encoder := json.NewEncoder(w)
+		return encoder.Encode(v)
+	}
 }

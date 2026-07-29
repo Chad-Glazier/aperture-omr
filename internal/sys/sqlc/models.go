@@ -4,6 +4,18 @@
 
 package sqlc
 
+type CpuLimit struct {
+	EntryID    int64
+	CreatedAt  int64
+	MaxThreads int64
+}
+
+type MemoryLimit struct {
+	EntryID   int64
+	CreatedAt int64
+	MaxMemory int64
+}
+
 type PdfRenderCost struct {
 	EntryID            int64
 	SampledAt          int64

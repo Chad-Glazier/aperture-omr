@@ -9,7 +9,13 @@ import (
 )
 
 type Querier interface {
+	CreateCpuLimit(ctx context.Context, maxThreads int64) error
+	CreateMemoryLimit(ctx context.Context, maxMemory int64) error
 	CreatePdfRenderCosts(ctx context.Context, arg CreatePdfRenderCostsParams) error
+	DeleteCpuLimit(ctx context.Context, entryID int64) error
+	DeleteMemoryLimit(ctx context.Context, entryID int64) error
+	GetCpuLimit(ctx context.Context) (CpuLimit, error)
+	GetMemoryLimit(ctx context.Context) (MemoryLimit, error)
 	GetPdfRenderCosts(ctx context.Context) (PdfRenderCost, error)
 }
 
