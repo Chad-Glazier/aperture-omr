@@ -305,9 +305,80 @@ paths:
   /job:
     get:
       summary: |
-        Get Job Status
+        Job Status
       description: |
-        TODO: write.
+        Retrieves the details of a job that is currently running, or has been 
+        recently completed.
+      tags:
+        - Status
+      parameters:
+        - in: query
+          name: id
+          required: true
+          example: "00a0a849-c801-40fc-8c8b-e197ddae43cb"
+          schema:
+            type: string
+            description: |
+              The ID of the job to check.
+      responses:
+        200:
+          description: |
+            The job details were successfully retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        404:
+          description: |
+            The given `id` was not recognized. It's worth noting that completed
+            jobs will be "forgotten" after a while (~24 hours).
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+  /admin/jobs:
+    get:
+      summary: |
+        List Jobs
+      description: |
+        Returns all registered jobs, sorted from oldest to newest by their
+        creation time.
+
+        This endpoint requires the administrator API key.
+      tags:
+        - sysadmin
+      parameters:
+        - $ref: '#/components/parameters/AdminKeyHeader'
+      responses:
+        200:
+          description: |
+            A list of all registered jobs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobStatus'
+        401:
+          description: |
+            The administrator API key was missing or invalid.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: only admins can retrieve all jobs
   /template/preprocess:
     post:
       summary: |
@@ -1642,3 +1713,63 @@ components:
           minimum: 1
           description: Maximum number of worker threads the OMR may use.
           example: 8
+    JobStatus:
+      type: object
+      required:
+        - id
+        - method
+        - path
+        - progress
+        - startedTimestamp
+        - finishedTimestamp
+        - success
+        - notes
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the job.
+          example: "00a0a849-c801-40fc-8c8b-e197ddae43cb"
+        method:
+          type: string
+          description: HTTP method that initiated the job.
+          example: POST
+        path:
+          type: string
+          description: HTTP endpoint that initiated the job.
+          example: /scan
+        progress:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: |
+            Fraction of the job that has completed. A value of `1.0`
+            indicates the job has finished.
+          example: 0.65
+        startedTimestamp:
+          type: integer
+          format: int64
+          description: |
+            Unix timestamp (milliseconds since the Unix epoch) when the job
+            was registered.
+          example: 1753894200123
+        finishedTimestamp:
+          type: integer
+          format: int64
+          description: |
+            Unix timestamp (milliseconds since the Unix epoch) when the job
+            completed. A value of `-62135596800000` (the zero value of Go's
+            `time.Time`) indicates the job has not yet finished.
+          example: 1753894218765
+        success:
+          type: boolean
+          description: |
+            Whether the job completed successfully. This field is only
+            meaningful once the job has finished.
+          example: true
+        notes:
+          type: string
+          description: |
+            Optional human-readable information about the job, such as its
+            size or an explanation of why it failed.
+          example: "Processed 120 pages successfully."

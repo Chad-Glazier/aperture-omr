@@ -3,9 +3,25 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
+	"ubco-team15/omr/internal/httpserver/dto"
 )
+
+//
+// Errors
+//
+
+var (
+	ErrJobFinished   = errors.New("cannot update a finished job")
+	ErrJobNotFound   = errors.New("job not found")
+	ErrJobIdConflict = errors.New("new job could not be created because the ID is already in use")
+)
+
+//
+// Registrar Implementation
+//
 
 type JobDetails struct {
 	Id       string
@@ -18,17 +34,17 @@ type JobDetails struct {
 	Notes    string
 }
 
-var (
-	ErrJobNotFound   = errors.New("job not found")
-	ErrJobIdConflict = errors.New("new job could not be created because the ID is already in use")
-)
-
+// A place to register and track jobs.
+//
+// This type should be instantiated by the [NewJobRegistrar] function.
 type JobRegistrar struct {
 	jobs           map[string]*JobDetails
 	mu             sync.RWMutex
 	evictionTicker *time.Ticker
 }
 
+// Returns true if and only if the given ID is associated with a registered
+// job.
 func (j *JobRegistrar) IsRegistered(id string) bool {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -37,6 +53,9 @@ func (j *JobRegistrar) IsRegistered(id string) bool {
 	return ok
 }
 
+// Retrieves the details of a job.
+//
+// If an error is returned, it will be [ErrJobNotFound].
 func (j *JobRegistrar) Get(id string) (JobDetails, error) {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -49,6 +68,9 @@ func (j *JobRegistrar) Get(id string) (JobDetails, error) {
 	return *job, nil
 }
 
+// Updates the progress of a previously registered job.
+//
+// If an error is returned, it will be [ErrJobNotFound] or [ErrJobFinished].
 func (j *JobRegistrar) SetProgress(id string, progress float64) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -58,11 +80,21 @@ func (j *JobRegistrar) SetProgress(id string, progress float64) error {
 		return ErrJobNotFound
 	}
 
+	if !job.Finished.IsZero() {
+		return ErrJobFinished
+	}
+
 	job.Progress = progress
 	return nil
 }
 
-func (j *JobRegistrar) SetNotes(id string, notes string) error {
+// Overwrites the notes attached to a given job. If this function is never
+// called, the job's notes will be blank. This method can be used to give
+// human-readable context, such as the size of the job or an explanation for
+// its failure.
+//
+// If an error is returned, it will be [ErrJobNotFound].
+func (j *JobRegistrar) WriteNotes(id string, notes string) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -75,6 +107,9 @@ func (j *JobRegistrar) SetNotes(id string, notes string) error {
 	return nil
 }
 
+// Registers a new job.
+//
+// If an error is returned, it will be [ErrJobIdConflict].
 func (j *JobRegistrar) Register(
 	id string,
 	r *http.Request,
@@ -97,6 +132,9 @@ func (j *JobRegistrar) Register(
 	return nil
 }
 
+// Updates a job's details to reflect a resolved state.
+//
+// If an error is returned, it will be [ErrJobNotFound] or [ErrJobFinished].
 func (j *JobRegistrar) SetFinished(id string, success bool) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -106,12 +144,18 @@ func (j *JobRegistrar) SetFinished(id string, success bool) error {
 		return ErrJobNotFound
 	}
 
+	if !job.Finished.IsZero() {
+		return ErrJobFinished
+	}
+
 	job.Finished = time.Now()
 	job.Progress = 1.00
 	job.Success = success
 	return nil
 }
 
+// Unregisters all jobs older the given age (based on their creation time, not
+// completion time).
 func (j *JobRegistrar) evictAllOlderThan(age time.Duration) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -130,6 +174,7 @@ func (j *JobRegistrar) evictAllOlderThan(age time.Duration) {
 	}
 }
 
+// Creates a new job registrar.
 func NewJobRegistrar(maxAge time.Duration) *JobRegistrar {
 	j := &JobRegistrar{
 		jobs: make(map[string]*JobDetails, 1<<8),
@@ -161,18 +206,108 @@ type JobStatus struct {
 	Method   string  `json:"method"`
 	Path     string  `json:"path"`
 	Progress float64 `json:"progress"`
-	Started  uint64  `json:"startedTimestamp"`
-	Finished uint64  `json:"finishedTimestamp"`
-	Success  bool    `json:"success"`
+	Started  int64   `json:"startedTimestamp"`
+	Finished int64   `json:"finishedTimestamp,omitempty"`
+	Success  *bool   `json:"success,omitempty"`
 	Notes    string  `json:"notes"`
 }
 
+// Returns an HTTP handler that responds to requests by checking for an "id"
+// query parameter and retrieving the details of the identified job.
 func (j *JobRegistrar) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		
-		//
-		// TODO: Implement.
-		//
 
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(
+				w,
+				"id parameter is required",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		job, err := j.Get(id)
+		if err != nil {
+			http.Error(
+				w,
+				"job ID not recognized",
+				http.StatusNotFound,
+			)
+			return
+		}
+
+		if job.Finished.IsZero() {
+			dto.SendJson(w, JobStatus{
+				Id:       job.Id,
+				Method:   job.Method,
+				Path:     job.Path,
+				Progress: job.Progress,
+				Started:  job.Started.UnixMilli(),
+				Finished: 0,
+				Success:  nil,
+				Notes:    job.Notes,
+			})
+		} else {
+			dto.SendJson(w, JobStatus{
+				Id:       job.Id,
+				Method:   job.Method,
+				Path:     job.Path,
+				Progress: job.Progress,
+				Started:  job.Started.UnixMilli(),
+				Finished: job.Finished.UnixMilli(),
+				Success:  &job.Success,
+				Notes:    job.Notes,
+			})			
+		}
+	}
+}
+
+//
+// Implement sort.Interface
+//
+
+type JobDetailList []*JobDetails
+
+func (j JobDetailList) Len() int {
+	return len(j)
+}
+
+func (j JobDetailList) Less(a, b int) bool {
+	return j[a].Started.Compare(j[b].Started) < 0
+}
+
+func (j JobDetailList) Swap(a, b int) {
+	j[a], j[b] = j[b], j[a]
+}
+
+// Returns an HTTP handler that responds to requests by checking for the admin
+// key on the request and then, if authorized, sending back a list of all jobs
+// sorted from oldest to newest.
+func (j *JobRegistrar) ListHandler(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		if authorized := s.CheckAdminKey(r); !authorized {
+			http.Error(
+				w,
+				"only admins can retrieve all jobs",
+				http.StatusUnauthorized,
+			)
+			return
+		}
+
+		j.mu.RLock()
+		defer j.mu.RUnlock()
+
+		jobs := make(JobDetailList, len(j.jobs))
+		i := 0
+		for _, job := range j.jobs {
+			jobs[i] = job
+			i++
+		}
+
+		sort.Sort(jobs)
+
+		dto.SendCompressedJson(w, r, jobs)
 	}
 }
