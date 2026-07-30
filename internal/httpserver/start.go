@@ -24,8 +24,7 @@ func Start(hostname, port string) {
 	if adminKey == "" {
 		res.SetAdminKey("admin")
 		sys.Warn(
-			"OMR_ADMIN_KEY not set in the current environment. "+
-				"Falling back to default",
+			"OMR_ADMIN_KEY not set in the current environment; using default",
 			"key", "admin",
 		)
 	} else {
@@ -98,5 +97,9 @@ func Start(hostname, port string) {
 	}
 
 	sys.Info("starting server at http://" + hostname + ":" + port)
+	sys.Info(
+		"monitor system usage at " +
+			"http://" + hostname + ":" + port + "/dashboard.html",
+	)
 	server.ListenAndServe()
 }

@@ -66,6 +66,10 @@ function formatLogs(logs) {
         .slice(-11, -1)
         .map(s => {
             s = s.replaceAll(" ", "&nbsp;")
+            s = s.replaceAll(
+                /https?:\/\/[^\s]+/g, 
+                s => `<a href="${s}" target="_blank" class="link">${s}</a>`,
+            )
             if (s.includes("[LOG]")) {
                 return `<span class="misc">${s}</span>`
             } else if (s.includes("[INFO]")) {
@@ -117,7 +121,7 @@ function setBar(id, percent) {
  */
 async function update() {
     try {
-        const response = await fetch("/system/utilization")
+        const response = await fetch("/system/utilization?limit=1")
 
         if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`)
@@ -221,23 +225,17 @@ async function update() {
  * @returns {Promise<void>}
  */
 async function updateLogs() {
-    try {
-        const response = await fetch("/system/logs")
+    const response = await fetch("/system/logs?limit=10")
 
-        if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.text()
-        const logsOutput = document.getElementById("logs-output")
-
-        logsOutput.innerHTML = formatLogs(data)
-        logsOutput.scrollTo(0, logsOutput.scrollHeight)
-
-    } catch (err) {
-        document.getElementById("error").textContent =
-            `Failed to load stats: ${err.message}`
+    if (!response.ok) {
+        throw new Error(`${response.status}: ${response.statusText}`)
     }
+
+    const data = await response.text()
+    const logsOutput = document.getElementById("logs-output")
+
+    logsOutput.innerHTML = formatLogs(data)
+    logsOutput.scrollTo(0, logsOutput.scrollHeight)
 }
 
 update()

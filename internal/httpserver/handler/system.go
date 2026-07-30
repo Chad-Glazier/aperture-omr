@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"runtime"
 	"strconv"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/sys"
@@ -109,6 +110,7 @@ type DetailedCpuInfo struct {
 	OmrThreadLimit int              `json:"omrThreadLimit"`
 	Description    string           `json:"description"`
 	FrequencyMhz   float64          `json:"frequencyMhz"`
+	MaxThreads     int              `json:"maxThreads"`
 	UsageSamples   []CpuUsageSample `json:"usageSamples"`
 }
 
@@ -136,14 +138,16 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 		result.Description = lastSample.Description
 		result.FrequencyMhz = lastSample.FrequencyMhz
 		result.OmrThreadLimit = sys.MaxThreads()
+		result.MaxThreads = runtime.GOMAXPROCS(0)
 
 		dto.SendCompressedJson(w, r, result)
 	}
 }
 
 type DetailedMemoryInfo struct {
-	OmrMemoryLimit uint64        `json:"omrMemoryLimit"`
-	UsageSamples   []sys.MemInfo `json:"usageSamples"`
+	OmrMemoryLimit        uint64        `json:"omrMemoryLimit"`
+	OmrOptimalMemoryLimit uint64        `json:"omrOptimalMemoryLimit"`
+	UsageSamples          []sys.MemInfo `json:"usageSamples"`
 }
 
 func GetMemoryInfo(s ServerResources) http.HandlerFunc {
@@ -157,8 +161,9 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 		samples := sys.MemHistory(limit)
 
 		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
-			OmrMemoryLimit: sys.MaxMemory(),
-			UsageSamples:   samples,
+			OmrMemoryLimit:        sys.MaxMemory(),
+			OmrOptimalMemoryLimit: sys.OptimalMemory(),
+			UsageSamples:          samples,
 		})
 
 	}

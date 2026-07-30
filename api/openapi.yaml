@@ -116,9 +116,7 @@ paths:
                   last element represents the most recent utilization sample, 
                   the second-to-last is the sample from 1 second ago, and so 
                   on.
-                type: array
-                items:
-                  $ref: '#/components/schemas/ResourceUtilization'
+                $ref: '#/components/schemas/ResourceUtilization'
         400:
           description: |
             The request was missing something. Check the error message for 

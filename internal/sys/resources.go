@@ -411,3 +411,9 @@ func SetMaxMemory(memory uint64) error {
 	limits.Memory = memory
 	return nil
 }
+
+// Returns the estimated amount of memory that the OMR would need for optimal
+// performance.
+func OptimalMemory() uint64 {
+	return pdf.EstimateMemCost(2, runtime.GOMAXPROCS(0)) + 512<<20
+}

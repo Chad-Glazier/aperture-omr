@@ -245,7 +245,7 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 		wg.Wait()
 
 		//
-		// Tidy up and send the response.
+		// Send the response.
 		//
 
 		results := dto.NewScanResult(scanIds, errorMsgs)
