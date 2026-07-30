@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"ubco-team15/omr/internal/httpserver/dto"
@@ -27,22 +29,34 @@ type ResourceUtilization struct {
 
 const defaultLimit = 30
 
+// Returns the "limit" parameter from the request's query string, parsed as a
+// positive integer. If anything goes wrong, an error response will be sent and
+// the second return value will be set to false.
+func parseLimit(w http.ResponseWriter, r *http.Request) (int, bool) {
+	limit := defaultLimit
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr != "" {
+		limitVal, err := strconv.Atoi(limitStr)
+		if err != nil || limitVal < 1 {
+			http.Error(
+				w,
+				"limit parameter must be a positive integer",
+				http.StatusBadRequest,
+			)
+			return 0, false
+		}
+		limit = limitVal
+	}
+
+	return limit, true
+}
+
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		limit := defaultLimit
-		limitStr := r.URL.Query().Get("limit")
-		if limitStr != "" {
-			limitVal, err := strconv.Atoi(limitStr)
-			if err != nil || limitVal < 1 {
-				http.Error(
-					w,
-					"limit parameter must be a positive integer",
-					http.StatusBadRequest,
-				)
-				return
-			}
-			limit = limitVal
+		limit, ok := parseLimit(w, r)
+		if !ok {
+			return
 		}
 
 		result := ResourceUtilization{}
@@ -76,19 +90,9 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 func GetLogs(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		limit := defaultLimit
-		limitStr := r.URL.Query().Get("limit")
-		if limitStr != "" {
-			limitVal, err := strconv.Atoi(limitStr)
-			if err != nil || limitVal < 1 {
-				http.Error(
-					w,
-					"limit parameter must be a positive integer",
-					http.StatusBadRequest,
-				)
-				return
-			}
-			limit = limitVal
+		limit, ok := parseLimit(w, r)
+		if !ok {
+			return
 		}
 
 		w.Header().Add("Content-Type", "text/plain")
@@ -96,4 +100,127 @@ func GetLogs(s ServerResources) http.HandlerFunc {
 	}
 }
 
+type CpuUsageSample struct {
+	Overall float64 `json:"overall"`
+	PerThread []float64 `json:"perThread"`
+}
 
+type DetailedCpuInfo struct {
+	OmrThreadLimit int `json:"omrThreadLimit"`
+	Description string `json:"description"`
+	FrequencyMhz float64 `json:"frequencyMhz"`
+	UsageSamples []CpuUsageSample `json:"usageSamples"`
+}
+
+func GetCpuInfo(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		limit, ok := parseLimit(w, r)
+		if !ok {
+			return
+		}
+
+		samples := sys.CpuHistory(limit)
+		result := DetailedCpuInfo{
+			UsageSamples: make([]CpuUsageSample, len(samples)),
+		}
+		for i, s := range samples {
+			result.UsageSamples[i].Overall = s.OverallPercent
+			result.UsageSamples[i].PerThread = make([]float64, len(s.Threads))
+			for j, t := range s.Threads {
+				result.UsageSamples[i].PerThread[j] = t.Percent
+			}
+		}
+		lastSample := samples[len(samples)-1]
+
+		result.Description = lastSample.Description
+		result.FrequencyMhz = lastSample.FrequencyMhz
+		result.OmrThreadLimit = sys.MaxThreads()
+
+		dto.SendCompressedJson(w, r, result)
+	}
+}
+
+type DetailedMemoryInfo struct {
+	OmrMemoryLimit uint64 `json:"omrMemoryLimit"`
+	UsageSamples []sys.MemInfo `json:"usageSamples"`
+}
+
+func GetMemoryInfo(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		limit, ok := parseLimit(w, r)
+		if !ok {
+			return
+		}
+
+		samples := sys.MemHistory(limit)
+
+		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
+			OmrMemoryLimit: sys.MaxMemory(),
+			UsageSamples: samples,
+		})
+
+	}
+}
+
+func CheckAdminKey(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticated := s.CheckAdminKey(r); !authenticated {
+			http.Error(
+				w,
+				"incorrect admin key",
+				http.StatusUnauthorized,
+			)
+		}
+	}
+}
+
+type ResourceLimitsUpdate struct {
+	Memory uint64 `json:"memory"`
+	Threads int `json:"threads"`
+}
+
+func UpdateResourceLimits(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		if authenticated := s.CheckAdminKey(r); !authenticated {
+			http.Error(
+				w,
+				"incorrect admin key",
+				http.StatusUnauthorized,
+			)
+			return
+		}
+
+		buf, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(
+				w,
+				"error reading request body: " + err.Error(),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		var newLimits ResourceLimitsUpdate
+		json.Unmarshal(buf, &newLimits)
+
+		if err := sys.SetMaxMemory(newLimits.Memory); err != nil {
+			http.Error(
+				w,
+				"error setting new memory limit: " + err.Error(),
+				http.StatusBadRequest,
+			)
+			return
+		}
+		if err := sys.SetMaxThreads(newLimits.Threads); err != nil {
+			http.Error(
+				w,
+				"error setting new thread limit: " + err.Error(),
+				http.StatusBadRequest,
+			)
+			return
+		}
+	}
+}

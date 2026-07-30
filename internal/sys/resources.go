@@ -253,7 +253,7 @@ type ResourceLimits struct {
 }
 
 const (
-	minMemory = 2 << 30 // 2 GB
+	MinMemory uint64 = 2 << 30 // 2 GB
 )
 
 var limits ResourceLimits
@@ -313,12 +313,12 @@ func initLimits() ResourceLimits {
 
 	// Try the database.
 	if lim, err := db.GetMemoryLimit(context.Background()); err == nil {
-		if uint64(lim.MaxMemory) < minMemory {
+		if uint64(lim.MaxMemory) < MinMemory {
 			Warn(
 				"ignoring stored configuration for memory limit "+
 					"because it is below the allowed minimum",
 				"value found", uint64(lim.MaxMemory),
-				"allowed minumum", minMemory,
+				"allowed minumum", MinMemory,
 			)
 			db.DeleteMemoryLimit(context.Background(), lim.EntryID)
 		} else {
@@ -329,12 +329,12 @@ func initLimits() ResourceLimits {
 	// Try the environment variables.
 	if limStr, ok := os.LookupEnv("OMR_MAX_MEMORY"); ok {
 		lim, err := strconv.ParseUint(limStr, 10, 64)
-		if err != nil || lim < minMemory {
+		if err != nil || lim < MinMemory {
 			Warn(
 				"ignoring environment variable OMR_MAX_MEMORY "+
 					"because it is below the allowed minimum",
 				"OMR_MAX_MEMORY", limStr,
-				"allowed minumum", minMemory,
+				"allowed minumum", MinMemory,
 			)
 		} else {
 			// If the environment variable is valid and the database gave a
@@ -396,10 +396,10 @@ func MaxMemory() uint64 {
 }
 
 func SetMaxMemory(memory uint64) error {
-	if memory < minMemory {
+	if memory < MinMemory {
 		return fmt.Errorf(
 			"memory cannot be set to less than the minimum (%d MB)",
-			minMemory/1024/1024,
+			MinMemory/1024/1024,
 		)
 	}
 	db.CreateMemoryLimit(context.Background(), int64(memory))

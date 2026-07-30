@@ -18,6 +18,18 @@ func Start(hostname, port string) {
 	}
 	defer res.Close()
 
+	adminKey := os.Getenv("OMR_ADMIN_KEY")
+	if adminKey == "" {
+		res.SetAdminKey("admin")
+		sys.Warn(
+			"OMR_ADMIN_KEY not set in the current environment. "+
+			"Falling back to default",
+			"key", "admin",
+		)
+	} else {
+		res.SetAdminKey(adminKey)
+	}
+
 	mux := http.NewServeMux()
 
 	//
@@ -48,6 +60,10 @@ func Start(hostname, port string) {
 
 	mux.HandleFunc("GET /system/utilization", handler.GetResourceUtilization(res))
 	mux.HandleFunc("GET /system/logs", handler.GetLogs(res))
+	mux.HandleFunc("GET /system/cpu", handler.GetCpuInfo(res))
+	mux.HandleFunc("GET /system/memory", handler.GetMemoryInfo(res))
+	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(res))
+	mux.HandleFunc("PUT /admin/resource-limits", handler.UpdateResourceLimits(res))
 
 	//
 	// Deprecated endpoints

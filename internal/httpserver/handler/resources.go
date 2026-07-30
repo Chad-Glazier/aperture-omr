@@ -2,10 +2,12 @@ package handler
 
 import (
 	"context"
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"image"
 	"io"
+	"net/http"
 	"os"
 
 	"ubco-team15/omr/internal/database"
@@ -88,6 +90,13 @@ type ServerResources interface {
 
 	// Returns the number of bytes used by the database.
 	DBSize() uint64
+
+	// Returns true if and only if the request's headers include the proper 
+	// administrator key.
+	CheckAdminKey(r *http.Request) bool
+
+	// Sets the admin key. 
+	SetAdminKey(string)
 }
 
 //
@@ -100,6 +109,7 @@ type localResources struct {
 	DBPath string
 	Images fs.ImageStore
 	Mats   fs.MatStore
+	key    [64]byte
 }
 
 var _ ServerResources = (*localResources)(nil)
@@ -479,4 +489,17 @@ func (s *localResources) DBSize() uint64 {
 	}
 
 	return uint64(info.Size())
+}
+
+func (s *localResources) SetAdminKey(key string) {
+	s.key = sha512.Sum512([]byte(key))
+}
+
+func (s *localResources) CheckAdminKey(r *http.Request) bool {
+	k := r.Header.Get("OMR-Admin-Key")
+	if k == "" {
+		return false
+	}
+
+	return s.key == sha512.Sum512([]byte(k))
 }

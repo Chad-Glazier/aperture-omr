@@ -9,7 +9,6 @@ info:
 
     View system resource usage [here](http://localhost:3000/dashboard.html)
     
-
 servers:
   - url: http://localhost:3000/
 
@@ -22,6 +21,8 @@ tags:
     description: Tasks related to marking uploaded scans
   - name: Inspect
     description: Tasks related to inspecting uploaded scans
+  - name: sysadmin
+    description: Admin-only functionality
 
 paths:
   /health:
@@ -48,11 +49,11 @@ paths:
   /system/logs:
     get:
       summary: |
-        Check OMR Logs
+        Logs
       description: |
         Check the logs from the OMR server for debugging.
       tags:
-        - Status
+        - sysadmin
       parameters:
         - in: query
           name: limit
@@ -86,12 +87,12 @@ paths:
   /system/utilization:
     get:
       summary: |
-        Check Resource Utilization
+        Current Resource Usage
       description: |
         Check the utilization of system resources, including memory, CPU, and
         disk storage.
       tags:
-        - Status
+        - sysadmin
       parameters:
         - in: query
           name: limit
@@ -137,6 +138,175 @@ paths:
                 type: string
                 description: |
                   A description of the error.
+  /system/cpu:
+    get:
+      summary: |
+        CPU Usage
+      description: |
+        Check the utilization of the CPU.
+      tags:
+        - sysadmin
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          example: 10
+          schema:
+            type: integer
+            description: |
+              The number of past resource utilization samples to use. There is
+              one sample per second, so to get the resource utilization over 
+              the past 30 seconds you would use `limit=30`.
+      responses:
+        200:
+          description: |
+            OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedCpuInfo'
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            There's some problem with the service. Check the response message.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+  /system/memory:
+    get:
+      summary: |
+        Memory Usage
+      description: |
+        Check the utilization of the system memory.
+      tags:
+        - sysadmin
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          example: 10
+          schema:
+            type: integer
+            description: |
+              The number of past resource utilization samples to use. There is
+              one sample per second, so to get the resource utilization over 
+              the past 30 seconds you would use `limit=30`.
+      responses:
+        200:
+          description: |
+            OK.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - omrMemoryLimit
+                properties:
+                  omrMemoryLimit:
+                    type: integer
+                    description: |
+                      The maximum amount of memory the OMR should use.
+                  usageSamples:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemInfo'
+        400:
+          description: |
+            The request was missing something. Check the error message for 
+            details.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+        500:
+          description: |
+            There's some problem with the service. Check the response message.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: |
+                  A description of the error.
+  /admin/authenticated:
+    get:
+      summary: |
+        Check Admin Key
+      description: |
+        Verifies that the provided administrator key is valid.
+
+        The administrator key must be supplied in the `OMR-Admin-Key` request
+        header. This should match the environment variable `OMR_ADMIN_KEY` used
+        to run the OMR process (if no such variable was set, the key will 
+        default to `admin`).
+      tags:
+        - sysadmin
+      parameters:
+        - $ref: '#/components/parameters/AdminKeyHeader'
+      responses:
+        204:
+          description: |
+            The administrator key is valid.
+        401:
+          description: |
+            The administrator key is incorrect.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: incorrect admin key
+  /admin/resource-limits:
+    put:
+      summary: |
+        Update Resource Limits
+      description: |
+        Updates the maximum memory and thread limits used by the OMR.
+
+        This endpoint requires administrator authentication via the
+        `OMR-Admin-Key` request header.
+      tags:
+        - sysadmin
+      parameters:
+        - $ref: '#/components/parameters/AdminKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceLimitsUpdate'
+      responses:
+        204:
+          description: |
+            The resource limits were updated successfully.
+        400:
+          description: |
+            The request body was invalid or one of the supplied limits could not
+            be applied.
+          content:
+            text/plain:
+              schema:
+                type: string
+        401:
+          description: |
+            The administrator key is incorrect.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: incorrect admin key
   /template/preprocess:
     post:
       summary: |
@@ -933,6 +1103,14 @@ paths:
                   A description of the error. 
 
 components:
+  parameters:
+    AdminKeyHeader:
+      name: OMR-Admin-Key
+      in: header
+      required: true
+      description: Administrator authentication key.
+      schema:
+        type: string
   schemas:
     Point:
       description: |
@@ -1394,3 +1572,72 @@ components:
           format: uint64
           description: Total disk usage of all OMR data in bytes.
           example: 891289600
+
+    CpuUsageSample:
+      type: object
+      required:
+        - overall
+        - perThread
+      properties:
+        overall:
+          type: number
+          format: double
+          description: Overall CPU utilization as a percentage.
+          example: 37.5
+        perThread:
+          type: array
+          description: |
+            CPU utilization for each logical processor as percentages.
+          items:
+            type: number
+            format: double
+          example: [42.1, 35.7, 39.8, 32.4]
+
+    DetailedCpuInfo:
+      type: object
+      required:
+        - omrThreadLimit
+        - description
+        - frequencyMhz
+        - usageSamples
+      properties:
+        omrThreadLimit:
+          type: integer
+          description: |
+            Maximum number of CPU threads that the OMR should use at once.
+          example: 8
+
+        description:
+          type: string
+          description: Human-readable CPU model description.
+          example: Intel(R) Core(TM) i7-12700K CPU
+
+        frequencyMhz:
+          type: number
+          format: double
+          description: Current or nominal CPU frequency in megahertz.
+          example: 3600.0
+
+        usageSamples:
+          type: array
+          description: |
+            Historical CPU utilization samples, ordered from oldest to newest.
+          items:
+            $ref: '#/components/schemas/CpuUsageSample'
+    ResourceLimitsUpdate:
+      type: object
+      required:
+        - memory
+        - threads
+      properties:
+        memory:
+          type: integer
+          format: uint64
+          minimum: 0
+          description: Maximum memory available to the OMR, in bytes.
+          example: 8589934592
+        threads:
+          type: integer
+          minimum: 1
+          description: Maximum number of worker threads the OMR may use.
+          example: 8
