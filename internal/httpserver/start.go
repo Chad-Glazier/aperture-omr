@@ -11,6 +11,8 @@ import (
 
 func Start(hostname, port string) {
 
+	sys.ClearScreen()
+
 	res, err := handler.NewLocalResources("data")
 	if err != nil {
 		sys.Error("error getting server resources", "err", err)
@@ -23,7 +25,7 @@ func Start(hostname, port string) {
 		res.SetAdminKey("admin")
 		sys.Warn(
 			"OMR_ADMIN_KEY not set in the current environment. "+
-			"Falling back to default",
+				"Falling back to default",
 			"key", "admin",
 		)
 	} else {
@@ -94,8 +96,6 @@ func Start(hostname, port string) {
 		Addr:    ":" + port,
 		Handler: httpHandler,
 	}
-
-	sys.ClearScreen()
 
 	sys.Info("starting server at http://" + hostname + ":" + port)
 	server.ListenAndServe()

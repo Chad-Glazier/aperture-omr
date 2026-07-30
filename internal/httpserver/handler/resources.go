@@ -91,11 +91,11 @@ type ServerResources interface {
 	// Returns the number of bytes used by the database.
 	DBSize() uint64
 
-	// Returns true if and only if the request's headers include the proper 
+	// Returns true if and only if the request's headers include the proper
 	// administrator key.
 	CheckAdminKey(r *http.Request) bool
 
-	// Sets the admin key. 
+	// Sets the admin key.
 	SetAdminKey(string)
 }
 

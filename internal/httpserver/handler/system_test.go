@@ -251,7 +251,7 @@ func TestUpdateResourceLimits(t *testing.T) {
 		threads := 2
 
 		body, _ := json.Marshal(ResourceLimitsUpdate{
-			Memory: memory,
+			Memory:  memory,
 			Threads: threads,
 		})
 
@@ -281,7 +281,7 @@ func TestUpdateResourceLimits(t *testing.T) {
 
 	t.Run("invalid memory", func(t *testing.T) {
 		body, _ := json.Marshal(ResourceLimitsUpdate{
-			Memory: sys.MinMemory - 1,
+			Memory:  sys.MinMemory - 1,
 			Threads: 2,
 		})
 
@@ -303,7 +303,7 @@ func TestUpdateResourceLimits(t *testing.T) {
 
 	t.Run("invalid threads", func(t *testing.T) {
 		body, _ := json.Marshal(ResourceLimitsUpdate{
-			Memory: sys.MinMemory + 1024,
+			Memory:  sys.MinMemory + 1024,
 			Threads: -1,
 		})
 

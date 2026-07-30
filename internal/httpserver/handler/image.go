@@ -32,7 +32,7 @@ func GetImage(s ServerResources) http.HandlerFunc {
 			)
 			return
 		}
-		
+
 		pageParam := r.URL.Query().Get("page")
 		if pageParam == "" {
 			http.Error(

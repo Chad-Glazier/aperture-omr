@@ -7,7 +7,7 @@ info:
     A service to perform Optical Mark Recognition (OMR) on scanned 
     bubblesheets.
 
-    View system resource usage [here](http://localhost:3000/dashboard.html)
+    View system resource usage [here](http://localhost:3000/dashboard.html).
     
 servers:
   - url: http://localhost:3000/
@@ -274,9 +274,6 @@ paths:
         Update Resource Limits
       description: |
         Updates the maximum memory and thread limits used by the OMR.
-
-        This endpoint requires administrator authentication via the
-        `OMR-Admin-Key` request header.
       tags:
         - sysadmin
       parameters:

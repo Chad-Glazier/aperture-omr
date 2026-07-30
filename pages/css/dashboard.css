@@ -21,12 +21,12 @@ a {
 }
 
 .grid {
-    height: calc(100vh - 24px);
-    width: calc(100vw - 24px);
-    margin: 12px;
+    height: calc(100vh - 16px);
+    width: calc(100vw - 16px);
+    margin: 8px;
 
     display: grid;
-    gap: 8px;
+    gap: 6px;
 
     grid-template-columns: 340px 3fr;
     grid-template-rows: 1fr 1fr 1fr 140px;
@@ -68,11 +68,6 @@ a {
 .card:nth-of-type(3) {
     grid-row: 3;
     grid-column: 1;
-}
-
-.main {
-    grid-column: 2;
-    grid-row: 1 / 4;
 }
 
 .logs {
@@ -202,4 +197,21 @@ a {
     color: #888;
     font-weight: normal;
     transform: translateY(1rem);
+}
+
+/***********************************************************
+*                                                          *
+*                        Main Panel                        *
+*                                                          *
+***********************************************************/
+
+.main {
+    grid-column: 2;
+    grid-row: 1 / 4;
+}
+
+.main.overview {
+    padding: 1rem;
+    display: flex;
+    overflow-y: scroll;
 }

@@ -101,15 +101,15 @@ func GetLogs(s ServerResources) http.HandlerFunc {
 }
 
 type CpuUsageSample struct {
-	Overall float64 `json:"overall"`
+	Overall   float64   `json:"overall"`
 	PerThread []float64 `json:"perThread"`
 }
 
 type DetailedCpuInfo struct {
-	OmrThreadLimit int `json:"omrThreadLimit"`
-	Description string `json:"description"`
-	FrequencyMhz float64 `json:"frequencyMhz"`
-	UsageSamples []CpuUsageSample `json:"usageSamples"`
+	OmrThreadLimit int              `json:"omrThreadLimit"`
+	Description    string           `json:"description"`
+	FrequencyMhz   float64          `json:"frequencyMhz"`
+	UsageSamples   []CpuUsageSample `json:"usageSamples"`
 }
 
 func GetCpuInfo(s ServerResources) http.HandlerFunc {
@@ -142,8 +142,8 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 }
 
 type DetailedMemoryInfo struct {
-	OmrMemoryLimit uint64 `json:"omrMemoryLimit"`
-	UsageSamples []sys.MemInfo `json:"usageSamples"`
+	OmrMemoryLimit uint64        `json:"omrMemoryLimit"`
+	UsageSamples   []sys.MemInfo `json:"usageSamples"`
 }
 
 func GetMemoryInfo(s ServerResources) http.HandlerFunc {
@@ -158,7 +158,7 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 
 		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
 			OmrMemoryLimit: sys.MaxMemory(),
-			UsageSamples: samples,
+			UsageSamples:   samples,
 		})
 
 	}
@@ -177,8 +177,8 @@ func CheckAdminKey(s ServerResources) http.HandlerFunc {
 }
 
 type ResourceLimitsUpdate struct {
-	Memory uint64 `json:"memory"`
-	Threads int `json:"threads"`
+	Memory  uint64 `json:"memory"`
+	Threads int    `json:"threads"`
 }
 
 func UpdateResourceLimits(s ServerResources) http.HandlerFunc {
@@ -197,7 +197,7 @@ func UpdateResourceLimits(s ServerResources) http.HandlerFunc {
 		if err != nil {
 			http.Error(
 				w,
-				"error reading request body: " + err.Error(),
+				"error reading request body: "+err.Error(),
 				http.StatusBadRequest,
 			)
 			return
@@ -209,7 +209,7 @@ func UpdateResourceLimits(s ServerResources) http.HandlerFunc {
 		if err := sys.SetMaxMemory(newLimits.Memory); err != nil {
 			http.Error(
 				w,
-				"error setting new memory limit: " + err.Error(),
+				"error setting new memory limit: "+err.Error(),
 				http.StatusBadRequest,
 			)
 			return
@@ -217,7 +217,7 @@ func UpdateResourceLimits(s ServerResources) http.HandlerFunc {
 		if err := sys.SetMaxThreads(newLimits.Threads); err != nil {
 			http.Error(
 				w,
-				"error setting new thread limit: " + err.Error(),
+				"error setting new thread limit: "+err.Error(),
 				http.StatusBadRequest,
 			)
 			return
