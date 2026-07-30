@@ -15,6 +15,7 @@ type JobDetails struct {
 	Started  time.Time
 	Finished time.Time
 	Success  bool
+	Notes    string
 }
 
 var (
@@ -36,16 +37,16 @@ func (j *JobRegistrar) IsRegistered(id string) bool {
 	return ok
 }
 
-func (j *JobRegistrar) GetProgress(id string) (float64, error) {
+func (j *JobRegistrar) Get(id string) (JobDetails, error) {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
 
 	job, ok := j.jobs[id]
 	if !ok {
-		return 0, ErrJobNotFound
+		return JobDetails{}, ErrJobNotFound
 	}
 
-	return job.Progress, nil
+	return *job, nil
 }
 
 func (j *JobRegistrar) SetProgress(id string, progress float64) error {
@@ -58,6 +59,19 @@ func (j *JobRegistrar) SetProgress(id string, progress float64) error {
 	}
 
 	job.Progress = progress
+	return nil
+}
+
+func (j *JobRegistrar) SetNotes(id string, notes string) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	job := j.jobs[id]
+	if job == nil {
+		return ErrJobNotFound
+	}
+
+	job.Notes = notes
 	return nil
 }
 
@@ -83,7 +97,7 @@ func (j *JobRegistrar) Register(
 	return nil
 }
 
-func (j *JobRegistrar) Finish(id string, success bool) error {
+func (j *JobRegistrar) SetFinished(id string, success bool) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -121,7 +135,7 @@ func NewJobRegistrar(maxAge time.Duration) *JobRegistrar {
 		jobs: make(map[string]*JobDetails, 1<<8),
 	}
 
-	evictionTicker := time.NewTicker(maxAge)
+	evictionTicker := time.NewTicker(min(maxAge, time.Hour))
 
 	go func() {
 		for range evictionTicker.C {
@@ -136,4 +150,29 @@ func NewJobRegistrar(maxAge time.Duration) *JobRegistrar {
 
 func (j *JobRegistrar) Close() {
 	j.evictionTicker.Stop()
+}
+
+//
+// HTTP Handler
+//
+
+type JobStatus struct {
+	Id       string  `json:"id"`
+	Method   string  `json:"method"`
+	Path     string  `json:"path"`
+	Progress float64 `json:"progress"`
+	Started  uint64  `json:"startedTimestamp"`
+	Finished uint64  `json:"finishedTimestamp"`
+	Success  bool    `json:"success"`
+	Notes    string  `json:"notes"`
+}
+
+func (j *JobRegistrar) Handler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		
+		//
+		// TODO: Implement.
+		//
+
+	}
 }

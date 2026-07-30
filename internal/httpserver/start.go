@@ -3,6 +3,7 @@ package httpserver
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"ubco-team15/omr/internal/httpserver/handler"
 	"ubco-team15/omr/internal/httpserver/middleware"
@@ -11,24 +12,25 @@ import (
 
 func Start(hostname, port string) {
 
-	sys.ClearScreen()
-
-	res, err := handler.NewLocalResources("data")
+	s, err := handler.NewLocalResources("data")
 	if err != nil {
 		sys.Error("error getting server resources", "err", err)
 		os.Exit(1)
 	}
-	defer res.Close()
+	defer s.Close()
+
+	j:= handler.NewJobRegistrar(time.Hour * 24)
+	defer j.Close()
 
 	adminKey := os.Getenv("OMR_ADMIN_KEY")
 	if adminKey == "" {
-		res.SetAdminKey("admin")
+		s.SetAdminKey("admin")
 		sys.Warn(
 			"OMR_ADMIN_KEY not set in the current environment; using default",
 			"key", "admin",
 		)
 	} else {
-		res.SetAdminKey(adminKey)
+		s.SetAdminKey(adminKey)
 	}
 
 	mux := http.NewServeMux()
@@ -45,33 +47,35 @@ func Start(hostname, port string) {
 
 	mux.HandleFunc("GET /health", handler.Health)
 
-	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(res))
-	mux.HandleFunc("DELETE /template/mark", handler.DeleteMarkingTemplate(res))
-	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(res))
-	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(res))
+	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(s))
+	mux.HandleFunc("DELETE /template/mark", handler.DeleteMarkingTemplate(s))
+	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(s))
+	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
 
-	mux.HandleFunc("POST /scan/images", handler.PostScan(res))
-	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdf(res))
-	mux.HandleFunc("DELETE /scan", handler.DeleteScans(res))
+	mux.HandleFunc("POST /scan/images", handler.PostScan(s))
+	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdf(s, j))
+	mux.HandleFunc("DELETE /scan", handler.DeleteScans(s))
 
-	mux.HandleFunc("POST /mark", handler.PostMarkingJob(res))
+	mux.HandleFunc("GET /job", j.Handler())
 
-	mux.HandleFunc("GET /image/snippet", handler.GetSnippet(res))
-	mux.HandleFunc("GET /image", handler.GetImage(res))
+	mux.HandleFunc("POST /mark", handler.PostMarkingJob(s))
 
-	mux.HandleFunc("GET /system/utilization", handler.GetResourceUtilization(res))
-	mux.HandleFunc("GET /system/logs", handler.GetLogs(res))
-	mux.HandleFunc("GET /system/cpu", handler.GetCpuInfo(res))
-	mux.HandleFunc("GET /system/memory", handler.GetMemoryInfo(res))
-	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(res))
-	mux.HandleFunc("PUT /admin/resource-limits", handler.UpdateResourceLimits(res))
+	mux.HandleFunc("GET /image/snippet", handler.GetSnippet(s))
+	mux.HandleFunc("GET /image", handler.GetImage(s))
+
+	mux.HandleFunc("GET /system/utilization", handler.GetResourceUtilization(s))
+	mux.HandleFunc("GET /system/logs", handler.GetLogs(s))
+	mux.HandleFunc("GET /system/cpu", handler.GetCpuInfo(s))
+	mux.HandleFunc("GET /system/memory", handler.GetMemoryInfo(s))
+	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(s))
+	mux.HandleFunc("PUT /admin/resource-limits", handler.UpdateResourceLimits(s))
 
 	//
 	// Deprecated endpoints
 	//
 
-	mux.HandleFunc("POST /scan", handler.PostScan(res))
-	mux.HandleFunc("GET /snippet", handler.GetSnippet(res))
+	mux.HandleFunc("POST /scan", handler.PostScan(s))
+	mux.HandleFunc("GET /snippet", handler.GetSnippet(s))
 
 	//
 	// Static Pages

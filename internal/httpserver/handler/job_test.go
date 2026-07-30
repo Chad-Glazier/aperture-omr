@@ -87,20 +87,20 @@ func TestJobRegistrarGetSetProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	progress, err := j.GetProgress("job1")
+	job, err := j.Get("job1")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if progress != 0.35 {
-		t.Errorf("progress = %v, want 0.35", progress)
+	if job.Progress != 0.35 {
+		t.Errorf("progress = %v, want 0.35", job.Progress)
 	}
 }
 
 func TestJobRegistrarProgressMissingJob(t *testing.T) {
 	j := newRegistrar(t)
 
-	if _, err := j.GetProgress("missing"); !errors.Is(err, ErrJobNotFound) {
+	if _, err := j.Get("missing"); !errors.Is(err, ErrJobNotFound) {
 		t.Fatalf("expected ErrJobNotFound, got %v", err)
 	}
 
@@ -122,7 +122,7 @@ func TestJobRegistrarFinish(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := j.Finish("job1", true); err != nil {
+	if err := j.SetFinished("job1", true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -144,7 +144,7 @@ func TestJobRegistrarFinish(t *testing.T) {
 func TestJobRegistrarFinishMissingJob(t *testing.T) {
 	j := newRegistrar(t)
 
-	err := j.Finish("missing", true)
+	err := j.SetFinished("missing", true)
 	if !errors.Is(err, ErrJobNotFound) {
 		t.Fatalf("expected ErrJobNotFound, got %v", err)
 	}

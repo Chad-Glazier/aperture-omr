@@ -19,7 +19,7 @@ import (
 const maxPdfSize = 200 << 20     // 200 MB
 const maxFileMemSize = 100 << 20 // 100 MB
 
-func PostScanPdf(s ServerResources) http.HandlerFunc {
+func PostScanPdf(s ServerResources, j *JobRegistrar) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		//
