@@ -259,10 +259,12 @@ func PostScanPdf(s ServerResources) http.HandlerFunc {
 			return
 		case len(results.Errors) == 0:
 			// All scans were successfully preprocessed.
+			w.WriteHeader(http.StatusOK)
 			dto.SendJson(w, results)
 		case len(results.Errors) != 0:
 			// Some exams were preprocessed, others failed. We treat this the
 			// same as the full-success case for now.
+			w.WriteHeader(http.StatusOK)
 			dto.SendJson(w, results)
 		}
 	}

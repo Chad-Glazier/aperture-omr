@@ -96,11 +96,11 @@ type ServerResources interface {
 	CheckAdminKey(r *http.Request) bool
 
 	// Sets the admin key.
-	SetAdminKey(string)
+	SetAdminKey(key string)
 }
 
 //
-// Below, we implement the interface.
+// Below, we implement the interface using local resources.
 //
 
 type localResources struct {

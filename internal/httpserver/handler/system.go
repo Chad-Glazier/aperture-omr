@@ -10,23 +10,9 @@ import (
 	"ubco-team15/omr/internal/sys"
 )
 
-type ResourceUtilization struct {
-	CpuHistory    []sys.CpuInfo `json:"cpuHistory"`
-	MemoryHistory []sys.MemInfo `json:"memoryHistory"`
-	Disk          struct {
-		Usage    sys.DiskInfo `json:"usage"`
-		OmrUsage struct {
-			Database         uint64 `json:"database"`
-			NumberOfMatrices int    `json:"numberOfMatrices"`
-			Matrices         uint64 `json:"matrices"`
-			NumberOfPictures int    `json:"numberOfPictures"`
-			Pictures         uint64 `json:"pictures"`
-			Total            uint64 `json:"total"`
-		} `json:"omrUsage"`
-	} `json:"disk"`
-	MemoryPeak uint64 `json:"memoryPeak"`
-	Uptime     uint64 `json:"uptime"`
-}
+//
+// Helpers
+//
 
 const defaultLimit = 30
 
@@ -50,6 +36,28 @@ func parseLimit(w http.ResponseWriter, r *http.Request) (int, bool) {
 	}
 
 	return limit, true
+}
+
+//
+// Public System Info
+//
+
+type ResourceUtilization struct {
+	CpuHistory    []sys.CpuInfo `json:"cpuHistory"`
+	MemoryHistory []sys.MemInfo `json:"memoryHistory"`
+	Disk          struct {
+		Usage    sys.DiskInfo `json:"usage"`
+		OmrUsage struct {
+			Database         uint64 `json:"database"`
+			NumberOfMatrices int    `json:"numberOfMatrices"`
+			Matrices         uint64 `json:"matrices"`
+			NumberOfPictures int    `json:"numberOfPictures"`
+			Pictures         uint64 `json:"pictures"`
+			Total            uint64 `json:"total"`
+		} `json:"omrUsage"`
+	} `json:"disk"`
+	MemoryPeak uint64 `json:"memoryPeak"`
+	Uptime     uint64 `json:"uptime"`
 }
 
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
@@ -168,6 +176,10 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 
 	}
 }
+
+//
+// Admin-Only Endpoints
+//
 
 func CheckAdminKey(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
