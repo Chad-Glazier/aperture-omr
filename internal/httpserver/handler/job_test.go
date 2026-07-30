@@ -1,12 +1,18 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 )
+
+//
+// Many of the following tests were written by an LLM and they should probably 
+// be refactored/rewritten at some point.
+//
 
 //
 // Helpers
@@ -18,6 +24,16 @@ func newRegistrar(t *testing.T) *JobRegistrar {
 	r := NewJobRegistrar(time.Hour)
 	t.Cleanup(r.Close)
 	return r
+}
+
+func testJobResult() JobResult {
+	return JobResult{
+		Status:  http.StatusCreated,
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: *bytes.NewBufferString(`{"id":"scan1"}`),
+	}
 }
 
 //
@@ -169,7 +185,9 @@ func TestJobRegistrarFinish(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := j.SetFinished("job1", true); err != nil {
+	result := testJobResult()
+
+	if err := j.SetFinished("job1", true, result); err != nil {
 		t.Fatal(err)
 	}
 
@@ -189,12 +207,29 @@ func TestJobRegistrarFinish(t *testing.T) {
 	if job.Finished.IsZero() {
 		t.Error("Finished was not set")
 	}
+
+	gotResult, err := j.GetResult("job1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotResult.Status != result.Status {
+		t.Errorf("Status = %d, want %d", gotResult.Status, result.Status)
+	}
+
+	if gotResult.Body.String() != result.Body.String() {
+		t.Errorf(
+			"Body = %q, want %q",
+			gotResult.Body.String(),
+			result.Body.String(),
+		)
+	}
 }
 
 func TestJobRegistrarFinishMissingJob(t *testing.T) {
 	j := newRegistrar(t)
 
-	err := j.SetFinished("missing", true)
+	err := j.SetFinished("missing", true, JobResult{})
 	if err != ErrJobNotFound {
 		t.Fatalf("expected ErrJobNotFound, got %v", err)
 	}
@@ -209,7 +244,7 @@ func TestJobRegistrarCannotModifyFinishedJob(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := j.SetFinished("job1", true); err != nil {
+	if err := j.SetFinished("job1", true, JobResult{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -217,7 +252,7 @@ func TestJobRegistrarCannotModifyFinishedJob(t *testing.T) {
 		t.Fatalf("expected ErrJobFinished, got %v", err)
 	}
 
-	if err := j.SetFinished("job1", false); err != ErrJobFinished {
+	if err := j.SetFinished("job1", false, JobResult{}); err != ErrJobFinished {
 		t.Fatalf("expected ErrJobFinished, got %v", err)
 	}
 }
@@ -237,10 +272,18 @@ func TestJobRegistrarEvictAllOlderThan(t *testing.T) {
 		Started: now,
 	}
 
+	j.jobResults["old"] = &JobResult{
+		Status: http.StatusOK,
+	}
+
 	j.evictAllOlderThan(time.Hour)
 
 	if j.IsRegistered("old") {
 		t.Error("old job should have been evicted")
+	}
+
+	if _, ok := j.jobResults["old"]; ok {
+		t.Error("old result should have been evicted")
 	}
 
 	if !j.IsRegistered("new") {
@@ -323,5 +366,123 @@ func TestJobRegistrarListHandler(t *testing.T) {
 
 	if jobs[2].Id != "job2" {
 		t.Errorf("jobs[2].Id = %q, want %q", jobs[2].Id, "job2")
+	}
+}
+
+func TestJobRegistrarGetResultMissingJob(t *testing.T) {
+	j := newRegistrar(t)
+
+	_, err := j.GetResult("missing")
+	if err != ErrJobNotFound {
+		t.Fatalf("expected ErrJobNotFound, got %v", err)
+	}
+}
+
+func TestJobRegistrarGetResult(t *testing.T) {
+	j := newRegistrar(t)
+
+	req := httptest.NewRequest("GET", "/", nil)
+
+	if err := j.Register("job1", req); err != nil {
+		t.Fatal(err)
+	}
+
+	result := testJobResult()
+
+	if err := j.SetFinished("job1", true, result); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := j.GetResult("job1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.Status != http.StatusCreated {
+		t.Errorf("Status = %d, want %d", got.Status, http.StatusCreated)
+	}
+
+	if got.Headers["Content-Type"] != "application/json" {
+		t.Errorf(
+			"Content-Type = %q, want application/json",
+			got.Headers["Content-Type"],
+		)
+	}
+}
+
+func TestJobRegistrarResultHandler(t *testing.T) {
+	j := newRegistrar(t)
+
+	req := httptest.NewRequest("GET", "/", nil)
+
+	if err := j.Register("job1", req); err != nil {
+		t.Fatal(err)
+	}
+
+	result := testJobResult()
+
+	if err := j.SetFinished("job1", true, result); err != nil {
+		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(
+		"GET",
+		"/result?id=job1",
+		nil,
+	)
+
+	rr := httptest.NewRecorder()
+
+	j.ResultHandler().ServeHTTP(rr, r)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf(
+			"status = %d, want %d",
+			rr.Code,
+			http.StatusCreated,
+		)
+	}
+
+	if rr.Header().Get("Content-Type") != "application/json" {
+		t.Errorf(
+			"Content-Type = %q, want application/json",
+			rr.Header().Get("Content-Type"),
+		)
+	}
+
+	if rr.Body.String() != result.Body.String() {
+		t.Errorf(
+			"Body = %q, want %q",
+			rr.Body.String(),
+			result.Body.String(),
+		)
+	}
+}
+
+func TestJobRegistrarResultHandlerIncomplete(t *testing.T) {
+	j := newRegistrar(t)
+
+	req := httptest.NewRequest("GET", "/", nil)
+
+	if err := j.Register("job1", req); err != nil {
+		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(
+		"GET",
+		"/result?id=job1",
+		nil,
+	)
+
+	rr := httptest.NewRecorder()
+
+	j.ResultHandler().ServeHTTP(rr, r)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf(
+			"status = %d, want %d",
+			rr.Code,
+			http.StatusNotFound,
+		)
 	}
 }

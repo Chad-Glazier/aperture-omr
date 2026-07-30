@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"sort"
@@ -23,6 +24,12 @@ var (
 // Registrar Implementation
 //
 
+type JobResult struct {
+	Status  int
+	Headers map[string]string
+	Body    bytes.Buffer
+}
+
 type JobDetails struct {
 	Id       string
 	Method   string
@@ -38,6 +45,7 @@ type JobDetails struct {
 //
 // This type should be instantiated by the [NewJobRegistrar] function.
 type JobRegistrar struct {
+	jobResults     map[string]*JobResult
 	jobs           map[string]*JobDetails
 	mu             sync.RWMutex
 	evictionTicker *time.Ticker
@@ -66,6 +74,21 @@ func (j *JobRegistrar) Get(id string) (JobDetails, error) {
 	}
 
 	return *job, nil
+}
+
+// Retrieves the cached results for a completed job.
+//
+// If an error is returned, it will be [ErrJobNotFound].
+func (j *JobRegistrar) GetResult(id string) (JobResult, error) {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
+	result, ok := j.jobResults[id]
+	if !ok {
+		return JobResult{}, ErrJobNotFound
+	}
+
+	return *result, nil
 }
 
 // Updates the progress of a previously registered job.
@@ -135,7 +158,11 @@ func (j *JobRegistrar) Register(
 // Updates a job's details to reflect a resolved state.
 //
 // If an error is returned, it will be [ErrJobNotFound] or [ErrJobFinished].
-func (j *JobRegistrar) SetFinished(id string, success bool) error {
+func (j *JobRegistrar) SetFinished(
+	id string, 
+	success bool,
+	result JobResult,
+) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -148,6 +175,7 @@ func (j *JobRegistrar) SetFinished(id string, success bool) error {
 		return ErrJobFinished
 	}
 
+	j.jobResults[id] = &result
 	job.Finished = time.Now()
 	job.Progress = 1.00
 	job.Success = success
@@ -171,6 +199,7 @@ func (j *JobRegistrar) evictAllOlderThan(age time.Duration) {
 
 	for _, key := range expired {
 		delete(j.jobs, key)
+		delete(j.jobResults, key)
 	}
 }
 
@@ -178,6 +207,7 @@ func (j *JobRegistrar) evictAllOlderThan(age time.Duration) {
 func NewJobRegistrar(maxAge time.Duration) *JobRegistrar {
 	j := &JobRegistrar{
 		jobs: make(map[string]*JobDetails, 1<<8),
+		jobResults: make(map[string]*JobResult, 1<<8),
 	}
 
 	evictionTicker := time.NewTicker(min(maxAge, time.Hour))
@@ -198,7 +228,7 @@ func (j *JobRegistrar) Close() {
 }
 
 //
-// HTTP Handler
+// HTTP Handlers
 //
 
 type JobStatus struct {
@@ -258,7 +288,7 @@ func (j *JobRegistrar) Handler() http.HandlerFunc {
 				Finished: job.Finished.UnixMilli(),
 				Success:  &job.Success,
 				Notes:    job.Notes,
-			})			
+			})
 		}
 	}
 }
@@ -309,5 +339,44 @@ func (j *JobRegistrar) ListHandler(s ServerResources) http.HandlerFunc {
 		sort.Sort(jobs)
 
 		dto.SendCompressedJson(w, r, jobs)
+	}
+}
+
+// Returns an HTTP handler that responds to requests by sending back the cached
+// response or 404 if the job is not registered.
+func (j *JobRegistrar) ResultHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(
+				w,
+				"id parameter is required",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		result, err := j.GetResult(id)
+		if err != nil {
+			if j.IsRegistered(id) {
+				http.Error(
+					w,
+					"the job matching the given ID does not have a result yet",
+					http.StatusNotFound,
+				)
+				return				
+			}
+			http.Error(
+				w,
+				"no job matches the given ID",
+				http.StatusNotFound,
+			)			
+		}
+
+		for key, val := range result.Headers {
+			w.Header().Set(key, val)
+		}
+		w.WriteHeader(result.Status)
+		w.Write(result.Body.Bytes())
 	}
 }
