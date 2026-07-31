@@ -11,6 +11,7 @@ import (
 var omittedEndpoints = []string{
 	"GET /system/utilization",
 	"GET /system/logs",
+	"GET /admin/jobs",
 }
 
 // Creates middleware that logs each request and response.

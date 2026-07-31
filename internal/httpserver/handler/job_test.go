@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +10,7 @@ import (
 )
 
 //
-// Many of the following tests were written by an LLM and they should probably 
+// Many of the following tests were written by an LLM and they should probably
 // be refactored/rewritten at some point.
 //
 
@@ -26,14 +26,14 @@ func newRegistrar(t *testing.T) *JobRegistrar {
 	return r
 }
 
-func testJobResult() JobResult {
-	return JobResult{
-		Status:  http.StatusCreated,
-		Headers: map[string]string{
-			"Content-Type": "application/json",
-		},
-		Body: *bytes.NewBufferString(`{"id":"scan1"}`),
-	}
+func testJobResult() *JobResult {
+	result := NewJobResult()
+
+	result.Status = http.StatusCreated
+	result.Headers.Set("Content-Type", "application/json")
+	result.Write([]byte(`{"id":"scan1"}`))
+
+	return result
 }
 
 //
@@ -186,7 +186,7 @@ func TestJobRegistrarFinish(t *testing.T) {
 	}
 
 	result := testJobResult()
-
+	
 	if err := j.SetFinished("job1", true, result); err != nil {
 		t.Fatal(err)
 	}
@@ -217,11 +217,11 @@ func TestJobRegistrarFinish(t *testing.T) {
 		t.Errorf("Status = %d, want %d", gotResult.Status, result.Status)
 	}
 
-	if gotResult.Body.String() != result.Body.String() {
+	if gotResult.Body.String() != `{"id":"scan1"}` {
 		t.Errorf(
 			"Body = %q, want %q",
 			gotResult.Body.String(),
-			result.Body.String(),
+			`{"id":"scan1"}`,
 		)
 	}
 }
@@ -229,7 +229,7 @@ func TestJobRegistrarFinish(t *testing.T) {
 func TestJobRegistrarFinishMissingJob(t *testing.T) {
 	j := newRegistrar(t)
 
-	err := j.SetFinished("missing", true, JobResult{})
+	err := j.SetFinished("missing", true, NewJobResult())
 	if err != ErrJobNotFound {
 		t.Fatalf("expected ErrJobNotFound, got %v", err)
 	}
@@ -244,7 +244,7 @@ func TestJobRegistrarCannotModifyFinishedJob(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := j.SetFinished("job1", true, JobResult{}); err != nil {
+	if err := j.SetFinished("job1", true, NewJobResult()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -252,7 +252,7 @@ func TestJobRegistrarCannotModifyFinishedJob(t *testing.T) {
 		t.Fatalf("expected ErrJobFinished, got %v", err)
 	}
 
-	if err := j.SetFinished("job1", false, JobResult{}); err != ErrJobFinished {
+	if err := j.SetFinished("job1", false, NewJobResult()); err != ErrJobFinished {
 		t.Fatalf("expected ErrJobFinished, got %v", err)
 	}
 }
@@ -402,7 +402,7 @@ func TestJobRegistrarGetResult(t *testing.T) {
 		t.Errorf("Status = %d, want %d", got.Status, http.StatusCreated)
 	}
 
-	if got.Headers["Content-Type"] != "application/json" {
+	if got.Headers["Content-Type"][0] != "application/json" {
 		t.Errorf(
 			"Content-Type = %q, want application/json",
 			got.Headers["Content-Type"],
@@ -483,6 +483,146 @@ func TestJobRegistrarResultHandlerIncomplete(t *testing.T) {
 			"status = %d, want %d",
 			rr.Code,
 			http.StatusNotFound,
+		)
+	}
+}
+
+func TestJobResultResponseWriter(t *testing.T) {
+	r := NewJobResult()
+
+	r.Header().Set("X-Test", "hello")
+
+	if _, err := r.Write([]byte("body")); err != nil {
+		t.Fatal(err)
+	}
+
+	r.WriteHeader(http.StatusCreated)
+
+	if r.Status != http.StatusCreated {
+		t.Errorf(
+			"Status = %d, want %d",
+			r.Status,
+			http.StatusCreated,
+		)
+	}
+
+	if r.Headers.Get("X-Test") != "hello" {
+		t.Errorf(
+			"X-Test = %q, want hello",
+			r.Headers.Get("X-Test"),
+		)
+	}
+
+	if r.Body.String() != "body" {
+		t.Errorf(
+			"Body = %q, want body",
+			r.Body.String(),
+		)
+	}
+}
+
+func TestJobRegistrarJob(t *testing.T) {
+	j := newRegistrar(t)
+
+	handler := j.Job(func(
+		w http.ResponseWriter,
+		r *http.Request,
+		res JobResources,
+	) {
+		res.SetProgress(0.5)
+		res.SetNotes("processing")
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("done"))
+	})
+
+	req := httptest.NewRequest(
+		"POST",
+		"/test",
+		nil,
+	)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf(
+			"status = %d, want %d",
+			rr.Code,
+			http.StatusAccepted,
+		)
+	}
+
+	var response map[string]string
+
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+
+	id := response["id"]
+
+	if id == "" {
+		t.Fatal("missing job id")
+	}
+
+	// Wait for goroutine to finish.
+	deadline := time.Now().Add(time.Second)
+
+	for time.Now().Before(deadline) {
+		job, err := j.Get(id)
+		if err == nil && !job.Finished.IsZero() {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	job, err := j.Get(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if job.Finished.IsZero() {
+		t.Fatal("job did not finish")
+	}
+
+	if job.Progress != 1 {
+		t.Errorf(
+			"Progress = %v, want 1",
+			job.Progress,
+		)
+	}
+
+	if job.Notes != "processing" {
+		t.Errorf(
+			"Notes = %q, want processing",
+			job.Notes,
+		)
+	}
+
+	result, err := j.GetResult(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.Status != http.StatusCreated {
+		t.Errorf(
+			"result status = %d, want %d",
+			result.Status,
+			http.StatusCreated,
+		)
+	}
+
+	body, err := io.ReadAll(result.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(body) != "done" {
+		t.Errorf(
+			"body = %q, want done",
+			string(body),
 		)
 	}
 }

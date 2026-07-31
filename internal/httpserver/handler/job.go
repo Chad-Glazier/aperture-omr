@@ -3,11 +3,16 @@ package handler
 import (
 	"bytes"
 	"errors"
+	"io"
 	"net/http"
+	"os"
 	"sort"
 	"sync"
 	"time"
 	"ubco-team15/omr/internal/httpserver/dto"
+	"ubco-team15/omr/internal/sys"
+
+	"github.com/google/uuid"
 )
 
 //
@@ -15,20 +20,53 @@ import (
 //
 
 var (
-	ErrJobFinished   = errors.New("cannot update a finished job")
-	ErrJobNotFound   = errors.New("job not found")
-	ErrJobIdConflict = errors.New("new job could not be created because the ID is already in use")
+	ErrJobFinished     = errors.New("cannot update a finished job")
+	ErrJobNotFound     = errors.New("job not found")
+	ErrJobIdConflict   = errors.New("new job could not be created because the ID is already in use")
+	ErrRequestTooLarge = errors.New("request body too large")
 )
 
 //
-// Registrar Implementation
+// JobResult Implementation
+//
+// Jobs need to have cached results, so we need to be able to store everything
+// about an HTTP response. Fortunately, that's just the headers, status code,
+// and response body. For convenience we have our cached response implement the
+// [http.ResponseWriter] interface so that we can inject it into regular
+// handler functions.
 //
 
 type JobResult struct {
 	Status  int
-	Headers map[string]string
-	Body    bytes.Buffer
+	Headers http.Header
+	Body    *bytes.Buffer
 }
+
+var _ http.ResponseWriter = (*JobResult)(nil)
+
+func (j *JobResult) Header() http.Header {
+	return j.Headers
+}
+
+func (j *JobResult) Write(p []byte) (int, error) {
+	return j.Body.Write(p)
+}
+
+func (j *JobResult) WriteHeader(statusCode int) {
+	j.Status = statusCode
+}
+
+func NewJobResult() *JobResult {
+	return &JobResult{
+		Status:  200, // default status code
+		Headers: make(http.Header),
+		Body:    bytes.NewBuffer(nil),
+	}
+}
+
+//
+// Registrar Implementation
+//
 
 type JobDetails struct {
 	Id       string
@@ -159,9 +197,9 @@ func (j *JobRegistrar) Register(
 //
 // If an error is returned, it will be [ErrJobNotFound] or [ErrJobFinished].
 func (j *JobRegistrar) SetFinished(
-	id string, 
+	id string,
 	success bool,
-	result JobResult,
+	result *JobResult,
 ) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -175,7 +213,7 @@ func (j *JobRegistrar) SetFinished(
 		return ErrJobFinished
 	}
 
-	j.jobResults[id] = &result
+	j.jobResults[id] = result
 	job.Finished = time.Now()
 	job.Progress = 1.00
 	job.Success = success
@@ -206,7 +244,7 @@ func (j *JobRegistrar) evictAllOlderThan(age time.Duration) {
 // Creates a new job registrar.
 func NewJobRegistrar(maxAge time.Duration) *JobRegistrar {
 	j := &JobRegistrar{
-		jobs: make(map[string]*JobDetails, 1<<8),
+		jobs:       make(map[string]*JobDetails, 1<<8),
 		jobResults: make(map[string]*JobResult, 1<<8),
 	}
 
@@ -297,17 +335,17 @@ func (j *JobRegistrar) Handler() http.HandlerFunc {
 // Implement sort.Interface
 //
 
-type JobDetailList []*JobDetails
+type JobStatusList []*JobStatus
 
-func (j JobDetailList) Len() int {
+func (j JobStatusList) Len() int {
 	return len(j)
 }
 
-func (j JobDetailList) Less(a, b int) bool {
-	return j[a].Started.Compare(j[b].Started) < 0
+func (j JobStatusList) Less(a, b int) bool {
+	return j[a].Started-j[b].Started < 0
 }
 
-func (j JobDetailList) Swap(a, b int) {
+func (j JobStatusList) Swap(a, b int) {
 	j[a], j[b] = j[b], j[a]
 }
 
@@ -329,10 +367,32 @@ func (j *JobRegistrar) ListHandler(s ServerResources) http.HandlerFunc {
 		j.mu.RLock()
 		defer j.mu.RUnlock()
 
-		jobs := make(JobDetailList, len(j.jobs))
+		jobs := make(JobStatusList, len(j.jobs))
 		i := 0
 		for _, job := range j.jobs {
-			jobs[i] = job
+			if job.Finished.IsZero() {
+				jobs[i] = &JobStatus{
+					Id:       job.Id,
+					Method:   job.Method,
+					Path:     job.Path,
+					Progress: job.Progress,
+					Started:  job.Started.UnixMilli(),
+					Finished: 0,
+					Success:  nil,
+					Notes:    job.Notes,
+				}
+			} else {
+				jobs[i] = &JobStatus{
+					Id:       job.Id,
+					Method:   job.Method,
+					Path:     job.Path,
+					Progress: job.Progress,
+					Started:  job.Started.UnixMilli(),
+					Finished: job.Finished.UnixMilli(),
+					Success:  &job.Success,
+					Notes:    job.Notes,
+				}
+			}
 			i++
 		}
 
@@ -364,19 +424,166 @@ func (j *JobRegistrar) ResultHandler() http.HandlerFunc {
 					"the job matching the given ID does not have a result yet",
 					http.StatusNotFound,
 				)
-				return				
+				return
 			}
 			http.Error(
 				w,
 				"no job matches the given ID",
 				http.StatusNotFound,
-			)			
+			)
 		}
 
-		for key, val := range result.Headers {
-			w.Header().Set(key, val)
+		for key, vals := range result.Headers {
+			for _, val := range vals {
+				w.Header().Add(key, val)
+			}
 		}
 		w.WriteHeader(result.Status)
 		w.Write(result.Body.Bytes())
 	}
+}
+
+//
+// Job Wrapper
+//
+// The Job wrapper is meant to take an existing handler function and convert it
+// into an asynchronous job. There is one caveat, which is that the wrapped
+// function should accept an extra [JobResources] parameter. It doesn't need to
+// do anything with the argument, but it may use it to provide updates on its
+// progress.
+//
+
+// This interface is exposed to handler functions that can be job-ified.
+type JobResources interface {
+	SetProgress(float64) // 0.0 to 1.0.
+	SetNotes(string)     // Attaches notes to the job status.
+}
+
+// A job-ifiable handler function.
+type JobHandlerFunc func(http.ResponseWriter, *http.Request, JobResources)
+
+// An implementation of [JobResources].
+type jobRes struct {
+	r  *JobRegistrar
+	id string
+}
+
+var _ JobResources = (*jobRes)(nil)
+
+func (j *jobRes) SetProgress(progress float64) {
+	progress = max(0, progress)
+	progress = min(1, progress)
+	j.r.SetProgress(j.id, progress)
+}
+
+func (j *jobRes) SetNotes(notes string) {
+	j.r.WriteNotes(j.id, notes)
+}
+
+// Wraps the given job-ifiable handler function to automatically run it as an
+// asynchronous job.
+func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		id := uuid.New().String()
+		if err := j.Register(id, r); err != nil {
+			http.Error(
+				w,
+				"error creating job. UUID collision?",
+				http.StatusInternalServerError,
+			)
+		}
+
+		copiedReq, cleanup, err := copyRequest(r, 200<<20)
+		r.Body.Close()
+		if err != nil {
+			http.Error(
+				w,
+				"error reading request body: "+err.Error(),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		resources := jobRes{id: id, r: j}
+		result := NewJobResult()
+
+		w.WriteHeader(http.StatusAccepted)
+		dto.SendJson(w, map[string]string{
+			"id": id,
+		})
+
+		go func() {
+			defer cleanup()
+			sys.Log("job started", "id", id)
+			defer sys.Log("job finished", "id", id)
+
+			handler(result, copiedReq, &resources)
+
+			j.SetFinished(
+				id,
+				result.Status >= 200 && result.Status < 300,
+				result,
+			)
+		}()
+	}
+}
+
+//
+// TODO: Implement a proper temp buffer that frees its memory when closed.
+//
+
+// Creates a copy of an HTTP request whose body is backed by a temporary file.
+// The returned cleanup function must be called when the copied request is no
+// longer needed.
+func copyRequest(
+	r *http.Request,
+	maxBodySize int64,
+) (*http.Request, func(), error) {
+
+	req := r.Clone(r.Context())
+
+	if r.Body == nil {
+		return req, func() {}, nil
+	}
+
+	//
+	// Copy the request body into a temporary file.
+	//
+
+	tmp, err := os.CreateTemp("", "omr-job-*")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cleanup := func() {
+		tmp.Close()
+		os.Remove(tmp.Name())
+	}
+
+	// Copy at most maxBodySize+1 bytes so we can detect overflow.
+	n, err := io.Copy(tmp, io.LimitReader(r.Body, maxBodySize+1))
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+
+	if n > maxBodySize {
+		cleanup()
+		return nil, nil, ErrRequestTooLarge
+	}
+
+	//
+	// Rewind and attach the file to the cloned request.
+	//
+
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+
+	req.Body = tmp
+	req.ContentLength = n
+
+	return req, cleanup, nil
 }

@@ -215,7 +215,65 @@ a.link:hover {
 }
 
 .main.overview {
-    padding: 1rem;
+    padding: 3vmin;
     display: flex;
+    flex-direction: column;
     overflow-y: scroll;
+}
+
+/***********************************************************
+*                                                          *
+*                        Jobs Table                        *
+*                                                          *
+***********************************************************/
+
+#jobs-table {
+    width: 100%;
+    height: fit-content;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+#jobs-table th {
+    text-align: left;
+    padding: 0.5rem;
+    border-bottom: 2px solid #555;
+}
+
+#jobs-table td {
+    font-family: "Fira Code", monospace;
+    min-width: 120px;
+    padding: 0.5rem;
+    border-bottom: 1px solid #333;
+}
+
+#jobs-table tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.job-running {
+    color: #f0c674;
+}
+
+.job-success {
+    color: #8fbc8f;
+}
+
+.job-failed {
+    color: #e06c75;
+}
+
+.job-progress {
+    width: 120px;
+    height: 0.75rem;
+    background: rgba(0, 0, 0, 0);
+    overflow: hidden;
+    border-left: 1px solid #777;
+    border-right: 1px solid #777;
+}
+
+.job-progress-bar {
+    height: 100%;
+    background-color: #777;
 }

@@ -53,10 +53,13 @@ func Start(hostname, port string) {
 	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
 
 	mux.HandleFunc("POST /scan/images", handler.PostScan(s))
-	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdf(s, j))
+	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdf(s))
 	mux.HandleFunc("DELETE /scan", handler.DeleteScans(s))
 
 	mux.HandleFunc("GET /job", j.Handler())
+	mux.HandleFunc("GET /jobs", j.ListHandler(s))
+	mux.HandleFunc("GET /job/result", j.ResultHandler())
+	mux.HandleFunc("POST /job/scan/pdf", j.Job(handler.PostScanPdfJob(s)))
 
 	mux.HandleFunc("POST /mark", handler.PostMarkingJob(s))
 
@@ -70,7 +73,6 @@ func Start(hostname, port string) {
 
 	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(s))
 	mux.HandleFunc("PUT /admin/resource-limits", handler.UpdateResourceLimits(s))
-	mux.HandleFunc("GET /admin/jobs", j.ListHandler(s))
 
 	//
 	// Deprecated endpoints

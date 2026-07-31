@@ -4,6 +4,7 @@
  * @type {number}
  */
 const INTERVAL = 1000
+const FASTER_INTERVAL = 200
 
 /**
  * Peak memory usage reported by the OMR system.
@@ -219,6 +220,122 @@ async function update() {
 }
 
 /**
+ * Formats a Unix timestamp in milliseconds into a readable date string.
+ *
+ * @param {number} timestamp Timestamp in milliseconds.
+ * @returns {string} Formatted date string.
+ */
+function formatTimestamp(timestamp) {
+    if (!timestamp) {
+        return "-"
+    }
+
+    return new Date(timestamp).toLocaleString()
+}
+
+/**
+ * Creates a progress bar HTML element.
+ *
+ * @param {number} progress Progress value between 0 and 1.
+ * @returns {string} HTML progress bar.
+ */
+function formatProgress(progress) {
+    const percent = Math.min(
+        100,
+        Math.max(0, progress * 100),
+    )
+
+    return `
+        <div class="job-progress">
+            <div
+                class="job-progress-bar"
+                style="width: ${percent}%"
+            ></div>
+        </div>
+    `
+}
+
+/**
+ * Formats a job status into a human-readable string.
+ *
+ * @param {object} job Job information.
+ * @returns {string} Status HTML.
+ */
+function formatJobStatus(job) {
+    if (!job.finishedTimestamp) {
+        return `<span class="job-running">IN PROGRESS</span>`
+    }
+
+    if (job.success) {
+        return `<span class="job-success">SUCCESS</span>`
+    }
+
+    return `<span class="job-failed">FAILURE</span>`
+}
+
+/**
+ * Updates the job table.
+ *
+ * Retrieves recent background jobs and updates the job display table.
+ *
+ * @async
+ * @returns {Promise<void>}
+ */
+async function updateJobs() {
+    try {
+        const response = await fetch(
+            "/admin/jobs",
+            { headers: [["OMR-Admin-Key", "admin"]] }
+        )
+
+        if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`)
+        }
+
+        const jobs = await response.json()
+        const output = document.getElementById("jobs-output")
+
+        output.innerHTML = jobs
+            .reverse()
+            .map(job => `
+                <tr>
+                    <td>
+                        ${job.id.slice(0, 8)}
+                    </td>
+
+                    <td>
+                        ${job.method} ${job.path}
+                    </td>
+
+                    <td>
+                        ${formatJobStatus(job)}
+                    </td>
+
+                    <td>
+                        ${formatProgress(job.progress)}
+                    </td>
+
+                    <td>
+                        ${formatTimestamp(job.startedTimestamp)}
+                    </td>
+
+                    <td>
+                        ${formatTimestamp(job.finishedTimestamp)}
+                    </td>
+
+                    <td>
+                        ${job.notes || "-"}
+                    </td>
+                </tr>
+            `)
+            .join("")
+
+    } catch (err) {
+        console.error(`Failed to load jobs: ${err.message}`)
+    }
+}
+
+/**
  * Retrieves and updates the system log display.
  *
  * @async
@@ -234,14 +351,20 @@ async function updateLogs() {
     const data = await response.text()
     const logsOutput = document.getElementById("logs-output")
 
-    logsOutput.innerHTML = formatLogs(data)
-    logsOutput.scrollTo(0, logsOutput.scrollHeight)
+    const formatted = formatLogs(data)
+    if (formatted != logsOutput.innerHTML) {
+        logsOutput.innerHTML = formatLogs(data)
+        logsOutput.scrollTo(0, logsOutput.scrollHeight)
+    }   
 }
 
 update()
 updateLogs()
+updateJobs()
 setInterval(() => {
     update()
     updateLogs()
 }, INTERVAL)
-
+setInterval(() => {
+    updateJobs()
+}, FASTER_INTERVAL)

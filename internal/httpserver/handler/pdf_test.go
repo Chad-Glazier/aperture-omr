@@ -129,7 +129,7 @@ func TestPostScanPdf_Normal(t *testing.T) {
 
 	req := newScanPdfRequest(t, pTmplId, "testdata/batches/3_normal_exams.pdf")
 	rr := httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -153,7 +153,7 @@ func TestPostScanPdf_Funky(t *testing.T) {
 
 	req := newScanPdfRequest(t, pTmplId, "testdata/batches/1_funky_exam.pdf")
 	rr := httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -186,7 +186,7 @@ func TestPostScanPdf_FunkyBatch(t *testing.T) {
 		"testdata/batches/5_funky_duplicate_exams.pdf",
 	)
 	rr := httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -263,7 +263,7 @@ func TestPostScanPdf_BadInputs(t *testing.T) {
 	req := newScanPdfRequest(t, "", "testdata/batches/1_funky_exam.pdf")
 
 	rr := httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -273,7 +273,7 @@ func TestPostScanPdf_BadInputs(t *testing.T) {
 	req = newScanPdfRequest(t, pTmplId, "")
 
 	rr = httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -283,7 +283,7 @@ func TestPostScanPdf_BadInputs(t *testing.T) {
 	req = newScanPdfRequest(t, pTmplId, "testdata/pages/exam0page0.jpeg")
 
 	rr = httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -295,7 +295,7 @@ func TestPostScanPdf_BadInputs(t *testing.T) {
 	)
 
 	rr = httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -307,7 +307,7 @@ func TestPostScanPdf_BadInputs(t *testing.T) {
 	)
 
 	rr = httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
@@ -337,7 +337,7 @@ func TestPostScanPdf_FailedPreprocessing(t *testing.T) {
 	)
 	req.URL.RawQuery = fmt.Sprintf("dpi=%d", 50)
 	rr := httptest.NewRecorder()
-	PostScanPdf(s, nil).ServeHTTP(rr, req)
+	PostScanPdf(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
