@@ -56,7 +56,8 @@ a.link:hover {
 .card h2 {
     margin-top: 0;
     margin-bottom: 0;
-    font-size: 1.15rem;
+    font-size: 1rem;
+    font-weight: 400;
 }
 
 .card:nth-of-type(1) {
@@ -156,7 +157,7 @@ a.link:hover {
 
 .highlight {
     color: #00fffb;
-    font-weight: 600;
+    font-weight: 400;
     font-size: 1rem;
 }
 
@@ -247,8 +248,12 @@ a.link:hover {
 
 .jobs-heading {
     margin: 0;
-    font-size: 2.4rem;
+    font-size: 1.4rem;
     min-width: 12ch;
+    border-left: 2px solid #eee;
+    color: #eee;
+    padding-left: 16px;
+    font-weight: 400;
 }
 
 .jobs-description {
@@ -262,6 +267,7 @@ a.link:hover {
     border-collapse: collapse;
     margin-top: 1rem;
     font-size: 0.9rem;
+    color: #aaa;
 }
 
 #jobs-table th {
@@ -278,6 +284,7 @@ a.link:hover {
 
 #jobs-table tr:hover {
     background-color: rgba(255, 255, 255, 0.05);
+    color: #fff;
 }
 
 .job-running {
