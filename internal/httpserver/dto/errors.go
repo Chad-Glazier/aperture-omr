@@ -57,7 +57,7 @@ func SendJson(w http.ResponseWriter, v any) {
 // the recognized formats, then we will send the given data as JSON in that
 // format. Otherwise, the uncompressed JSON will be sent.
 //
-// At the time of writing, supported formats include gzip, deflate, and
+// At the time of writing, supported formats include gzip and deflate.
 func SendCompressedJson(w http.ResponseWriter, r *http.Request, v any) error {
 	w.Header().Add("Content-Type", "application/json")
 

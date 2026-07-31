@@ -459,7 +459,7 @@ type JobResources interface {
 	SetNotes(string)     // Attaches notes to the job status.
 }
 
-// Updates the job progress. Unlike calling [JobResources.SetProgress] 
+// Updates the job progress. Unlike calling [JobResources.SetProgress]
 // directly, this function won't panic when j is nil.
 func SetProgress(j JobResources, progress float64) {
 	if j != nil {
@@ -473,7 +473,7 @@ func SetNotes(j JobResources, notes string) {
 	if j != nil {
 		j.SetNotes(notes)
 	}
-} 
+}
 
 // A job-ifiable handler function.
 type JobHandlerFunc func(http.ResponseWriter, *http.Request, JobResources)
@@ -577,7 +577,6 @@ func copyRequest(
 		os.Remove(tmp.Name())
 	}
 
-	// Copy at most maxBodySize+1 bytes so we can detect overflow.
 	n, err := io.Copy(tmp, io.LimitReader(r.Body, maxBodySize+1))
 	if err != nil {
 		cleanup()
@@ -590,7 +589,7 @@ func copyRequest(
 	}
 
 	//
-	// Rewind and attach the file to the cloned request.
+	// Rewind and attach the file to the copied request.
 	//
 
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {

@@ -186,7 +186,7 @@ func TestJobRegistrarFinish(t *testing.T) {
 	}
 
 	result := testJobResult()
-	
+
 	if err := j.SetFinished("job1", true, result); err != nil {
 		t.Fatal(err)
 	}

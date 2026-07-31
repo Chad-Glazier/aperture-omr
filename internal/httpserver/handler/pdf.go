@@ -203,8 +203,8 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 			return
 		}
 
-		SetNotes(j, 
-			fmt.Sprintf("rendering %d pages", nExams * pagesPerExam),
+		SetNotes(j,
+			fmt.Sprintf("rendering %d pages", nExams*pagesPerExam),
 		)
 
 		// Clean up the incoming file resources. These calls have already been
@@ -294,14 +294,11 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 			return
 		case len(results.Errors) == 0:
 			// All scans were successfully preprocessed.
-			w.WriteHeader(http.StatusOK)
 			dto.SendJson(w, results)
 		case len(results.Errors) != 0:
 			// Some exams were preprocessed, others failed. We treat this the
 			// same as the full-success case for now.
-			w.WriteHeader(http.StatusOK)
 			dto.SendJson(w, results)
 		}
 	}
 }
-

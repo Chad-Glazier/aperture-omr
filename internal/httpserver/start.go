@@ -19,7 +19,7 @@ func Start(hostname, port string) {
 	}
 	defer s.Close()
 
-	j:= handler.NewJobRegistrar(time.Hour * 24)
+	j := handler.NewJobRegistrar(time.Hour * 24)
 	defer j.Close()
 
 	adminKey := os.Getenv("OMR_ADMIN_KEY")
