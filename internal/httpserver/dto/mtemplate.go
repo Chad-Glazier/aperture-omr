@@ -31,9 +31,24 @@ type MarkingTemplate struct {
 
 type MarkingConfig struct {
 	FillThreshold float64 `json:"fillThreshold"`
-	BubbleInset   float64 `json:"bubbleInset"`
-	FlagThreshold float64 `json:"flagThreshold"`
-	SearchRadius  int     `json:"searchRadius"`
+	// SelectionThreshold, when set, is used in place of FillThreshold for
+	// the final gap-based selection cutoff only; see
+	// marker.Config.SelectionThreshold for why that needs to be a separate
+	// knob from FillThreshold's other (alignment-fallback) role. This one
+	// must stay a pointer, unlike FillThreshold/FlagThreshold above: unset
+	// has to mean "fall back to FillThreshold", not silently become 0,
+	// which would disable gap-based selection for any question that
+	// doesn't set it.
+	SelectionThreshold *float64 `json:"selectionThreshold,omitempty"`
+	BubbleInset        float64  `json:"bubbleInset"`
+	FlagThreshold      float64  `json:"flagThreshold"`
+	SearchRadius       int      `json:"searchRadius"`
+	// SearchGroupSize/GroupSearchRadius split a wide row into
+	// independently-aligned groups instead of one shared-offset search for
+	// the whole row; see marker.Config.SearchGroupSize for the full
+	// rationale. Both 0 (default) keeps SearchRadius's original behavior.
+	SearchGroupSize   int `json:"searchGroupSize"`
+	GroupSearchRadius int `json:"groupSearchRadius"`
 }
 
 type MarkingPage struct {
@@ -52,6 +67,11 @@ type QuestionOption struct {
 	Label string `json:"label"`
 	X     int    `json:"x"`
 	Y     int    `json:"y"`
+	// BaselineBias corrects for this option's own printed glyph reading a
+	// different natural (unmarked) ink level than its question's other
+	// options; see marker.Bubble.BaselineBias for the full rationale. 0
+	// (default) leaves detection exactly as before.
+	BaselineBias float64 `json:"baselineBias"`
 }
 
 //
@@ -83,6 +103,10 @@ func (c *MarkingConfig) validate() error {
 		return fmt.Errorf("fillThreshold must be between 0 and 1")
 	}
 
+	if c.SelectionThreshold != nil && (*c.SelectionThreshold < 0 || *c.SelectionThreshold > 1) {
+		return fmt.Errorf("selectionThreshold must be between 0 and 1")
+	}
+
 	if c.BubbleInset < 0 || c.BubbleInset > 1 {
 		return fmt.Errorf("bubbleInset must be between 0 and 1")
 	}
@@ -93,6 +117,14 @@ func (c *MarkingConfig) validate() error {
 
 	if c.SearchRadius < 0 {
 		return fmt.Errorf("searchRadius must be nonnegative")
+	}
+
+	if c.SearchGroupSize < 0 {
+		return fmt.Errorf("searchGroupSize must be nonnegative")
+	}
+
+	if c.GroupSearchRadius < 0 {
+		return fmt.Errorf("groupSearchRadius must be nonnegative")
 	}
 
 	return nil
@@ -177,10 +209,13 @@ func AdaptMarkerTemplate(tmpl *MarkingTemplate) *marker.Template {
 
 	template := marker.Template{
 		Config: marker.Config{
-			FillThreshold: &tmpl.Config.FillThreshold,
-			BubbleInset:   &tmpl.Config.BubbleInset,
-			FlagThreshold: &tmpl.Config.FlagThreshold,
-			SearchRadius:  &tmpl.Config.SearchRadius,
+			FillThreshold:      &tmpl.Config.FillThreshold,
+			SelectionThreshold: tmpl.Config.SelectionThreshold,
+			BubbleInset:        &tmpl.Config.BubbleInset,
+			FlagThreshold:      &tmpl.Config.FlagThreshold,
+			SearchRadius:       &tmpl.Config.SearchRadius,
+			SearchGroupSize:    &tmpl.Config.SearchGroupSize,
+			GroupSearchRadius:  &tmpl.Config.GroupSearchRadius,
 		},
 		Pages: make([]marker.Page, len(tmpl.Pages)),
 	}
@@ -205,6 +240,7 @@ func AdaptMarkerTemplate(tmpl *MarkingTemplate) *marker.Template {
 				template.Pages[i].Questions[j].Options[k].Label = o.Label
 				template.Pages[i].Questions[j].Options[k].X = o.X
 				template.Pages[i].Questions[j].Options[k].Y = o.Y
+				template.Pages[i].Questions[j].Options[k].BaselineBias = o.BaselineBias
 			}
 
 		}

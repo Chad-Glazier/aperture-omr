@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"log/slog"
 
 	"gocv.io/x/gocv"
 	"golang.org/x/sync/errgroup"
@@ -86,6 +87,11 @@ type Template struct {
 	Height int        `json:"height"`
 	Pages  []ScanPage `json:"pages"`
 	Config Config     `json:"config"`
+	// NativeDpi is the resolution the template's Width/Height/anchor
+	// positions were authored at. Zero means unknown (older templates that
+	// predate this field). Callers use it to request matching-resolution
+	// renders instead of guessing a fixed DPI.
+	NativeDpi float64 `json:"nativeDpi,omitempty"`
 }
 
 func (t *Template) Close() {
@@ -106,6 +112,13 @@ type Config struct {
 	// AdaptiveC is subtracted from the local mean; negative values make the
 	// threshold more lenient and are needed to catch light pencil marks.
 	AdaptiveC float32 `json:"adaptiveC"`
+	// ReferenceRatio is the imgSize/templateSize ratio (see sizeRatio) that
+	// BlurSize/AdaptiveBlockSize/MorphCloseSize above were tuned against,
+	// i.e. what a scan at the template's intended calibration DPI produces.
+	// Zero means unknown, in which case preprocessPage leaves these values
+	// unscaled regardless of the actual scan's resolution (the pre-existing
+	// behavior, kept for templates authored before this field existed).
+	ReferenceRatio float64 `json:"referenceRatio,omitempty"`
 }
 
 // Scan runs each reader through the OMR preprocessing pipeline using the
@@ -170,42 +183,164 @@ func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
 		return nil, newQualityError("image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
-	data := &ScanData{
-		Picture: img,
-		Binary:  gocv.NewMat(),
-	}
-
-	err = Binarize(&data.Picture, &data.Binary, &tmpl.Config)
+	data, err := preprocessPage(img, tmpl, idx)
 	if err != nil {
+		var qerr *QualityError
+		if !errors.As(err, &qerr) {
+			return nil, err
+		}
+		if detected, ok := detectMisplacedPage(data, tmpl, idx); ok {
+			data.Close()
+			return nil, &OrderError{PageIndex: idx, DetectedPageIndex: detected}
+		}
 		data.Close()
 		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
-	err = warp(
+	return data, nil
+}
+
+// dpiMismatchLowRatio and dpiMismatchHighRatio bound how far a scanned
+// page's resolution can drift from its template's calibration size before
+// it's logged as a likely cause of degraded confidence, rather than staying
+// a silent side effect of scaleConfig/scaleAnchorTemplate's resizing.
+const (
+	dpiMismatchLowRatio  = 0.67
+	dpiMismatchHighRatio = 1.5
+)
+
+// preprocessPage binarizes and warps picture against tmpl's anchors for
+// page idx, retrying upside-down once if the initial match fails. Before
+// binarizing, conf's pixel-based tuning (BlurSize, AdaptiveBlockSize,
+// MorphCloseSize) is scaled by picture's resolution relative to the
+// template's calibration size, so a scan captured well above or below the
+// template's native DPI still binarizes with a physically consistent
+// neighbourhood instead of one tuned for a different resolution.
+//
+// On success picture is owned by the returned ScanData. On an unrecoverable
+// error picture is closed and the returned error already describes the
+// pipeline failure. If, after the upside-down retry, warp is still unable
+// to align the page, the still-open ScanData is returned alongside the raw
+// *QualityError so the caller can attempt further recovery (e.g. page-order
+// detection) before closing it.
+func preprocessPage(picture gocv.Mat, tmpl *Template, idx int) (*ScanData, error) {
+	data := &ScanData{Picture: picture, Binary: gocv.NewMat()}
+
+	ratio := sizeRatio(
+		image.Pt(picture.Cols(), picture.Rows()),
+		image.Pt(tmpl.Width, tmpl.Height),
+	)
+
+	// scaleFactor is how far ratio has drifted from the ratio the template's
+	// Binarize tuning was actually calibrated against (ReferenceRatio),
+	// not from 1.0. A template's Width/Height is just an internal working
+	// resolution decoupled from any real scan DPI, and BlurSize/
+	// AdaptiveBlockSize/MorphCloseSize have historically been tuned against
+	// whatever DPI the upload pipeline requests (e.g. ~1.4x the template's
+	// own canvas size at the OMR service's 216 DPI default), not against a
+	// scan that happens to match the canvas 1:1. Without a known
+	// ReferenceRatio there's nothing to scale relative to, so scaleFactor
+	// stays 1 (the pre-existing, unscaled behavior).
+	scaleFactor := 1.0
+	if tmpl.Config.ReferenceRatio > 0 {
+		scaleFactor = ratio / tmpl.Config.ReferenceRatio
+	}
+	if scaleFactor < dpiMismatchLowRatio || scaleFactor > dpiMismatchHighRatio {
+		slog.Warn(
+			"scanned page resolution deviates significantly from template calibration",
+			"scaleFactor", scaleFactor,
+			"observedRatio", ratio,
+			"referenceRatio", tmpl.Config.ReferenceRatio,
+			"templateWidth", tmpl.Width,
+			"templateHeight", tmpl.Height,
+			"imageWidth", picture.Cols(),
+			"imageHeight", picture.Rows(),
+		)
+	}
+
+	scaledConf := scaleConfig(tmpl.Config, scaleFactor)
+	if err := Binarize(&data.Picture, &data.Binary, &scaledConf); err != nil {
+		data.Close()
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+	}
+
+	err := warp(
 		data, data,
 		tmpl.Pages[idx].Anchors,
 		tmpl.Width,
 		tmpl.Height,
 		tmpl.Config,
 	)
-	if err != nil {
-		var qerr *QualityError
-		if !errors.As(err, &qerr) {
-			data.Close()
-			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
-		}
-		rotErr := recoverUpsideDown(data, tmpl.Pages[idx].Anchors, tmpl)
-		if rotErr != nil {
-			if detected, ok := detectMisplacedPage(data, tmpl, idx); ok {
-				data.Close()
-				return nil, &OrderError{PageIndex: idx, DetectedPageIndex: detected}
-			}
-			data.Close()
-			return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
-		}
+	if err == nil {
+		return data, nil
+	}
+
+	var qerr *QualityError
+	if !errors.As(err, &qerr) {
+		data.Close()
+		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+	}
+
+	if rotErr := recoverUpsideDown(data, tmpl.Pages[idx].Anchors, tmpl); rotErr != nil {
+		return data, err
 	}
 
 	return data, nil
+}
+
+// sizeRatio is the average of src's width and height ratios to target, i.e.
+// how much bigger (>1) or smaller (<1) src is than the template's
+// calibration size. Anchor positions and pixel-based tuning parameters are
+// all defined in that target coordinate space, so this is the single factor
+// needed to scale a scalar tuning value (as opposed to scaleROI/
+// scaleAnchorTemplate, which scale per-axis geometry and so keep X and Y
+// separate).
+func sizeRatio(src, target image.Point) float64 {
+	return (float64(src.X)/float64(target.X) + float64(src.Y)/float64(target.Y)) / 2
+}
+
+// scaleConfig scales conf's pixel-based tuning (BlurSize, AdaptiveBlockSize,
+// MorphCloseSize) by ratio so binarization stays physically consistent
+// regardless of the scanned image's resolution relative to the template's
+// calibration size. MinAnchorConfidence and AdaptiveC are already
+// resolution-independent and are left untouched.
+func scaleConfig(conf Config, ratio float64) Config {
+	scaled := conf
+	// Zero-valued fields are left untouched: BlurSize=0 is invalid input
+	// Binarize rejects on its own, and AdaptiveBlockSize=0 means "use
+	// Binarize's built-in default", neither of which should silently turn
+	// into a scaled real value here.
+	if conf.BlurSize > 0 {
+		scaled.BlurSize = scaleOddSize(conf.BlurSize, ratio, 1)
+	}
+	if conf.AdaptiveBlockSize > 0 {
+		scaled.AdaptiveBlockSize = scaleOddSize(conf.AdaptiveBlockSize, ratio, 3)
+	}
+	if conf.MorphCloseSize > 0 {
+		scaled.MorphCloseSize = scaleSize(conf.MorphCloseSize, ratio, 0)
+	}
+	return scaled
+}
+
+// scaleSize scales size by ratio, rounding to the nearest integer no
+// smaller than min.
+func scaleSize(size int, ratio float64, min int) int {
+	scaled := int(float64(size)*ratio + 0.5)
+	if scaled < min {
+		scaled = min
+	}
+	return scaled
+}
+
+// scaleOddSize is scaleSize but rounded up to the nearest odd value
+// afterwards, since GaussianBlur and AdaptiveThreshold both require an odd
+// neighbourhood size.
+func scaleOddSize(size int, ratio float64, min int) int {
+	scaled := scaleSize(size, ratio, min)
+	if scaled%2 == 0 {
+		scaled++
+	}
+	return scaled
 }
 
 // recoverUpsideDown retries the anchor match against a copy of data rotated
@@ -592,8 +727,19 @@ func scaleAnchorTemplate(tmpl *gocv.Mat, src, target image.Point) *gocv.Mat {
 	if newH < 1 {
 		newH = 1
 	}
+
+	// Shrinking (a lower-DPI scan than the template's calibration) and
+	// growing (a higher-DPI scan) fail differently: INTER_AREA antialiases
+	// properly when downsampling, avoiding moire that would otherwise blur
+	// out the anchor's ring pattern, while linear interpolation is the
+	// better choice when upsampling.
+	interpolation := gocv.InterpolationLinear
+	if newW*newH < tmpl.Cols()*tmpl.Rows() {
+		interpolation = gocv.InterpolationArea
+	}
+
 	scaled := gocv.NewMat()
-	gocv.Resize(*tmpl, &scaled, image.Pt(newW, newH), 0, 0, gocv.InterpolationLinear)
+	gocv.Resize(*tmpl, &scaled, image.Pt(newW, newH), 0, 0, interpolation)
 	return &scaled
 }
 

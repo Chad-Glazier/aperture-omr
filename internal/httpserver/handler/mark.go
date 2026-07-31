@@ -84,113 +84,97 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		//
 		// We stream the scans and mark them in parallel. This sets a limit
 		// on the number of scans that are kept in memory at a given time.
+		// A single scan's failure (a missing scan, a page count mismatch,
+		// a marking failure, or a panic) is attached to that scan instead
+		// of aborting the whole batch, mirroring how POST /scan/pdf reports
+		// partial batch failures.
 		//
 
-		errorSent := atomic.Bool{}
 		nextIdx := atomic.Uint32{}
 		nScans := len(markingJob.ScanIds)
 
-		markingResults := dto.MarkingResult{
-			PagesMarked: nScans * len(template.Pages),
-			TemplateId:  markingJob.TemplateId,
-		}
-		markingResults.Scans = make([]dto.Scan, nScans)
+		scans := make([]dto.Scan, nScans)
+		errs := make([]*dto.MarkingError, nScans)
 
 		wg := sync.WaitGroup{}
 		for range runtime.GOMAXPROCS(0) {
 			wg.Go(func() {
 
-				defer func() {
-					if r := recover(); r != nil {
-						if !errorSent.Swap(true) {
-							dto.SendError(
-								w,
-								http.StatusInternalServerError,
-								dto.ErrInternal,
-								"unexpected panic during marking",
-							)
-						}
-					}
-				}()
-
 				//
-				// Each thread runs until the pool of scan IDs is exhausted,
-				// or until an error is sent.
+				// Each thread runs until the pool of scan IDs is exhausted.
 				//
 
-				for !errorSent.Load() {
-
+				for {
 					idx := nextIdx.Add(1) - 1
 					if int(idx) >= nScans {
 						break
 					}
 					scanId := markingJob.ScanIds[idx]
 
-					//
-					// Load the preprocessed scan's page matrices.
-					//
-
-					pages, err := s.LoadScan(scanId)
-					if err != nil && !errorSent.Swap(true) {
-						dto.SendError(
-							w,
-							http.StatusNotFound,
-							dto.ErrScanNotFound,
-							"error loading scan "+scanId+": "+err.Error(),
-						)
-						break
-					}
-					scan := scan{id: scanId, pages: pages}
-					defer scan.close()
-
-					if len(pages) != len(template.Pages) &&
-						!errorSent.Swap(true) {
-						dto.SendError(
-							w,
-							http.StatusBadRequest,
-							dto.ErrPageCountMismatch,
-							fmt.Sprintf(
-								"page count %d for scan %s does not match "+
-									"page count %d of template %s",
-								len(pages), scanId,
-								len(template.Pages), markingJob.TemplateId,
-							),
-						)
-						break
-					}
-
-					//
-					// Get the marks.
-					//
-
-					marks, err := marker.Evaluate(scan.pages, template)
-					if err != nil && !errorSent.Swap(true) {
-						dto.SendError(
-							w,
-							http.StatusUnprocessableEntity,
-							dto.ErrMarkingFailed,
-							"scan "+scanId+" failed marking",
-						)
-						break
-					}
-					scan.close()
-
-					markingResults.Scans[idx].ScanId = scanId
-					markingResults.Scans[idx].Marks = make(
-						[]dto.Mark,
-						len(marks.Answers),
-					)
-					for i, a := range marks.Answers {
-						markingResults.Scans[idx].Marks[i] = *dto.AdaptMark(&a)
+					if err := markScan(s, template, scanId, &scans[idx]); err != nil {
+						errs[idx] = &dto.MarkingError{ScanId: scanId, Debug: err.Error()}
 					}
 				}
 			})
 		}
 		wg.Wait()
-		if errorSent.Load() {
-			return
-		}
 
-		dto.SendCompressedJson(w, r, markingResults)
+		result := dto.NewMarkingResult(
+			markingJob.TemplateId, len(template.Pages), scans, errs,
+		)
+
+		switch {
+		case len(result.Scans) == 0:
+			// Every scan in the batch failed to mark.
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			dto.SendCompressedJson(w, r, result.Errors)
+		default:
+			dto.SendCompressedJson(w, r, result)
+		}
 	}
+}
+
+// markScan marks a single scan against the given template, writing the
+// result into *out on success. On failure, including a panic while marking
+// (which would otherwise crash the whole process, since it happens on a
+// goroutine the top-level recovery middleware can't see), it returns a
+// non-nil error describing what went wrong, and *out is left untouched.
+func markScan(
+	s ServerResources,
+	template *marker.Template,
+	scanId string,
+	out *dto.Scan,
+) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic while marking scan %s: %v", scanId, r)
+		}
+	}()
+
+	pages, loadErr := s.LoadScan(scanId)
+	if loadErr != nil {
+		return fmt.Errorf("error loading scan %s: %w", scanId, loadErr)
+	}
+	sc := scan{id: scanId, pages: pages}
+	defer sc.close()
+
+	if len(pages) != len(template.Pages) {
+		return fmt.Errorf(
+			"page count %d for scan %s does not match page count %d of template",
+			len(pages), scanId, len(template.Pages),
+		)
+	}
+
+	marks, markErr := marker.Evaluate(sc.pages, template)
+	if markErr != nil {
+		return fmt.Errorf("scan %s failed marking: %w", scanId, markErr)
+	}
+	sc.close()
+
+	out.ScanId = scanId
+	out.Marks = make([]dto.Mark, len(marks.Answers))
+	for i, a := range marks.Answers {
+		out.Marks[i] = *dto.AdaptMark(&a)
+	}
+	return nil
 }

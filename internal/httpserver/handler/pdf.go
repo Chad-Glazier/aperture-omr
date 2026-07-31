@@ -76,7 +76,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 		}
 
 		dpiStr := r.FormValue("dpi")
-		density := 300
+		var explicitDpi int
 		if dpiStr != "" {
 			dpi, err := strconv.Atoi(dpiStr)
 			if err != nil || dpi <= 0 {
@@ -88,7 +88,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				)
 				return
 			}
-			density = dpi
+			explicitDpi = dpi
 		}
 
 		pdfFile, _, err := r.FormFile("pdf")
@@ -143,6 +143,22 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				err.Error(),
 			)
 			return
+		}
+
+		//
+		// Pick the render DPI: an explicit request always wins, otherwise
+		// fall back to the template's own calibration DPI so the service
+		// stays correct even if a caller forgets to pass one, and only
+		// fall back further to a fixed default for templates that predate
+		// nativeDpi.
+		//
+
+		density := 300
+		switch {
+		case explicitDpi > 0:
+			density = explicitDpi
+		case pTempl.NativeDpi > 0:
+			density = int(pTempl.NativeDpi + 0.5)
 		}
 
 		//

@@ -46,9 +46,49 @@ func (m *MarkingJobRequest) validate() error {
 //
 
 type MarkingResult struct {
-	PagesMarked int    `json:"pagesMarked"`
-	TemplateId  string `json:"templateId"`
-	Scans       []Scan `json:"scans"`
+	PagesMarked int            `json:"pagesMarked"`
+	TemplateId  string         `json:"templateId"`
+	Scans       []Scan         `json:"scans"`
+	Errors      []MarkingError `json:"errors"`
+}
+
+// MarkingError describes why a single scan in a marking job's batch failed:
+// a missing scan, a page count mismatch against the template, or a marking
+// failure. It doesn't abort the rest of the batch; see NewMarkingResult.
+type MarkingError struct {
+	// The scanId (as given in the request) that failed marking.
+	ScanId string `json:"scanId"`
+	// The error message. This is meant for debugging, not for end-users.
+	Debug string `json:"debug"`
+}
+
+// Builds a MarkingResult from a batch of per-scan attempts. scans and errs
+// must be the same length and index-aligned: for index i, exactly one of
+// scans[i] (a successfully marked scan) or errs[i] (why it failed) is the
+// zero/nil value. Mirrors NewScanResult's shape for POST /scan/pdf.
+func NewMarkingResult(
+	templateId string,
+	pagesPerScan int,
+	scans []Scan,
+	errs []*MarkingError,
+) MarkingResult {
+	successfulScans := make([]Scan, 0, len(scans))
+	errors := make([]MarkingError, 0, len(errs))
+
+	for i := range scans {
+		if errs[i] != nil {
+			errors = append(errors, *errs[i])
+			continue
+		}
+		successfulScans = append(successfulScans, scans[i])
+	}
+
+	return MarkingResult{
+		PagesMarked: len(successfulScans) * pagesPerScan,
+		TemplateId:  templateId,
+		Scans:       successfulScans,
+		Errors:      errors,
+	}
 }
 
 type Scan struct {
