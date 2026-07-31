@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"log/slog"
+	"ubco-team15/omr/internal/sys"
 
 	"gocv.io/x/gocv"
 	"golang.org/x/sync/errgroup"
@@ -246,7 +246,7 @@ func preprocessPage(picture gocv.Mat, tmpl *Template, idx int) (*ScanData, error
 		scaleFactor = ratio / tmpl.Config.ReferenceRatio
 	}
 	if scaleFactor < dpiMismatchLowRatio || scaleFactor > dpiMismatchHighRatio {
-		slog.Warn(
+		sys.Warn(
 			"scanned page resolution deviates significantly from template calibration",
 			"scaleFactor", scaleFactor,
 			"observedRatio", ratio,
