@@ -246,16 +246,6 @@ a.link:hover {
     padding: 0 1rem;
 }
 
-.jobs-heading {
-    margin: 0;
-    font-size: 1.4rem;
-    min-width: 12ch;
-    border-left: 2px solid #eee;
-    color: #eee;
-    padding-left: 16px;
-    font-weight: 400;
-}
-
 .jobs-description {
     color: #aaa;
     max-width: 60ch;

@@ -6,11 +6,9 @@
 const INTERVAL = 1000
 
 /**
- * Peak memory usage reported by the OMR system.
- *
- * @type {number}
+ * The admin key used for authentication.
  */
-let peakOmrMemory = 0
+let key = ""
 
 /**
  * Formats a byte count into a human-readable string.
@@ -310,7 +308,7 @@ async function updateJobs() {
     const response = await fetch(
         "/jobs?limit=10",
         { headers: [
-            ["OMR-Admin-Key", "admin"],
+            ["OMR-Admin-Key", key],
             ["Accept-Encoding", "deflate"]
         ] }
     )
@@ -378,11 +376,43 @@ async function updateLogs() {
     }   
 }
 
-update()
-updateLogs()
-updateJobs()
-setInterval(() => {
+function startUpdateLoop() {
     update()
     updateLogs()
     updateJobs()
-}, INTERVAL)
+    setInterval(() => {
+        update()
+        updateLogs()
+        updateJobs()
+    }, INTERVAL)
+
+}
+
+/**
+ * Returns `true` if and only if the given key is recognized by the OMR.
+ * 
+ * @param {string} key 
+ * @returns {Promise<boolean>}
+ */
+async function validKey(key) {
+    let resp = await fetch("/admin/authenticated", { 
+        headers: [[ "OMR-Admin-Key", key ]]
+    }) 
+    return resp.ok
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    key = localStorage.getItem("omr-admin-key")
+    while (true) {
+        let isValid = await validKey(key)
+        if (isValid) {
+            break
+        }
+        key = prompt(
+            "Enter the API key for the OMR.",
+            "admin"
+        )
+    }
+    localStorage.setItem("omr-admin-key", key)
+    startUpdateLoop()
+})
