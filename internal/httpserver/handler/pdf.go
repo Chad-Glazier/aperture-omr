@@ -223,6 +223,10 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 
 			wg.Go(func() {
 				defer exam.Close()
+				defer func() {
+					rendered := examsRendered.Add(1)
+					SetProgress(j, float64(rendered)/float64(nExams))
+				}()
 
 				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)
 				if err != nil {
@@ -251,11 +255,10 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 						Thru:  exam.Thru,
 						Debug: err.Error(),
 					}
+					return
 				}
 
 				scanIds[idx] = scanId
-				rendered := examsRendered.Add(1)
-				SetProgress(j, float64(rendered)/float64(nExams))
 			})
 		}
 		wg.Wait()

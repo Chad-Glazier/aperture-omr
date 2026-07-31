@@ -406,7 +406,7 @@ paths:
                   missing:
                     summary: Unknown job ID
                     value: "no job matches the given ID"
-  /admin/jobs:
+  /jobs:
     get:
       summary: |
         List Jobs

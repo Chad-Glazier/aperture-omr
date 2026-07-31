@@ -4,7 +4,6 @@
  * @type {number}
  */
 const INTERVAL = 1000
-const FASTER_INTERVAL = 400
 
 /**
  * Peak memory usage reported by the OMR system.
@@ -309,7 +308,7 @@ function formatJobStatus(job) {
  */
 async function updateJobs() {
     const response = await fetch(
-        "/admin/jobs?limit=10",
+        "/jobs?limit=10",
         { headers: [
             ["OMR-Admin-Key", "admin"],
             ["Accept-Encoding", "deflate"]
@@ -385,7 +384,5 @@ updateJobs()
 setInterval(() => {
     update()
     updateLogs()
-}, INTERVAL)
-setInterval(() => {
     updateJobs()
-}, FASTER_INTERVAL)
+}, INTERVAL)
