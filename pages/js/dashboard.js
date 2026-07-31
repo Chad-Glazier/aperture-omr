@@ -4,7 +4,7 @@
  * @type {number}
  */
 const INTERVAL = 1000
-const FASTER_INTERVAL = 200
+const FASTER_INTERVAL = 400
 
 /**
  * Peak memory usage reported by the OMR system.
@@ -121,102 +121,97 @@ function setBar(id, percent) {
  * @returns {Promise<void>}
  */
 async function update() {
-    try {
-        const response = await fetch("/system/utilization?limit=1")
+    const response = await fetch("/system/utilization?limit=1")
 
-        if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-
-        const cpu = data.cpuHistory[data.cpuHistory.length - 1]
-        const memory = data.memoryHistory[data.memoryHistory.length - 1]
-        const disk = data.disk
-
-        //
-        // CPU
-        //
-
-        setText("cpu-mhz", `${cpu.mhz.toFixed(0)} MHz`)
-        setText("cpu-overall", `${cpu.overallPercent.toFixed(1)}%`)
-        setText("cpu-threads", `${cpu.threads.length}`)
-
-        setBar("cpu-bar", cpu.overallPercent)
-
-        //
-        // Memory
-        //
-
-        setText("memory-omr", formatBytes(memory.inUseOmr))
-        setText("memory-free", formatBytes(memory.free))
-
-        const memoryUsed =
-            memory.inUseOmr +
-            memory.inUseOther
-
-        const totalMemory =
-            memory.free +
-            memory.inUseOther +
-            memory.inUseOmr
-
-        setText("memory-used", formatBytes(memoryUsed))
-
-        setBar(
-            "other-memory-bar",
-            (memory.inUseOther / totalMemory) * 100,
-        )
-
-        setBar(
-            "omr-memory-bar",
-            (memory.inUseOmr / totalMemory) * 100,
-        )
-
-        //
-        // Disk
-        //
-
-        setText("disk-used", formatBytes(disk.usage.used))
-
-        const omrUsage = disk.omrUsage.total
-
-        setBar(
-            "omr-disk-bar",
-            (omrUsage / disk.usage.total) * 100
-        )
-
-        setBar(
-            "other-disk-bar",
-            ((disk.usage.used - omrUsage) / disk.usage.total) * 100
-        )
-
-        setText(
-            "disk-available",
-            formatBytes(disk.usage.free)
-        )
-
-        setText(
-            "disk-omr-total",
-            formatBytes(omrUsage)
-        )
-
-        //
-        // Misc
-        //
-
-        setText(
-            "omr-memory-peak",
-            formatBytes(data.memoryPeak)
-        )
-
-        setText(
-            "uptime",
-            formatTime(data.uptime)
-        )
-
-    } catch (err) {
-        alert(`Failed to load stats: ${err.message}`)
+    if (!response.ok) {
+        throw new Error(`${response.status}: ${response.statusText}`)
     }
+
+    const data = await response.json()
+
+    const cpu = data.cpuHistory[data.cpuHistory.length - 1]
+    const memory = data.memoryHistory[data.memoryHistory.length - 1]
+    const disk = data.disk
+
+    //
+    // CPU
+    //
+
+    setText("cpu-mhz", `${cpu.mhz.toFixed(0)} MHz`)
+    setText("cpu-overall", `${cpu.overallPercent.toFixed(1)}%`)
+    setText("cpu-threads", `${cpu.threads.length}`)
+
+    setBar("cpu-bar", cpu.overallPercent)
+
+    //
+    // Memory
+    //
+
+    setText("memory-omr", formatBytes(memory.inUseOmr))
+    setText("memory-free", formatBytes(memory.free))
+
+    const memoryUsed =
+        memory.inUseOmr +
+        memory.inUseOther
+
+    const totalMemory =
+        memory.free +
+        memory.inUseOther +
+        memory.inUseOmr
+
+    setText("memory-used", formatBytes(memoryUsed))
+
+    setBar(
+        "other-memory-bar",
+        (memory.inUseOther / totalMemory) * 100,
+    )
+
+    setBar(
+        "omr-memory-bar",
+        (memory.inUseOmr / totalMemory) * 100,
+    )
+
+    //
+    // Disk
+    //
+
+    setText("disk-used", formatBytes(disk.usage.used))
+
+    const omrUsage = disk.omrUsage.total
+
+    setBar(
+        "omr-disk-bar",
+        (omrUsage / disk.usage.total) * 100
+    )
+
+    setBar(
+        "other-disk-bar",
+        ((disk.usage.used - omrUsage) / disk.usage.total) * 100
+    )
+
+    setText(
+        "disk-available",
+        formatBytes(disk.usage.free)
+    )
+
+    setText(
+        "disk-omr-total",
+        formatBytes(omrUsage)
+    )
+
+    //
+    // Misc
+    //
+
+    setText(
+        "omr-memory-peak",
+        formatBytes(data.memoryPeak)
+    )
+
+    setText(
+        "uptime",
+        formatTime(data.uptime)
+    )
 }
 
 /**
@@ -226,29 +221,45 @@ async function update() {
  * @returns {string} Formatted date string.
  */
 function formatTimestamp(timestamp) {
+
     if (!timestamp) {
         return "-"
     }
 
-    return new Date(timestamp).toLocaleString()
+    return new Date(timestamp)
+        .toLocaleString("en-US", {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+        })
 }
 
 /**
  * Creates a progress bar HTML element.
  *
- * @param {number} progress Progress value between 0 and 1.
+ * @param {object} job Job details.
  * @returns {string} HTML progress bar.
  */
-function formatProgress(progress) {
+function formatProgress(job) {
     const percent = Math.min(
         100,
-        Math.max(0, progress * 100),
+        Math.max(0, job.progress * 100),
     )
+    
+    let c = ""
+    if (!job.finishedTimestamp) {
+        c = "in-progress"
+    } else if (job.success) {
+        c = "success"
+    } else {
+        c = "failure"
+    }
 
     return `
-        <div class="job-progress">
+        <div class="job-progress ${c}">
             <div
-                class="job-progress-bar"
+                class="job-progress-bar ${c}"
                 style="width: ${percent}%"
             ></div>
         </div>
@@ -263,14 +274,29 @@ function formatProgress(progress) {
  */
 function formatJobStatus(job) {
     if (!job.finishedTimestamp) {
-        return `<span class="job-running">IN PROGRESS</span>`
+        return `
+            <span class="job-running">
+                <a target="_blank" class="link" href="/job?id=${job.id}">
+                    IN PROGRESS
+                </a>
+            </span>`
     }
 
     if (job.success) {
-        return `<span class="job-success">SUCCESS</span>`
+        return `
+            <span class="job-success">
+                <a target="_blank" class="link" href="/job/result?id=${job.id}">
+                    SUCCESS
+                </a>    
+            </span>`
     }
 
-    return `<span class="job-failed">FAILURE</span>`
+    return `
+        <span class="job-failed">
+            <a target="_blank" class="link" href="/job/result?id=${job.id}">
+                FAILURE
+            </a>        
+        </span>`
 }
 
 /**
@@ -282,57 +308,52 @@ function formatJobStatus(job) {
  * @returns {Promise<void>}
  */
 async function updateJobs() {
-    try {
-        const response = await fetch(
-            "/admin/jobs",
-            { headers: [["OMR-Admin-Key", "admin"]] }
-        )
+    const response = await fetch(
+        "/admin/jobs?limit=10",
+        { headers: [
+            ["OMR-Admin-Key", "admin"],
+            ["Accept-Encoding", "deflate"]
+        ] }
+    )
 
-        if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`)
-        }
-
-        const jobs = await response.json()
-        const output = document.getElementById("jobs-output")
-
-        output.innerHTML = jobs
-            .reverse()
-            .map(job => `
-                <tr>
-                    <td>
-                        ${job.id.slice(0, 8)}
-                    </td>
-
-                    <td>
-                        ${job.method} ${job.path}
-                    </td>
-
-                    <td>
-                        ${formatJobStatus(job)}
-                    </td>
-
-                    <td>
-                        ${formatProgress(job.progress)}
-                    </td>
-
-                    <td>
-                        ${formatTimestamp(job.startedTimestamp)}
-                    </td>
-
-                    <td>
-                        ${formatTimestamp(job.finishedTimestamp)}
-                    </td>
-
-                    <td>
-                        ${job.notes || "-"}
-                    </td>
-                </tr>
-            `)
-            .join("")
-
-    } catch (err) {
-        console.error(`Failed to load jobs: ${err.message}`)
+    if (!response.ok) {
+        throw new Error(`${response.status}: ${response.statusText}`)
     }
+
+    const jobs = await response.json()
+    const output = document.getElementById("jobs-output")
+
+    output.innerHTML = jobs
+        .reverse()
+        .slice(0, 14)
+        .map(job => `
+            <tr>
+                <td class="path-col">
+                    ${job.method} ${job.path}
+                </td>
+
+                <td class="status-col">
+                    ${formatJobStatus(job)}
+                </td>
+
+                <td class="progress-col">
+                    ${formatProgress(job)}
+                </td>
+
+                <td>
+                    ${formatTimestamp(job.startedTimestamp)}
+                </td>
+
+                <td>
+                    ${formatTimestamp(job.finishedTimestamp)}
+                </td>
+
+                <td>
+                    ${job.notes || ""}
+                </td>
+            </tr>
+        `)
+        .join("")
 }
 
 /**

@@ -459,6 +459,22 @@ type JobResources interface {
 	SetNotes(string)     // Attaches notes to the job status.
 }
 
+// Updates the job progress. Unlike calling [JobResources.SetProgress] 
+// directly, this function won't panic when j is nil.
+func SetProgress(j JobResources, progress float64) {
+	if j != nil {
+		j.SetProgress(progress)
+	}
+}
+
+// Updates the job notes. Unlike calling [JobResources.SetNotes] directly, this
+// function won't panic when j is nil.
+func SetNotes(j JobResources, notes string) {
+	if j != nil {
+		j.SetNotes(notes)
+	}
+} 
+
 // A job-ifiable handler function.
 type JobHandlerFunc func(http.ResponseWriter, *http.Request, JobResources)
 
