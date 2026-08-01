@@ -17,10 +17,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/aperture.css">
 </head>
 
 <body>
     <script defer src="js/dashboard.js"></script>
+    <script defer src="js/aperture.js"></script>
 
     <div class="grid">
         <div class="card">
@@ -97,6 +99,12 @@
             </div>
         </div>
         <main class="main">
+            <div class="uptime-container">
+                <div>
+                    <h1 id="uptime"></h1>
+                    <p class="uptime-label">Uptime</p> 
+                </div>
+            </div>
             <div class="jobs-text">
             </div>
             <table id="jobs-table">
@@ -114,17 +122,34 @@
                 </tbody>
             </table>
         </main>
-        <div class="uptime-container">
-            <div>
-                <h1 id="uptime"></h1>
-                <p class="uptime-label">Uptime</p>                
+        <div class="logo-container">
+            <div class="logo">
+                <h1>
+                    <div class="camera-aperture">
+                        <div class="blade-box">
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                            <div class="blade"></div>
+                        </div>
+                    </div>
+                    <span class="text">mr</span>            
+                </h1>
+                <p>
+                    <span class="by">by</span>
+                    <span class="aperture">Aperture</span>
+                </p>        
             </div>
         </div>
         <div class="logs clickable">
             <a href="/system/logs" target="_blank">
                 <p id="logs-output"></p>
             </a>
-        </div>            
+        </div>  
     </div>
 </body>
 

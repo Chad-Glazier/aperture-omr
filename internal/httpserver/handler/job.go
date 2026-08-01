@@ -496,6 +496,11 @@ func (j *jobRes) SetNotes(notes string) {
 	j.r.WriteNotes(j.id, notes)
 }
 
+//
+// TODO: Make distinct Sync- and Async- wrappers. Synchronous jobs are tracked,
+// but their results are not cached. They return results like normal.
+//
+
 // Wraps the given job-ifiable handler function to automatically run it as an
 // asynchronous job.
 func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {

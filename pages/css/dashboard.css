@@ -1,5 +1,7 @@
 * {
     box-sizing: border-box;
+    padding: 0;
+    margin: 0;
 }
 
 body {
@@ -187,31 +189,10 @@ a.link:hover {
     margin-bottom: 0.5rem;
 }
 
-#uptime {
-    font-family: "Fira Code", monospace;
-    position: relative;
-    font-weight: normal;
-    color: #aaa;
-}
-
-.uptime-container {
+.logo-container {
     display: flex;
-    flex-direction: row;
     justify-content: center;
     align-items: center;
-}
-
-.uptime-container>div {
-    position: relative;
-}
-
-.uptime-label {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    color: #888;
-    font-weight: normal;
-    transform: translateY(1rem);
 }
 
 /***********************************************************
@@ -224,11 +205,42 @@ a.link:hover {
     grid-column: 2;
     grid-row: 1 / 4;
 
-    padding: 3vmin;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    gap: 6px;
+
     overflow-y: scroll;
+}
+
+.uptime-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.uptime-container>div {
+    position: relative;
+}
+
+#uptime {
+    font-family: "Fira Code", monospace;
+    position: relative;
+    font-weight: normal;
+    color: #888;
+    font-size: 1.2rem;
+}
+
+.uptime-label {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    color: #888;
+    font-weight: normal;
+    transform: translateY(1rem);
+    font-size: 0.8rem;
 }
 
 /***********************************************************
