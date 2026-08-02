@@ -22,6 +22,7 @@ func newScanPdfRequest(
 	t *testing.T,
 	pTmplId string,
 	pdfPath string,
+	dpi string,
 ) *http.Request {
 	t.Helper()
 
@@ -30,6 +31,13 @@ func newScanPdfRequest(
 
 	if pTmplId != "" {
 		err := writer.WriteField("preprocessingTemplate", pTmplId)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if dpi != "" {
+		err := writer.WriteField("dpi", dpi)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -127,7 +135,7 @@ func TestPostScanPdfSync_Normal(t *testing.T) {
 	// Normal path
 	//
 
-	req := newScanPdfRequest(t, pTmplId, "testdata/batches/3_normal_exams.pdf")
+	req := newScanPdfRequest(t, pTmplId, "testdata/batches/3_normal_exams.pdf", "")
 	rr := httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
 
@@ -151,7 +159,7 @@ func TestPostScanPdfSync_Funky(t *testing.T) {
 	// Test an exam that has some pages in the wrong order and upside-down.
 	//
 
-	req := newScanPdfRequest(t, pTmplId, "testdata/batches/1_funky_exam.pdf")
+	req := newScanPdfRequest(t, pTmplId, "testdata/batches/1_funky_exam.pdf", "")
 	rr := httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
 
@@ -184,6 +192,7 @@ func TestPostScanPdfSync_FunkyBatch(t *testing.T) {
 		t,
 		pTmplId,
 		"testdata/batches/5_funky_duplicate_exams.pdf",
+		"",
 	)
 	rr := httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
@@ -260,7 +269,7 @@ func TestPostScanPdfSync_BadInputs(t *testing.T) {
 	//
 
 	// 400: No template ID.
-	req := newScanPdfRequest(t, "", "testdata/batches/1_funky_exam.pdf")
+	req := newScanPdfRequest(t, "", "testdata/batches/1_funky_exam.pdf", "")
 
 	rr := httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
@@ -270,7 +279,7 @@ func TestPostScanPdfSync_BadInputs(t *testing.T) {
 	}
 
 	// 400: No PDF.
-	req = newScanPdfRequest(t, pTmplId, "")
+	req = newScanPdfRequest(t, pTmplId, "", "")
 
 	rr = httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
@@ -280,7 +289,7 @@ func TestPostScanPdfSync_BadInputs(t *testing.T) {
 	}
 
 	// 400: Malformed PDF.
-	req = newScanPdfRequest(t, pTmplId, "testdata/pages/exam0page0.jpeg")
+	req = newScanPdfRequest(t, pTmplId, "testdata/pages/exam0page0.jpeg", "")
 
 	rr = httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
@@ -291,7 +300,7 @@ func TestPostScanPdfSync_BadInputs(t *testing.T) {
 
 	// 400: Page count mismatch between scan and template.
 	req = newScanPdfRequest(
-		t, pTmplId, "testdata/batches/1_half_of_an_exam.pdf",
+		t, pTmplId, "testdata/batches/1_half_of_an_exam.pdf", "",
 	)
 
 	rr = httptest.NewRecorder()
@@ -303,7 +312,7 @@ func TestPostScanPdfSync_BadInputs(t *testing.T) {
 
 	// 404: Unrecognized template ID.
 	req = newScanPdfRequest(
-		t, "big chungus", "testdata/batches/1_funky_exam.pdf",
+		t, "big chungus", "testdata/batches/1_funky_exam.pdf", "",
 	)
 
 	rr = httptest.NewRecorder()
@@ -334,8 +343,8 @@ func TestPostScanPdfSync_FailedPreprocessing(t *testing.T) {
 		t,
 		pTmplId,
 		"testdata/batches/5_funky_duplicate_exams.pdf",
+		"50",
 	)
-	req.URL.RawQuery = fmt.Sprintf("dpi=%d", 50)
 	rr := httptest.NewRecorder()
 	PostScanPdfSync(s).ServeHTTP(rr, req)
 

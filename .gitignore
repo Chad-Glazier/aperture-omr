@@ -9,3 +9,6 @@ data/matrices/
 
 # Log files
 debug.log
+
+# Test output data.
+testoutput/*

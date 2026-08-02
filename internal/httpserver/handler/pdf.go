@@ -11,7 +11,6 @@ import (
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/scanner"
-	"ubco-team15/omr/internal/sys"
 
 	"gocv.io/x/gocv"
 )
@@ -27,8 +26,17 @@ func PostScanPdfSync(s ServerResources) http.HandlerFunc {
 	}
 }
 
+var inUse = sync.Mutex{}
+
 func PostScanPdf(s ServerResources) JobHandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, j JobResources) {
+
+		//
+		// We only permit one PDF operation at a time.
+		//
+
+		inUse.Lock()
+		defer inUse.Unlock()
 
 		//
 		// Read and validate the body
@@ -167,12 +175,11 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 
 		pagesPerExam := len(pTempl.Pages)
 
-		exams, nExams, err := pdf.RenderPageBatches(
+		exams, nExams, err := pdf.RenderPageBlocks(
 			pdfFile,
-			density,
-			pagesPerExam,
-			sys.MaxMemory(),
-			sys.MaxThreads(),
+			uint(density),
+			uint(pagesPerExam),
+			8,
 		)
 		switch err {
 		case nil:
@@ -204,7 +211,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 		}
 
 		SetNotes(j,
-			fmt.Sprintf("rendering %d pages", nExams*pagesPerExam),
+			fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)),
 		)
 
 		// Clean up the incoming file resources. These calls have already been
@@ -222,24 +229,28 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 		errorMsgs := make([]*dto.ScanError, nExams)
 
 		examsRendered := atomic.Uint32{}
+		examIdx := atomic.Int32{}
+		semaphore := make(chan struct{}, 4)
 
 		wg := sync.WaitGroup{}
 		for exam := range exams {
-			idx := int(exam.Index)
+			idx := examIdx.Add(1) - 1
 
 			if exam.Error != nil {
 				scanIds[idx] = ""
 				errorMsgs[idx] = &dto.ScanError{
-					From:  exam.From,
-					Thru:  exam.Thru,
+					From:  uint32(exam.From),
+					Thru:  uint32(exam.Thru),
 					Debug: exam.Error.Error(),
 				}
 				continue
 			}
 
 			wg.Go(func() {
+				semaphore<-struct{}{}
 				defer exam.Close()
 				defer func() {
+					<-semaphore
 					rendered := examsRendered.Add(1)
 					SetProgress(j, float64(rendered)/float64(nExams))
 				}()
@@ -248,8 +259,8 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				if err != nil {
 					scanIds[idx] = ""
 					errorMsgs[idx] = &dto.ScanError{
-						From:  exam.From,
-						Thru:  exam.Thru,
+						From:  uint32(exam.From),
+						Thru:  uint32(exam.Thru),
 						Debug: err.Error(),
 					}
 					return
@@ -267,8 +278,8 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				if err != nil {
 					scanIds[idx] = ""
 					errorMsgs[idx] = &dto.ScanError{
-						From:  exam.From,
-						Thru:  exam.Thru,
+						From:  uint32(exam.From),
+						Thru:  uint32(exam.Thru),
 						Debug: err.Error(),
 					}
 					return

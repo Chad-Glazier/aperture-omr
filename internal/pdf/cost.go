@@ -58,11 +58,10 @@ func MustRunSampling() MemCostVars {
 				panic(err)
 			}
 
-			b, _, err := RenderPageBatches(
+			b, _, err := RenderPageBlocks(
 				bytes.NewReader(buf),
 				MaxDpi,
-				i+1,
-				0,
+				uint(i)+1,
 				0,
 			)
 			if err != nil {
