@@ -6,8 +6,8 @@
     "blurSize": 3,
     "morphCloseSize": 3,
     "minAnchorConfidence": 0.5,
-    "adaptiveBlockSize": 41,
-    "adaptiveC": 12,
+    "adaptiveBlockSize": 25,
+    "adaptiveC": 3,
     "referenceRatio": 1.4638
   },
   "pages": [
