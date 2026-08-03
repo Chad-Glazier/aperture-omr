@@ -1,4 +1,5 @@
 //go:build !linux || !cgo
+
 package sys
 
 import "runtime/debug"

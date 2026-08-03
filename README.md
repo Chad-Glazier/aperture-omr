@@ -27,15 +27,23 @@ If you want the container to persist and maintain its stored data (volume), inst
 docker run -p 3000:3000 -v omr-data:/app/data --name omr omr_server
 ```
 
-If you want to run tests in a running container (named `omr` in this case), run
+### Testing
+
+If you want to run tests in a container (named `omr` in this case), run
 
 ```sh
 docker exec -t omr sh -c "go test ./..."
 ```
 
->The Go version set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
+To execute coverage tests, you can run a script from inside the container:
+
+```sh
+docker exec -t omr sh -c "./scripts/coverage.sh"
+```
 
 ## Setting Up a Local Environment
+
+>The Go version set in `go.mod` is fixed to match the version of the GoCV image we rely on. Do not change it.
 
 In order to run the project outside of Docker, you must first ensure that you have [OpenCV](https://gocv.io/getting-started/) and [Go](https://go.dev/doc/install) installed. If you have those, you should be able to run the program:
 
