@@ -10,9 +10,14 @@ import (
 	"sync"
 	"time"
 	"ubco-team15/omr/internal/httpserver/dto"
+	"ubco-team15/omr/internal/httpserver/middleware"
 	"ubco-team15/omr/internal/sys"
 
 	"github.com/google/uuid"
+)
+
+const (
+	MaxBodySize = 200 << 20
 )
 
 //
@@ -513,9 +518,10 @@ func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
 				"error creating job. UUID collision?",
 				http.StatusInternalServerError,
 			)
+			return
 		}
 
-		copiedReq, cleanup, err := copyRequest(r, 200<<20)
+		copiedReq, cleanup, err := copyRequest(r, MaxBodySize)
 		r.Body.Close()
 		if err != nil {
 			http.Error(
@@ -538,6 +544,7 @@ func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
 			defer cleanup()
 			sys.Log("job started", "id", id)
 			defer sys.Log("job finished", "id", id)
+			defer middleware.RecoverAndRespond(w, r)
 
 			handler(result, copiedReq, &resources)
 

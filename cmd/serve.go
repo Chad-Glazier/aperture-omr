@@ -1,37 +1,52 @@
 package cmd
 
 import (
+	"fmt"
+	"net"
+	"strconv"
 	"ubco-team15/omr/internal/httpserver"
 
 	"github.com/spf13/cobra"
 )
 
+var portNum int 
+
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Starts the HTTP server for the service",
-	Long: `Starts an HTTP server for the OMR service. The server will configure
-itself based on the value of the environment variable "OMR_MODE", 
-which should be set to one of
+	Short: "Starts the OMR's HTTP server.",
+	Long: `Starts the OMR's HTTP server.`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if portNum < 1 || portNum > 65535 {
+			return fmt.Errorf(
+				"invalid port %d: must be between 1 and 65535", 
+				portNum,
+			)
+		}
 
-  - "OMR_MODE=TEST", which requires no external services and stores 
-    nothing in persistent memory, instead mocking database and 
-    network connections.
-
-  - "OMR_MODE=DEVELOPMENT", which assumes that the development 
-    services are running. Access to these services must be configured
-    by environment variables.
-
-  - "OMR_MODE=PRODUCTION", which assumes that the production services
-    are running. Access to these services must be configured by
-    environment variables.
-
-Alternatively, you can use a flag to indicate the mode.
-`,
+		testCnx, err := net.Listen("tcp", ":" + strconv.Itoa(portNum))
+		if err != nil {
+			return fmt.Errorf(
+				"port %d is already in use.",
+				portNum,
+			)
+		}
+		testCnx.Close()
+		
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-		httpserver.Start("localhost", port)
+		httpserver.Start("localhost", strconv.Itoa(portNum))
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
+
+	serveCmd.Flags().IntVarP(
+		&portNum,
+		"port",
+		"p",
+		3000,
+		"port to listen on (1-65535)",
+	)
 }

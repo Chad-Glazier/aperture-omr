@@ -5,12 +5,12 @@ import (
 	"io"
 	"net/http"
 	"runtime"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/marker"
+	"ubco-team15/omr/internal/sys"
 
 	"gocv.io/x/gocv"
 )
@@ -40,7 +40,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		// Parse the request.
 		//
 
-		defer debug.FreeOSMemory()
+		defer sys.Tidy()
 		defer r.Body.Close()
 
 		jsonBuf, err := io.ReadAll(r.Body)

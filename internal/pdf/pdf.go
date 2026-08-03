@@ -16,16 +16,16 @@ import (
 )
 
 const (
-	MaxDpi uint = 300
+	MaxDpi              uint = 300
+	MaxConcurrentBlocks uint = 6
 )
 
 var (
-	ErrBadInput           = errors.New("pdf: nonsensical input. Likely a programmer error")
-	ErrPageOutOfBounds    = errors.New("pdf: page index is out of bounds for the document")
-	ErrMalformedPdf       = errors.New("pdf: the given file does not form a PDF")
-	ErrPageCountMismatch  = errors.New("pdf: the given PDF page count is not a multiple of the block size")
-	ErrInvalidBlockSize   = errors.New("pdf: the given block size does not divide the given n")
-	ErrInsufficientMemory = errors.New("pdf: the allotted memory is insufficient to complete the operation")
+	ErrBadInput          = errors.New("pdf: nonsensical input. Likely a programmer error")
+	ErrPageOutOfBounds   = errors.New("pdf: page index is out of bounds for the document")
+	ErrMalformedPdf      = errors.New("pdf: the given file does not form a PDF")
+	ErrPageCountMismatch = errors.New("pdf: the given PDF page count is not a multiple of the block size")
+	ErrInvalidBlockSize  = errors.New("pdf: the given block size does not divide the given n")
 )
 
 type PageBlock struct {
@@ -52,10 +52,10 @@ func RenderPageBlocks(
 	dpi = min(MaxDpi, dpi)
 
 	if allottedThreads == 0 {
-		allottedThreads = uint(runtime.GOMAXPROCS(0)) / 2
+		allottedThreads = min(8, uint(runtime.GOMAXPROCS(0))/2)
 	}
 
-	allottedThreads = min(allottedThreads, uint(runtime.GOMAXPROCS(0)))
+	allottedThreads = min(MaxConcurrentBlocks, uint(runtime.GOMAXPROCS(0)))
 
 	docs, err := blockPartitionPdf(r, blockSize, allottedThreads)
 	if err != nil {

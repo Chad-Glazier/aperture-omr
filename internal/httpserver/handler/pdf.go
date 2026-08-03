@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"ubco-team15/omr/internal/httpserver/dto"
 	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/scanner"
+	"ubco-team15/omr/internal/sys"
 
 	"gocv.io/x/gocv"
 )
@@ -42,7 +42,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 		// Read and validate the body
 		//
 
-		defer debug.FreeOSMemory()
+		defer sys.Tidy()
 		defer r.Body.Close()
 
 		r.Body = http.MaxBytesReader(w, r.Body, maxPdfSize)
@@ -239,8 +239,8 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 			if exam.Error != nil {
 				scanIds[idx] = ""
 				errorMsgs[idx] = &dto.ScanError{
-					From:  uint32(exam.From),
-					Thru:  uint32(exam.Thru),
+					From:  exam.From,
+					Thru:  exam.Thru,
 					Debug: exam.Error.Error(),
 				}
 				continue
@@ -259,8 +259,8 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				if err != nil {
 					scanIds[idx] = ""
 					errorMsgs[idx] = &dto.ScanError{
-						From:  uint32(exam.From),
-						Thru:  uint32(exam.Thru),
+						From:  exam.From,
+						Thru:  exam.Thru,
 						Debug: err.Error(),
 					}
 					return
@@ -279,8 +279,8 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				if err != nil {
 					scanIds[idx] = ""
 					errorMsgs[idx] = &dto.ScanError{
-						From:  uint32(exam.From),
-						Thru:  uint32(exam.Thru),
+						From:  exam.From,
+						Thru:  exam.Thru,
 						Debug: err.Error(),
 					}
 					return

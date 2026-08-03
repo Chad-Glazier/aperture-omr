@@ -3,6 +3,7 @@ package httpserver
 import (
 	"net/http"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"ubco-team15/omr/internal/httpserver/handler"
@@ -11,6 +12,12 @@ import (
 )
 
 func Start(hostname, port string) {
+
+	//
+	// Setup/Configuration
+	//
+
+	debug.SetMemoryLimit(256 << 20)
 
 	s, err := handler.NewLocalResources("data")
 	if err != nil {
