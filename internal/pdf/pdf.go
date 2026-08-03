@@ -52,10 +52,18 @@ func RenderPageBlocks(
 	dpi = min(MaxDpi, dpi)
 
 	if allottedThreads == 0 {
-		allottedThreads = min(8, uint(runtime.GOMAXPROCS(0))/2)
+		allottedThreads = min(MaxConcurrentBlocks, uint(runtime.GOMAXPROCS(0))/2)
 	}
 
-	allottedThreads = min(MaxConcurrentBlocks, uint(runtime.GOMAXPROCS(0)))
+	allottedThreads = min(MaxConcurrentBlocks, allottedThreads)
+
+	// The number of allotted threads should be scaled down when the block size
+	// is above 2. Most exams won't be more than two pages, but the possibility
+	// still needs to be addressed because it can spike the memory if we hold
+	// a bunch of large blocks simultaneously. (It's also worth mentioning that
+	// this equation can return a value greater than MaxConcurrentBlocks when
+	// blocks are 1-page, but that's fine.)
+	allottedThreads = uint(max(1, int(allottedThreads)+2-int(blockSize)))
 
 	docs, err := blockPartitionPdf(r, blockSize, allottedThreads)
 	if err != nil {
