@@ -8,7 +8,6 @@ package sys
 
 import (
 	"os"
-	"runtime/debug"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -205,13 +204,6 @@ func currentMemInfo() (MemInfo, error) {
 	newInfo.InUseOther = vmem.Used - rss.RSS
 
 	return newInfo, nil
-}
-
-// Attempts to release as much memory to the OS as possible. Be warned that
-// forcing a GC may pause the program momentarily and it should not be used too
-// often.
-func Tidy() {
-	debug.FreeOSMemory()
 }
 
 //
