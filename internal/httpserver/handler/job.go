@@ -9,9 +9,10 @@ import (
 	"sort"
 	"sync"
 	"time"
-	"ubco-team15/omr/internal/httpserver/dto"
-	"ubco-team15/omr/internal/httpserver/middleware"
-	"ubco-team15/omr/internal/sys"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/middleware"
+	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"github.com/google/uuid"
 )

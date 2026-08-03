@@ -1,4 +1,4 @@
-module ubco-team15/omr
+module github.com/Chad-Glazier/aperture-omr
 
 go 1.25.5
 

@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"ubco-team15/omr/internal/httpserver/dto"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
 )
 
 //

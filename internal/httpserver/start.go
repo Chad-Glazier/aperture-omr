@@ -6,9 +6,9 @@ import (
 	"runtime/debug"
 	"time"
 
-	"ubco-team15/omr/internal/httpserver/handler"
-	"ubco-team15/omr/internal/httpserver/middleware"
-	"ubco-team15/omr/internal/sys"
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/handler"
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/middleware"
+	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
 func Start(hostname, port string) {

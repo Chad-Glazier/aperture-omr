@@ -8,8 +8,9 @@ import (
 	"math"
 	"net/http"
 	"strconv"
-	"ubco-team15/omr/internal/fs"
-	"ubco-team15/omr/internal/httpserver/dto"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/fs"
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
 )
 
 //

@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
-	"ubco-team15/omr/internal/database/sqlc"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/database/sqlc"
 
 	_ "modernc.org/sqlite" // sqlite3 driver
 )

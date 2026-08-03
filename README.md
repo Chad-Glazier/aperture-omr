@@ -1,6 +1,6 @@
-# OMR Service
+# Aperture OMR
 
-This directory contains the source code for the OMR service.
+[Placeholder.]
 
 ## Setup
 
@@ -27,18 +27,18 @@ If you want the container to persist and maintain its stored data (volume), inst
 docker run -p 3000:3000 -v omr-data:/app/data --name omr omr_server
 ```
 
-### Testing
+## Testing
 
-If you want to run tests in a container (named `omr` in this case), run
+If you want to run tests from within a container, run
 
 ```sh
-docker exec -t omr sh -c "go test ./..."
+docker exec -t <container-name> sh -c "go test ./..."
 ```
 
 To execute coverage tests, you can run a script from inside the container:
 
 ```sh
-docker exec -t omr sh -c "./scripts/coverage.sh"
+docker exec -t <container-name> sh -c "./scripts/coverage.sh"
 ```
 
 ## Setting Up a Local Environment
@@ -54,22 +54,6 @@ go run .
 This should print a help message that describes the subcommands for the program. 
 
 If you get an error that mentions missing C/C++ objects, it's likely that GoCV isn't seeing your OpenCV installation. Refer to [their documentation](https://gocv.io/getting-started/) to correct this.
-
-## File Structure
-
-In keeping with Go conventions, the top-level directories are as follows:
-- [`cmd`](./cmd) contains the [Cobra](https://github.com/spf13/cobra) commands that serve as entrypoints to the program. The [`rootCmd`](./cmd/root.go) command is used by the top-level [`main.go`](./main.go) program.
-- [`api`](./api) includes the specification(s) for the HTTP server. It does not contain the actual server code, just the specification.
-- [`internal`](./internal) contains packages that are used internally. This will be most of the project.
-  - [`database`](./internal/database/) contains all database interactions. Most of the queries are generated with sqlc (I explain this more [here](./internal/database/sqlc/README.md)).
-  - [`httpserver`](./internal/httpserver/) contains the handler functions and middleware that make up the HTTP API for the service. We are just using the standard [`net/http`](https://pkg.go.dev/net/http) library since the API should be relatively simple.
-    - [`dto`](./internal/httpserver/dto/) contains the data transfer objects (DTOs) for the server. Any complex object that will be sent or received from the server is put there, along with relevant deserialization and validation functions.
-    - [`handler`](./internal/httpserver/handler/) includes the bulk of the HTTP server's logic.
-  - [`fs`](./internal/fs/) exposes a simple interface for file storage, particularly images. Internally, it currently has two implementations; one wraps the local file system (suitable for testing) and the other wraps an S3 client.
-  - [`pdf`](./internal/pdf) handles PDF rendering.
-  - [`sys`](./internal/sys) centralizes logging and resource monitoring.
-
-For more info about the top-level directory naming standards, refer to [this document](https://github.com/golang-standards/project-layout). This is not an "official" project setup, but it is a popular one.
 
 ## Dependencies
 
@@ -91,3 +75,7 @@ Go packages (excluding the standard library):
 
 Developer dependencies (not required for runtime):
 - [sqlc](https://sqlc.dev/) is used to generate Go functions from SQL queries (read more [here](./internal/database/sqlc/README.md)).
+
+## Acknowledgements
+
+This service was originally developed as a part of a capstone project at UBC. During the development, [Kaden Harris](https://github.com/KadenHarris) implemented the original `internal/scanner` and `internal/marker` packages. The rest of my group also indirectly contributed by reviewing my PRs and doing manual testing. Thanks gang.

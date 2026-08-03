@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"ubco-team15/omr/internal/sys"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"gocv.io/x/gocv"
 	"golang.org/x/sync/errgroup"

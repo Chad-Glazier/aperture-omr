@@ -3,7 +3,8 @@ package dto
 import (
 	"encoding/json"
 	"fmt"
-	"ubco-team15/omr/internal/marker"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/marker"
 )
 
 //

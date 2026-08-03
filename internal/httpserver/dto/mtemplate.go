@@ -9,7 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"ubco-team15/omr/internal/marker"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/marker"
 )
 
 // Parses and validates a marking template from JSON text.

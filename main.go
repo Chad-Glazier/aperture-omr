@@ -1,6 +1,6 @@
 package main
 
-import "ubco-team15/omr/cmd"
+import "github.com/Chad-Glazier/aperture-omr/cmd"
 
 func main() {
 	cmd.Execute()

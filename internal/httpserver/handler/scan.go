@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"ubco-team15/omr/internal/httpserver/dto"
-	"ubco-team15/omr/internal/scanner"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 
 	"gocv.io/x/gocv"
 )

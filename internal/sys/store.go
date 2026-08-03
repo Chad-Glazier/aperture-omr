@@ -6,7 +6,7 @@ import (
 	_ "embed"
 	"testing"
 
-	"ubco-team15/omr/internal/sys/sqlc"
+	"github.com/Chad-Glazier/aperture-omr/internal/sys/sqlc"
 
 	_ "modernc.org/sqlite" // sqlite3 driver
 )

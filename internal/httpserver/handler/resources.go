@@ -10,10 +10,10 @@ import (
 	"net/http"
 	"os"
 
-	"ubco-team15/omr/internal/database"
-	"ubco-team15/omr/internal/database/sqlc"
-	"ubco-team15/omr/internal/fs"
-	"ubco-team15/omr/internal/httpserver/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/database"
+	"github.com/Chad-Glazier/aperture-omr/internal/database/sqlc"
+	"github.com/Chad-Glazier/aperture-omr/internal/fs"
+	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
 
 	"github.com/google/uuid"
 	"gocv.io/x/gocv"

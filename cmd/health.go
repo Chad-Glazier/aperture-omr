@@ -3,7 +3,8 @@ package cmd
 import (
 	"net/http"
 	"os"
-	"ubco-team15/omr/internal/sys"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"github.com/spf13/cobra"
 )
