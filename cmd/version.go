@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/gen2brain/go-fitz"
 	"github.com/spf13/cobra"
 	"gocv.io/x/gocv"
 )
@@ -22,7 +23,8 @@ var versionCmd = &cobra.Command{
 		s += "  ─┬─\n"
 		s += fmt.Sprintf("   ├──runtime           %s\n", runtime.Version())
 		s += fmt.Sprintf("   ├──gocv version      %s\n", gocv.Version())
-		s += fmt.Sprintf("   └──opencv version    %s\n", gocv.OpenCVVersion())
+		s += fmt.Sprintf("   ├──opencv version    %s\n", gocv.OpenCVVersion())
+		s += fmt.Sprintf("   └──fitz version      %s\n", fitz.FzVersion)
 		s += "\n"
 
 		fmt.Print(s)
