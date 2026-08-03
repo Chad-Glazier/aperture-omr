@@ -29,6 +29,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 el.addEventListener("mouseleave", () => setAperture(1))
             }, 400)
         }, 400)
-    }, 400)    
+    }, 400) 
 
+    setInterval(() => {
+        setAperture(0)
+        setTimeout(() => {
+            setAperture(1)
+            setTimeout(() => {
+                setAperture(0.65)
+                setTimeout(() => {
+                    setAperture(0.95)
+
+                    const el = document.querySelector("div.logo")
+                    el.addEventListener("mouseenter", () => setAperture(0))
+                    el.addEventListener("mouseleave", () => setAperture(1))
+                }, 400)
+            }, 400)
+        }, 400)   
+    }, 60_000)
 })
