@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -115,7 +113,6 @@ type CpuUsageSample struct {
 }
 
 type DetailedCpuInfo struct {
-	OmrThreadLimit int              `json:"omrThreadLimit"`
 	Description    string           `json:"description"`
 	FrequencyMhz   float64          `json:"frequencyMhz"`
 	MaxThreads     int              `json:"maxThreads"`
@@ -145,7 +142,6 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 
 		result.Description = lastSample.Description
 		result.FrequencyMhz = lastSample.FrequencyMhz
-		result.OmrThreadLimit = sys.MaxThreads()
 		result.MaxThreads = runtime.GOMAXPROCS(0)
 
 		dto.SendCompressedJson(w, r, result)
@@ -153,8 +149,6 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 }
 
 type DetailedMemoryInfo struct {
-	OmrMemoryLimit        uint64        `json:"omrMemoryLimit"`
-	OmrOptimalMemoryLimit uint64        `json:"omrOptimalMemoryLimit"`
 	UsageSamples          []sys.MemInfo `json:"usageSamples"`
 }
 
@@ -169,8 +163,6 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 		samples := sys.MemHistory(limit)
 
 		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
-			OmrMemoryLimit:        sys.MaxMemory(),
-			OmrOptimalMemoryLimit: sys.OptimalMemory(),
 			UsageSamples:          samples,
 		})
 
@@ -178,7 +170,7 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 }
 
 //
-// Admin-Only Endpoints
+// Admin Endpoints
 //
 
 func CheckAdminKey(s ServerResources) http.HandlerFunc {
@@ -189,55 +181,6 @@ func CheckAdminKey(s ServerResources) http.HandlerFunc {
 				"incorrect admin key",
 				http.StatusUnauthorized,
 			)
-		}
-	}
-}
-
-type ResourceLimitsUpdate struct {
-	Memory  uint64 `json:"memory"`
-	Threads int    `json:"threads"`
-}
-
-func UpdateResourceLimits(s ServerResources) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		if authenticated := s.CheckAdminKey(r); !authenticated {
-			http.Error(
-				w,
-				"incorrect admin key",
-				http.StatusUnauthorized,
-			)
-			return
-		}
-
-		buf, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(
-				w,
-				"error reading request body: "+err.Error(),
-				http.StatusBadRequest,
-			)
-			return
-		}
-
-		var newLimits ResourceLimitsUpdate
-		json.Unmarshal(buf, &newLimits)
-
-		if err := sys.SetMaxMemory(newLimits.Memory); err != nil {
-			http.Error(
-				w,
-				"error setting new memory limit: "+err.Error(),
-				http.StatusBadRequest,
-			)
-			return
-		}
-		if err := sys.SetMaxThreads(newLimits.Threads); err != nil {
-			http.Error(
-				w,
-				"error setting new thread limit: "+err.Error(),
-				http.StatusBadRequest,
-			)
-			return
 		}
 	}
 }

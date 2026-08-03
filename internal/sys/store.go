@@ -4,11 +4,8 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
-	"fmt"
 	"testing"
-	"time"
 
-	"ubco-team15/omr/internal/pdf"
 	"ubco-team15/omr/internal/sys/sqlc"
 
 	_ "modernc.org/sqlite" // sqlite3 driver
@@ -16,6 +13,9 @@ import (
 
 //
 // We use SQLite3 to store certain persistent data about the system.
+//
+// Update (8/2/2026): The database no longer stores anything that we use, but 
+// I'm still going to keep it around because it might be useful later.
 //
 
 //go:embed sqlc/schema.sql
@@ -51,52 +51,4 @@ func init() {
 	if _, err := cnx.ExecContext(ctx, databaseInit); err != nil {
 		panic("failed to initialize sys database")
 	}
-
-	//
-	// Once the database is set up, we check it for cached performance sampling
-	// results. If the caches miss, we run the sampling right now.
-	//
-
-	if testing.Testing() { // Skip sampling if we're using "go test"
-		return
-	}
-
-	cachedPdfMemCost, err := db.GetPdfRenderCosts(context.Background())
-	if err != nil {
-		Log("sampling PDF rendering costs...")
-		pdfMemCost := pdf.MustRunSampling()
-		pdf.SetMemoryCostVars(pdfMemCost)
-		db.CreatePdfRenderCosts(
-			context.Background(),
-			sqlc.CreatePdfRenderCostsParams{
-				PdfRenderBaseline:  int64(pdfMemCost.Baseline),
-				PdfRenderIncrement: int64(pdfMemCost.Increment),
-			},
-		)
-		Log("sampling complete", "values", pdfMemCost)
-	} else {
-		pdf.SetMemoryCostVars(pdf.MemCostVars{
-			Baseline:  uint64(cachedPdfMemCost.PdfRenderBaseline),
-			Increment: uint64(cachedPdfMemCost.PdfRenderIncrement),
-		})
-		Log(
-			"sampled PDF rendering costs loaded from cache",
-			"sampling date",
-			time.
-				UnixMilli(cachedPdfMemCost.SampledAt).
-				Local().
-				Format("2006-01-02 15:04:05"),
-		)
-	}
-
-	//
-	// Next, we set up the resource limits.
-	//
-
-	limits = initLimits()
-	Log(
-		"resource limits loaded",
-		"threads", limits.Threads,
-		"memory", fmt.Sprintf("%d MB", limits.Memory/1024/1024),
-	)
 }

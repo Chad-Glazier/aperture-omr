@@ -179,7 +179,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 			pdfFile,
 			uint(density),
 			uint(pagesPerExam),
-			8,
+			0,
 		)
 		switch err {
 		case nil:

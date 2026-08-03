@@ -72,7 +72,6 @@ func Start(hostname, port string) {
 	mux.HandleFunc("GET /system/memory", handler.GetMemoryInfo(s))
 
 	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(s))
-	mux.HandleFunc("PUT /admin/resource-limits", handler.UpdateResourceLimits(s))
 
 	//
 	// Deprecated endpoints

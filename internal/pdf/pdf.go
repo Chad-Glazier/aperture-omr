@@ -17,7 +17,6 @@ import (
 
 const (
 	MaxDpi             uint   = 300
-	DefaultMaxMemUsage uint64 = 2 << 30
 )
 
 var (
@@ -53,8 +52,10 @@ func RenderPageBlocks(
 	dpi = min(MaxDpi, dpi)
 
 	if allottedThreads == 0 {
-		allottedThreads = uint(runtime.GOMAXPROCS(0))
+		allottedThreads = uint(runtime.GOMAXPROCS(0)) / 2
 	}
+
+	allottedThreads = min(allottedThreads, uint(runtime.GOMAXPROCS(0)))
 
 	docs, err := blockPartitionPdf(r, blockSize, allottedThreads)
 	if err != nil {

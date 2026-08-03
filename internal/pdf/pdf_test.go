@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
-	"os"
 	"reflect"
 	"testing"
 
@@ -18,7 +17,7 @@ import (
 //go:embed testdata/*
 var testData embed.FS
 
-func TestRenderPageBatches_OK(t *testing.T) {
+func TestRenderPageBlocks_OK(t *testing.T) {
 
 	// The large sample PDF has 88 pages.
 	buf, err := testData.ReadFile("testdata/sample_large.pdf")
@@ -30,7 +29,7 @@ func TestRenderPageBatches_OK(t *testing.T) {
 		bytes.NewReader(buf),
 		74,
 		2,
-		8,
+		0,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +68,7 @@ func TestRenderPageBatches_OK(t *testing.T) {
 	}
 }
 
-func TestRenderPageBatches_MalformedData(t *testing.T) {
+func TestRenderPageBlocks_MalformedData(t *testing.T) {
 
 	//
 	// This test checks how the renderer handles non-PDF data being passed to
@@ -87,7 +86,7 @@ func TestRenderPageBatches_MalformedData(t *testing.T) {
 		bytes.NewReader(buf),
 		74,
 		2,
-		8,
+		0,
 	)
 	if err != ErrMalformedPdf {
 		t.Fatal("expected ErrMalformedPdf error")
@@ -105,7 +104,7 @@ func TestRenderPageBatches_MalformedData(t *testing.T) {
 		bytes.NewReader(buf),
 		74,
 		2,
-		8,
+		0,
 	)
 	if err != ErrMalformedPdf {
 		t.Fatal("expected ErrMalformedPdf error")
@@ -124,7 +123,7 @@ func TestRenderPageBlocks_PageMismatch(t *testing.T) {
 		bytes.NewReader(buf),
 		74,
 		3,
-		8,
+		0,
 	)
 	if err != ErrPageCountMismatch {
 		t.Fatalf("expected ErrPageCountMismatch, got %s", err.Error())
@@ -333,7 +332,6 @@ func TestBlockPartition(t *testing.T) {
 }
 
 func TestRenderPages(t *testing.T) {
-	os.Mkdir("testoutput", 0755)
 
 	f, err := testData.Open("testdata/sample_large.pdf")
 	if err != nil {

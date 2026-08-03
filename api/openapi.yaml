@@ -211,12 +211,8 @@ paths:
               schema:
                 type: object
                 required:
-                  - omrMemoryLimit
+                  - usageSamples
                 properties:
-                  omrMemoryLimit:
-                    type: integer
-                    description: |
-                      The maximum amount of memory the OMR should use.
                   usageSamples:
                     type: array
                     items:
@@ -259,42 +255,6 @@ paths:
         204:
           description: |
             The administrator key is valid.
-        401:
-          description: |
-            The administrator key is incorrect.
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: incorrect admin key
-  /admin/resource-limits:
-    put:
-      summary: |
-        Update Resource Limits
-      description: |
-        Updates the maximum memory and thread limits used by the OMR.
-      tags:
-        - sysadmin
-      parameters:
-        - $ref: '#/components/parameters/AdminKeyHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResourceLimitsUpdate'
-      responses:
-        204:
-          description: |
-            The resource limits were updated successfully.
-        400:
-          description: |
-            The request body was invalid or one of the supplied limits could not
-            be applied.
-          content:
-            text/plain:
-              schema:
-                type: string
         401:
           description: |
             The administrator key is incorrect.
@@ -1857,16 +1817,10 @@ components:
     DetailedCpuInfo:
       type: object
       required:
-        - omrThreadLimit
         - description
         - frequencyMhz
         - usageSamples
       properties:
-        omrThreadLimit:
-          type: integer
-          description: |
-            Maximum number of CPU threads that the OMR should use at once.
-          example: 8
 
         description:
           type: string
@@ -1885,23 +1839,6 @@ components:
             Historical CPU utilization samples, ordered from oldest to newest.
           items:
             $ref: '#/components/schemas/CpuUsageSample'
-    ResourceLimitsUpdate:
-      type: object
-      required:
-        - memory
-        - threads
-      properties:
-        memory:
-          type: integer
-          format: uint64
-          minimum: 0
-          description: Maximum memory available to the OMR, in bytes.
-          example: 8589934592
-        threads:
-          type: integer
-          minimum: 1
-          description: Maximum number of worker threads the OMR may use.
-          example: 8
     JobStatus:
       type: object
       required:

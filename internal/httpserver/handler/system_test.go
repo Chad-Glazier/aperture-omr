@@ -1,15 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
-
-	"ubco-team15/omr/internal/sys"
 )
 
 func newTestResources(t *testing.T) ServerResources {
@@ -153,13 +150,6 @@ func TestGetCpuInfo(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
 		t.Fatal("invalid JSON:", err)
 	}
-
-	if result.OmrThreadLimit != sys.MaxThreads() {
-		t.Fatalf("thread limit = %d, want %d",
-			result.OmrThreadLimit,
-			sys.MaxThreads(),
-		)
-	}
 }
 
 func TestGetMemoryInfo(t *testing.T) {
@@ -178,14 +168,6 @@ func TestGetMemoryInfo(t *testing.T) {
 	var result DetailedMemoryInfo
 	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
 		t.Fatal("invalid JSON:", err)
-	}
-
-	if result.OmrMemoryLimit != sys.MaxMemory() {
-		t.Fatalf(
-			"memory limit = %d, want %d",
-			result.OmrMemoryLimit,
-			sys.MaxMemory(),
-		)
 	}
 }
 
@@ -217,108 +199,6 @@ func TestCheckAdminKey(t *testing.T) {
 		CheckAdminKey(s)(rr, req)
 
 		if rr.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d", rr.Code)
-		}
-	})
-}
-
-func TestUpdateResourceLimits(t *testing.T) {
-	s := newTestResources(t)
-	defer s.Close()
-
-	s.SetAdminKey("secret")
-
-	t.Run("unauthorized", func(t *testing.T) {
-		body := `{"memory":1024,"threads":1}`
-
-		req := httptest.NewRequest(
-			http.MethodPut,
-			"/system/resource-limits",
-			strings.NewReader(body),
-		)
-
-		rr := httptest.NewRecorder()
-
-		UpdateResourceLimits(s)(rr, req)
-
-		if rr.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d", rr.Code)
-		}
-	})
-
-	t.Run("valid", func(t *testing.T) {
-		memory := sys.MinMemory + 1024
-		threads := 2
-
-		body, _ := json.Marshal(ResourceLimitsUpdate{
-			Memory:  memory,
-			Threads: threads,
-		})
-
-		req := httptest.NewRequest(
-			http.MethodPut,
-			"/system/resource-limits",
-			bytes.NewReader(body),
-		)
-		req.Header.Set("OMR-Admin-Key", "secret")
-
-		rr := httptest.NewRecorder()
-
-		UpdateResourceLimits(s)(rr, req)
-
-		if rr.Code != http.StatusOK {
-			t.Fatalf("status = %d", rr.Code)
-		}
-
-		if sys.MaxMemory() != memory {
-			t.Fatalf("memory = %d, want %d", sys.MaxMemory(), memory)
-		}
-
-		if sys.MaxThreads() != threads {
-			t.Fatalf("threads = %d, want %d", sys.MaxThreads(), threads)
-		}
-	})
-
-	t.Run("invalid memory", func(t *testing.T) {
-		body, _ := json.Marshal(ResourceLimitsUpdate{
-			Memory:  sys.MinMemory - 1,
-			Threads: 2,
-		})
-
-		req := httptest.NewRequest(
-			http.MethodPut,
-			"/system/resource-limits",
-			bytes.NewReader(body),
-		)
-		req.Header.Set("OMR-Admin-Key", "secret")
-
-		rr := httptest.NewRecorder()
-
-		UpdateResourceLimits(s)(rr, req)
-
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d", rr.Code)
-		}
-	})
-
-	t.Run("invalid threads", func(t *testing.T) {
-		body, _ := json.Marshal(ResourceLimitsUpdate{
-			Memory:  sys.MinMemory + 1024,
-			Threads: -1,
-		})
-
-		req := httptest.NewRequest(
-			http.MethodPut,
-			"/system/resource-limits",
-			bytes.NewReader(body),
-		)
-		req.Header.Set("OMR-Admin-Key", "secret")
-
-		rr := httptest.NewRecorder()
-
-		UpdateResourceLimits(s)(rr, req)
-
-		if rr.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d", rr.Code)
 		}
 	})
