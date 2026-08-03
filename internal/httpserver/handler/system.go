@@ -113,10 +113,10 @@ type CpuUsageSample struct {
 }
 
 type DetailedCpuInfo struct {
-	Description    string           `json:"description"`
-	FrequencyMhz   float64          `json:"frequencyMhz"`
-	MaxThreads     int              `json:"maxThreads"`
-	UsageSamples   []CpuUsageSample `json:"usageSamples"`
+	Description  string           `json:"description"`
+	FrequencyMhz float64          `json:"frequencyMhz"`
+	MaxThreads   int              `json:"maxThreads"`
+	UsageSamples []CpuUsageSample `json:"usageSamples"`
 }
 
 func GetCpuInfo(s ServerResources) http.HandlerFunc {
@@ -149,7 +149,7 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 }
 
 type DetailedMemoryInfo struct {
-	UsageSamples          []sys.MemInfo `json:"usageSamples"`
+	UsageSamples []sys.MemInfo `json:"usageSamples"`
 }
 
 func GetMemoryInfo(s ServerResources) http.HandlerFunc {
@@ -163,7 +163,7 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 		samples := sys.MemHistory(limit)
 
 		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
-			UsageSamples:          samples,
+			UsageSamples: samples,
 		})
 
 	}

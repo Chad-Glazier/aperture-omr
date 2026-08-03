@@ -14,7 +14,7 @@ import (
 //
 // We use SQLite3 to store certain persistent data about the system.
 //
-// Update (8/2/2026): The database no longer stores anything that we use, but 
+// Update (8/2/2026): The database no longer stores anything that we use, but
 // I'm still going to keep it around because it might be useful later.
 //
 

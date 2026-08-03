@@ -247,7 +247,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 			}
 
 			wg.Go(func() {
-				semaphore<-struct{}{}
+				semaphore <- struct{}{}
 				defer exam.Close()
 				defer func() {
 					<-semaphore
@@ -265,6 +265,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 					}
 					return
 				}
+				exam.Close()
 				defer result.Close()
 
 				pictures := make([]*gocv.Mat, pagesPerExam)

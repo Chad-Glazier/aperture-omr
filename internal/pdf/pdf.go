@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	MaxDpi             uint   = 300
+	MaxDpi uint = 300
 )
 
 var (
