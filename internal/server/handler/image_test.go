@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/fs"
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 )
 
 func TestGetImage(t *testing.T) {

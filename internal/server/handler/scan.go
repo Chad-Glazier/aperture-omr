@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 
 	"gocv.io/x/gocv"
 )

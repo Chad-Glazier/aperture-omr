@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/middleware"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/middleware"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"github.com/google/uuid"

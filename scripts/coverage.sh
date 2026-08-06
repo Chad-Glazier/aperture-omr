@@ -1,7 +1,7 @@
 go test \
 	./internal/fs \
-	./internal/httpserver/handler \
-	./internal/httpserver/middleware \
+	./internal/server/handler \
+	./internal/server/middleware \
 	./internal/marker \
 	./internal/pdf \
 	./internal/scanner \

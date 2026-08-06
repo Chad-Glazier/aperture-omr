@@ -8,9 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/pdf"
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"gocv.io/x/gocv"

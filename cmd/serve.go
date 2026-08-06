@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver"
+	"github.com/Chad-Glazier/aperture-omr/internal/server"
 
 	"github.com/spf13/cobra"
 )
@@ -36,7 +36,7 @@ var serveCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		httpserver.Start("localhost", strconv.Itoa(portNum))
+		server.Start("localhost", strconv.Itoa(portNum))
 	},
 }
 

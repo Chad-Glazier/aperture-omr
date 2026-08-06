@@ -13,7 +13,7 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/database"
 	"github.com/Chad-Glazier/aperture-omr/internal/database/sqlc"
 	"github.com/Chad-Glazier/aperture-omr/internal/fs"
-	"github.com/Chad-Glazier/aperture-omr/internal/httpserver/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 
 	"github.com/google/uuid"
 	"gocv.io/x/gocv"

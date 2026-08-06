@@ -1,6 +1,11 @@
-# Aperture OMR
 
-[Placeholder.]
+<div width="100%" align="center">
+    <img width="160px" alt="aperture logo" src="./pages/img/logo.gif" />
+</div>
+
+<!-- # Aperture OMR -->
+
+[description placeholder]
 
 ## Setup
 
@@ -65,7 +70,7 @@ C dependencies:
 Go packages (excluding the standard library):
 - [GoCV](gocv.io/x/gocv) provides Go bindings for OpenCV.
 - [SQLite3](modernc.org/sqlite) is included as our local database.
-- [rs/cors](https://pkg.go.dev/github.com/rs/cors) is used to configure CORS. It's thinly wrapped in [cors.go](./internal/httpserver/middleware/cors.go). 
+- [rs/cors](https://pkg.go.dev/github.com/rs/cors) is used to configure CORS. It's thinly wrapped in [cors.go](./internal/server/middleware/cors.go). 
 - [Cobra](https://cobra.dev/) is used to set up the command-line interface. It's only used in the [cmd](./cmd) package.
 - [lz4](https://github.com/pierrec/lz4/v4) is used to compress OpenCV matrices when we save them to persistent storage.
 - [pdfcpu](https://github.com/pdfcpu/pdfcpu) is used to preprocess PDFs.
