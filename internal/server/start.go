@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/handler"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/middleware"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 

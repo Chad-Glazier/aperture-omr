@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"strconv"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/fs"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
@@ -17,50 +16,24 @@ import (
 // Send an scan's page image.
 //
 
+type GetImageQuery struct {
+	Scan string
+	Page uint
+}
+
+func (g GetImageQuery) Validate() error { return nil }
+
 func GetImage(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		//
-		// Parse the request information.
-		//
-
-		scanId := r.URL.Query().Get("scan")
-		if scanId == "" {
-			http.Error(
-				w,
-				"scan query parameter is missing",
-				http.StatusBadRequest,
-			)
+		q, ok := dto.ParseQuery[GetImageQuery](w, r)
+		if !ok {
 			return
 		}
 
-		pageParam := r.URL.Query().Get("page")
-		if pageParam == "" {
-			http.Error(
-				w,
-				"page query parameter is missing",
-				http.StatusBadRequest,
-			)
-			return
-		}
-		pageIdx, err := strconv.Atoi(pageParam)
-		if err != nil || pageIdx < 0 {
-			http.Error(
-				w,
-				"page query parameter must be a nonnegative integer",
-				http.StatusBadRequest,
-			)
-			return
-		}
-
-		//
-		// Access the image.
-		//
-
-		img, err := s.OpenScanPicture(scanId, pageIdx)
+		img, err := s.OpenScanPicture(q.Scan, q.Page)
 		if err != nil {
-			http.Error(
-				w,
+			http.Error(w,
 				"error retrieving scan image: "+err.Error(),
 				http.StatusNotFound,
 			)
@@ -68,14 +41,9 @@ func GetImage(s ServerResources) http.HandlerFunc {
 		}
 		defer img.Close()
 
-		//
-		// Send the response.
-		//
-
 		w.Header().Add("Content-Type", fs.ImgContentType)
 		if _, err := io.Copy(w, img); err != nil {
-			http.Error(
-				w,
+			http.Error(w,
 				"error writing image to response: "+err.Error(),
 				http.StatusInternalServerError,
 			)
@@ -88,38 +56,19 @@ func GetImage(s ServerResources) http.HandlerFunc {
 // Send a scan's question snippet.
 //
 
+type GetSnippetQuery struct {
+	Template string
+	Scan     string
+	Question string
+}
+
+func (g GetSnippetQuery) Validate() error { return nil }
+
 func GetSnippet(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		//
-		// Parse the request information.
-		//
-
-		templateId := r.URL.Query().Get("template")
-		if templateId == "" {
-			http.Error(
-				w,
-				"template query parameter is missing",
-				http.StatusBadRequest,
-			)
-			return
-		}
-		scanId := r.URL.Query().Get("scan")
-		if scanId == "" {
-			http.Error(
-				w,
-				"scan query parameter is missing",
-				http.StatusBadRequest,
-			)
-			return
-		}
-		questionId := r.URL.Query().Get("question")
-		if questionId == "" {
-			http.Error(
-				w,
-				"question query parameter is missing",
-				http.StatusBadRequest,
-			)
+		q, ok := dto.ParseQuery[GetSnippetQuery](w, r)
+		if !ok {
 			return
 		}
 
@@ -127,7 +76,7 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		// Get the template and find the identified question.
 		//
 
-		tmpl, err := s.LoadMarkingTemplate(templateId)
+		tmpl, err := s.LoadMarkingTemplate(q.Template)
 		if err != nil {
 			http.Error(
 				w,
@@ -137,12 +86,14 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		var targetPageIdx int
-		var targetQuestion *dto.Question
+		var (
+			targetPageIdx  uint
+			targetQuestion *dto.Question
+		)
 		for pageIdx := range tmpl.Pages {
 			for _, question := range tmpl.Pages[pageIdx].Questions {
-				if question.ID == questionId {
-					targetPageIdx = pageIdx
+				if question.ID == q.Question {
+					targetPageIdx = uint(pageIdx)
 					targetQuestion = &question
 					break
 				}
@@ -151,7 +102,7 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		if targetQuestion == nil {
 			http.Error(
 				w,
-				fmt.Sprintf("question %s not found", questionId),
+				fmt.Sprintf("question %s not found", q.Question),
 				http.StatusNotFound,
 			)
 			return
@@ -161,7 +112,7 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 		// Load the scan image.
 		//
 
-		scan, err := s.LoadScanPicture(scanId, targetPageIdx)
+		scan, err := s.LoadScanPicture(q.Scan, targetPageIdx)
 		if err != nil {
 			http.Error(
 				w,

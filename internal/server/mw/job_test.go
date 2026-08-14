@@ -1,4 +1,4 @@
-package handler
+package mw
 
 import (
 	"encoding/json"
@@ -34,6 +34,18 @@ func testJobResult() *JobResult {
 	result.Write([]byte(`{"id":"scan1"}`))
 
 	return result
+}
+
+type adminKeyChecker struct {
+	key string
+}
+
+func newAdminKeyChecker(key string) AdminKeyChecker {
+	return adminKeyChecker{ key: key }
+}
+
+func (a adminKeyChecker) CheckAdminKey(r *http.Request) bool {
+	return r.Header.Get("OMR-Admin-Key") == a.key
 }
 
 //
@@ -325,23 +337,18 @@ func TestJobRegistrarListHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	s, err := NewLocalResources(t.TempDir())
-	if err != nil {
-		t.Fatal("error initializing server resources: " + err.Error())
-	}
-	defer s.Close()
+	a := newAdminKeyChecker("admin")
 
-	j.ListHandler(s).ServeHTTP(rr, req)
+	j.ListHandler(a).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnauthorized)
 	}
 
 	req.Header.Set("OMR-Admin-Key", "admin")
-	s.SetAdminKey("admin")
 
 	rr = httptest.NewRecorder()
-	j.ListHandler(s).ServeHTTP(rr, req)
+	j.ListHandler(a).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)

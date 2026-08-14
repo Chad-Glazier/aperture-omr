@@ -123,9 +123,9 @@ func TestGetSnippet(t *testing.T) {
 	// there is a snippet returned for each question.
 	//
 
-	pTmplId := postNewPreprocessingTemplate(t, s)
-	scanId := postNewScan(t, s, pTmplId)
-	mTmplId := postNewMarkingTemplate(t, s)
+	pTmplId := postNewPreprocessingTemplate(t, s) // (1)
+	scanId := postNewScan(t, s, pTmplId)          // (2)
+	mTmplId := postNewMarkingTemplate(t, s)       // (3)
 
 	//
 	// 4) Get the snippets.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,25 +78,18 @@ func postNewPreprocessingTemplate(t *testing.T, s ServerResources) string {
 
 // Persists a new exam scan and returns the ID for it.
 func postNewScan(t *testing.T, s ServerResources, pTmplId string) string {
-	req, err := makeMultipartRequest(
-		t,
-		"",
-		multipartImage{
-			name:     "page0",
-			filename: "testdata/pages/exam0page0.jpeg",
-		},
-		multipartImage{
-			name:     "page1",
-			filename: "testdata/pages/exam0page1.jpeg",
-		},
-	)
+
+	f, err := testData.Open("testdata/batches/1_funky_exam.pdf")
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	req.URL.RawQuery += "template=" + pTmplId
+	defer f.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/", f)
+	req.URL.RawQuery = "preprocessingTemplate=" + pTmplId
 
 	rr := httptest.NewRecorder()
-	PostScan(s).ServeHTTP(rr, req)
+	PostScanPdfSync(s).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())

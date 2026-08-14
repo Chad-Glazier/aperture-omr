@@ -23,7 +23,7 @@ type scan struct {
 
 // Idempotently closes the scan's pages.
 func (s *scan) close() {
-	if !s.closed {
+	if s.closed {
 		return
 	}
 

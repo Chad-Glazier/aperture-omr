@@ -11,6 +11,7 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/pdf"
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"gocv.io/x/gocv"
@@ -19,6 +20,18 @@ import (
 // The maximum allowed size for a PDF file upload.
 const maxPdfSize = 200 << 20     // 200 MB
 const maxFileMemSize = 100 << 20 // 100 MB
+
+type PostScanPdfQuery struct {
+	PreprocessingTemplate string
+	Dpi                   uint   `default:"300"`
+}
+
+func (p PostScanPdfQuery) Validate() error {
+	if p.Dpi == 0 {
+		return errors.New("dpi must be positive")
+	}
+	return nil
+}
 
 func PostScanPdfSync(s ServerResources) http.HandlerFunc {
 	fn := PostScanPdf(s)
@@ -29,8 +42,8 @@ func PostScanPdfSync(s ServerResources) http.HandlerFunc {
 
 var inUse = sync.Mutex{}
 
-func PostScanPdf(s ServerResources) JobHandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request, j JobResources) {
+func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, j mw.JobResources) {
 
 		//
 		// We only permit one PDF operation at a time.
@@ -43,6 +56,11 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 		// Read and validate the body
 		//
 
+		q, ok := dto.ParseQuery[PostScanPdfQuery](w, r)
+		if !ok {
+			return
+		}
+
 		defer sys.Tidy()
 		defer r.Body.Close()
 
@@ -51,14 +69,12 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 
 			var mbe *http.MaxBytesError
 			if errors.As(err, &mbe) {
-				dto.SendError(
-					w,
-					http.StatusRequestEntityTooLarge,
-					dto.ErrContentTooLarge,
+				http.Error(w,
 					fmt.Sprintf(
 						"the attached pdf is larger than %.1fMB",
 						float64(maxPdfSize)/(1024.0*1024.0),
 					),
+					http.StatusRequestEntityTooLarge,
 				)
 				return
 			}
@@ -211,7 +227,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 			return
 		}
 
-		SetNotes(j,
+		mw.SetNotes(j,
 			fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)),
 		)
 
@@ -253,7 +269,7 @@ func PostScanPdf(s ServerResources) JobHandlerFunc {
 				defer func() {
 					<-semaphore
 					rendered := examsRendered.Add(1)
-					SetProgress(j, float64(rendered)/float64(nExams))
+					mw.SetProgress(j, float64(rendered)/float64(nExams))
 				}()
 
 				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)

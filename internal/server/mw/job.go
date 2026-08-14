@@ -1,4 +1,4 @@
-package handler
+package mw
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/middleware"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"github.com/google/uuid"
@@ -358,7 +357,7 @@ func (j JobStatusList) Swap(a, b int) {
 // Returns an HTTP handler that responds to requests by checking for the admin
 // key on the request and then, if authorized, sending back a list of all jobs
 // sorted from oldest to newest.
-func (j *JobRegistrar) ListHandler(s ServerResources) http.HandlerFunc {
+func (j *JobRegistrar) ListHandler(s AdminKeyChecker) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		if authorized := s.CheckAdminKey(r); !authorized {
@@ -406,6 +405,12 @@ func (j *JobRegistrar) ListHandler(s ServerResources) http.HandlerFunc {
 
 		dto.SendCompressedJson(w, r, jobs)
 	}
+}
+
+type AdminKeyChecker interface {
+	// This should return true if and only if the given request has a valid 
+	// admin key.
+	CheckAdminKey(r *http.Request) bool
 }
 
 // Returns an HTTP handler that responds to requests by sending back the cached
@@ -545,7 +550,7 @@ func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
 			defer cleanup()
 			sys.Log("job started", "id", id)
 			defer sys.Log("job finished", "id", id)
-			defer middleware.RecoverAndRespond(w, r)
+			RecoverAndRespond(w, r)
 
 			handler(result, copiedReq, &resources)
 
@@ -558,16 +563,12 @@ func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
 	}
 }
 
-//
-// TODO: Implement a proper temp buffer that frees its memory when closed.
-//
-
 // Creates a copy of an HTTP request whose body is backed by a temporary file.
 // The returned cleanup function must be called when the copied request is no
 // longer needed.
 func copyRequest(
 	r *http.Request,
-	maxBodySize int64,
+	maxBodySize uint64,
 ) (*http.Request, func(), error) {
 
 	req := r.Clone(r.Context())
@@ -590,13 +591,13 @@ func copyRequest(
 		os.Remove(tmp.Name())
 	}
 
-	n, err := io.Copy(tmp, io.LimitReader(r.Body, maxBodySize+1))
+	n, err := io.Copy(tmp, io.LimitReader(r.Body, int64(maxBodySize)+1))
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
 
-	if n > maxBodySize {
+	if n > int64(maxBodySize) {
 		cleanup()
 		return nil, nil, ErrRequestTooLarge
 	}

@@ -75,10 +75,10 @@ type ServerResources interface {
 	// Loads a picture from a scan. The "picture" of a scan is the version that
 	// is maintained for human viewers. (Preprocessing leaves the main scan
 	// a little ugly).
-	LoadScanPicture(scanId string, pageIdx int) (image.Image, error)
+	LoadScanPicture(scanId string, pageIdx uint) (image.Image, error)
 
 	// Opens a scan picture for reading.
-	OpenScanPicture(scanId string, pageIdx int) (io.ReadCloser, error)
+	OpenScanPicture(scanId string, pageIdx uint) (io.ReadCloser, error)
 
 	// Returns the total number of pictures stored and the number of bytes they
 	// collectively occupy.
@@ -427,7 +427,7 @@ func (s *localResources) DeleteScan(id string) {
 
 func (s *localResources) LoadScanPicture(
 	scanId string,
-	pageIdx int,
+	pageIdx uint,
 ) (image.Image, error) {
 
 	page, err := s.DB.GetScanPage(
@@ -451,7 +451,7 @@ func (s *localResources) LoadScanPicture(
 
 func (s *localResources) OpenScanPicture(
 	scanId string,
-	pageIdx int,
+	pageIdx uint,
 ) (io.ReadCloser, error) {
 
 	page, err := s.DB.GetScanPage(
