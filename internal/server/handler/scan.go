@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/Chad-Glazier/aperture-omr/internal/pdf"
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
@@ -16,10 +16,6 @@ import (
 
 	"gocv.io/x/gocv"
 )
-
-// The maximum allowed size for a PDF file upload.
-const maxPdfSize = 200 << 20     // 200 MB
-const maxFileMemSize = 100 << 20 // 100 MB
 
 type PostScanPdfQuery struct {
 	PreprocessingTemplate string
@@ -51,6 +47,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 
 		inUse.Lock()
 		defer inUse.Unlock()
+		defer sys.Tidy()
 
 		//
 		// Read and validate the body
@@ -61,168 +58,73 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			return
 		}
 
-		defer sys.Tidy()
-		defer r.Body.Close()
-
-		r.Body = http.MaxBytesReader(w, r.Body, maxPdfSize)
-		if err := r.ParseMultipartForm(maxFileMemSize); err != nil {
-
-			var mbe *http.MaxBytesError
-			if errors.As(err, &mbe) {
-				http.Error(w,
-					fmt.Sprintf(
-						"the attached pdf is larger than %.1fMB",
-						float64(maxPdfSize)/(1024.0*1024.0),
-					),
-					http.StatusRequestEntityTooLarge,
-				)
-				return
-			}
-
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrInvalidRequest,
-				"invalid multipart form",
-			)
+		body, ok := dto.ParseBodyFile(w, r, "application/pdf", 200<<20)
+		if !ok {
 			return
 		}
-		defer r.MultipartForm.RemoveAll()
-
-		pTemplId := r.FormValue("preprocessingTemplate")
-		if pTemplId == "" {
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrInvalidRequest,
-				"preprocessingTemplate is required",
-			)
-			return
-		}
-
-		dpiStr := r.FormValue("dpi")
-		var explicitDpi int
-		if dpiStr != "" {
-			dpi, err := strconv.Atoi(dpiStr)
-			if err != nil || dpi <= 0 {
-				dto.SendError(
-					w,
-					http.StatusBadRequest,
-					dto.ErrInvalidRequest,
-					"dpi must be a positive integer",
-				)
-				return
-			}
-			explicitDpi = dpi
-		}
-
-		pdfFile, _, err := r.FormFile("pdf")
-		if err != nil {
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrInvalidRequest,
-				err.Error(),
-			)
-			return
-		}
-		defer pdfFile.Close()
+		defer body.Close()
 
 		//
 		// Load the resources.
 		//
 
-		pTempl, err := s.LoadPreprocessingTemplate(pTemplId)
+		pTempl, err := s.LoadPreprocessingTemplate(q.PreprocessingTemplate)
 		if err != nil {
-			dto.SendError(
-				w,
+			http.Error(w,
+				"no template with ID "+q.PreprocessingTemplate+" was found",
 				http.StatusNotFound,
-				dto.ErrTemplateNotFound,
-				err.Error(),
 			)
 			return
 		}
 
-		anchors, err := s.LoadAnchors(pTemplId)
+		anchors, err := s.LoadAnchors(q.PreprocessingTemplate)
 		if err != nil {
-			dto.SendError(
-				w,
-				http.StatusNotFound,
-				dto.ErrMissingAnchor,
-				err.Error(),
+			s.DeletePreprocessingTemplate(q.PreprocessingTemplate)
+			http.Error(w,
+				"template "+q.PreprocessingTemplate+" is corrupted",
+				http.StatusInternalServerError,
 			)
 			return
 		}
-		for i := range anchors {
-			for j := range anchors[i] {
-				defer anchors[i][j].Close()
-			}
-		}
+		defer omr.CloseAll2(anchors)
 
 		scannerTmpl, err := dto.AdaptScannerTemplate(pTempl, anchors)
 		if err != nil {
-			dto.SendError(
-				w,
-				http.StatusInternalServerError,
-				dto.ErrInternal,
-				err.Error(),
-			)
-			return
-		}
-
-		//
-		// Pick the render DPI: an explicit request always wins, otherwise
-		// fall back to the template's own calibration DPI so the service
-		// stays correct even if a caller forgets to pass one, and only
-		// fall back further to a fixed default for templates that predate
-		// nativeDpi.
-		//
-
-		density := 300
-		switch {
-		case explicitDpi > 0:
-			density = explicitDpi
-		case pTempl.NativeDpi > 0:
-			density = int(pTempl.NativeDpi + 0.5)
+			panic(err)
 		}
 
 		//
 		// Start the PDF rendering.
 		//
 
-		pagesPerExam := len(pTempl.Pages)
+		pagesPerExam := uint(len(pTempl.Pages))
 
 		exams, nExams, err := pdf.RenderPageBlocks(
-			pdfFile,
-			uint(density),
-			uint(pagesPerExam),
+			body,
+			q.Dpi,
+			pagesPerExam,
 			0,
 		)
 		switch err {
 		case nil:
 			break
 		case pdf.ErrMalformedPdf:
-			dto.SendError(
-				w,
+			http.Error(w,
+				"the given PDF is malformed",
 				http.StatusBadRequest,
-				dto.ErrMalformedPdf,
-				err.Error(),
 			)
 			return
 		case pdf.ErrPageCountMismatch:
-			dto.SendError(
-				w,
+			http.Error(w,
+				"the number of pages in the PDF is incompatible with the "+
+				"number of pages in the template",
 				http.StatusBadRequest,
-				dto.ErrPageCountMismatch,
-				err.Error(),
 			)
 			return
 		default:
-			dto.SendError(
-				w,
+			http.Error(w,
+				"unknown error while configuring the render operation",
 				http.StatusInternalServerError,
-				dto.ErrInternal,
-				err.Error(),
 			)
 			return
 		}
@@ -235,7 +137,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 		// deferred, but that won't lead to any panics (the standard library
 		// generally keeps close operations idempotent).
 		r.MultipartForm.RemoveAll()
-		pdfFile.Close()
+		body.Close()
 		r.Body.Close()
 
 		//
@@ -285,14 +187,18 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 				exam.Close()
 				defer result.Close()
 
-				pictures := make([]*gocv.Mat, pagesPerExam)
-				binarized := make([]*gocv.Mat, pagesPerExam)
+				pictures := make([]gocv.Mat, pagesPerExam)
+				binarized := make([]gocv.Mat, pagesPerExam)
 				for i := range result.Pages {
-					binarized[i] = &result.Pages[i].Binary
-					pictures[i] = &result.Pages[i].Picture
+					binarized[i] = result.Pages[i].Binary
+					pictures[i] = result.Pages[i].Picture
 				}
 
-				scanId, err := s.SaveScan(binarized, pictures, pTemplId)
+				scanId, err := s.SaveScan(
+					binarized, 
+					pictures, 
+					q.PreprocessingTemplate,
+				)
 				if err != nil {
 					scanIds[idx] = ""
 					errorMsgs[idx] = &dto.ScanError{
@@ -329,5 +235,31 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			// same as the full-success case for now.
 			dto.SendJson(w, results)
 		}
+	}
+}
+
+func DeleteScans(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		//
+		// Validate the request
+		//
+
+		scanIds, ok := dto.ParseJsonBody[dto.ScanDeleteRequest](w, r, 1<<20)
+		if !ok {
+			return
+		}
+
+		//
+		// Delete the scans and send back 200, whether or not the scans are
+		// actually present.
+		//
+
+		for _, scanId := range scanIds {
+			s.DeleteScan(scanId)
+		}
+
+		w.WriteHeader(http.StatusOK)
+
 	}
 }

@@ -127,7 +127,7 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 // compressed with the LZ4 algorithm.
 //
 
-func (s *localMatStore) Set(key string, mat *gocv.Mat) error {
+func (s *localMatStore) Set(key string, mat gocv.Mat) error {
 
 	buf, err := mat.DataPtrUint8()
 	if err != nil {
@@ -159,16 +159,16 @@ func (s *localMatStore) Set(key string, mat *gocv.Mat) error {
 	return nil
 }
 
-func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
+func (s *localMatStore) Get(key string) (gocv.Mat, error) {
 	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
-		return nil, err
+		return gocv.Mat{}, err
 	}
 	defer f.Close()
 
 	header := make([]byte, 12)
 	if _, err := io.ReadFull(f, header); err != nil {
-		return nil, err
+		return gocv.Mat{}, err
 	}
 	var rows, cols, mt int32
 	binary.Decode(header[0:4], binary.LittleEndian, &rows)
@@ -179,7 +179,7 @@ func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
 
 	buf, err := io.ReadAll(compressedReader)
 	if err != nil {
-		return nil, err
+		return gocv.Mat{}, err
 	}
 
 	mat, err := gocv.NewMatFromBytes(
@@ -189,10 +189,10 @@ func (s *localMatStore) Get(key string) (*gocv.Mat, error) {
 		buf,
 	)
 	if err != nil {
-		return nil, err
+		return gocv.Mat{}, err
 	}
 
-	return &mat, nil
+	return mat, nil
 }
 
 func (s *localMatStore) Delete(key string) error {

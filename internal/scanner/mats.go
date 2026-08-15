@@ -45,7 +45,7 @@ func (e *ExamData) Close() {
 //
 // The returned matrices are not linked to the originals. That means that you
 // can safely close the original pages after this operation.
-func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
+func ScanMats(pages []gocv.Mat, tmpl *Template) ([]ExamData, error) {
 
 	nPagesPerExam := len(tmpl.Pages)
 	nPages := len(pages)
@@ -57,15 +57,6 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 				"expecting %d pages",
 			nPages, nPagesPerExam,
 		)
-	}
-
-	for i := range pages {
-		if pages[i] == nil {
-			return nil, fmt.Errorf(
-				"ScanMats cannot operate on nil matrices (page %d is nil)",
-				i,
-			)
-		}
 	}
 
 	results := make([]ExamData, nExams)
@@ -110,18 +101,13 @@ func ScanMats(pages []*gocv.Mat, tmpl *Template) ([]ExamData, error) {
 // matrices passed to it. That means that one can be closed without closing the
 // other.
 func ScanExamMats(
-	pages []*gocv.Mat,
+	pages []gocv.Mat,
 	tmpl *Template,
 ) (ExamData, error) {
 
 	n := len(pages)
 	if n != len(tmpl.Pages) {
 		return ExamData{}, fmt.Errorf("ScanExamMats: page count mismatch")
-	}
-	for i := range pages {
-		if pages[i] == nil {
-			return ExamData{}, fmt.Errorf("ScanExamMats: nil matrix received")
-		}
 	}
 
 	result := ExamData{
@@ -157,7 +143,7 @@ func ScanExamMats(
 					scan.Close()
 					return errors.New("duplicate pages in an exam")
 				}
-				result.Pages[idx] = scan
+				result.Pages[idx] = &scan
 				mutexes[idx].Unlock()
 				return nil
 			}
@@ -175,19 +161,19 @@ func ScanExamMats(
 
 // Preprocesses a single page as a grayscale OpenCV matrix.
 func scanPageMat(
-	page *gocv.Mat,
+	page gocv.Mat,
 	tmpl *Template,
 	pageIdx int,
-) (*ScanData, error) {
+) (ScanData, error) {
 
 	data, err := preprocessPage(page.Clone(), tmpl, pageIdx)
 	if err != nil {
 		var qerr *QualityError
 		if !errors.As(err, &qerr) {
-			return nil, err
+			return ScanData{}, err
 		}
 		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		return ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
 	return data, nil

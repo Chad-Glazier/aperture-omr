@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sync/atomic"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/gen2brain/go-fitz"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
@@ -29,7 +30,7 @@ var (
 )
 
 type PageBlock struct {
-	Pages []*gocv.Mat
+	Pages []gocv.Mat
 	From  uint
 	Thru  uint
 	Error error
@@ -252,28 +253,28 @@ func renderPages(
 	dpi,
 	startIdx,
 	count uint,
-) ([]*gocv.Mat, error) {
+) ([]gocv.Mat, error) {
 
 	if startIdx+count > uint(doc.NumPage()) || startIdx == uint(doc.NumPage()) {
 		return nil, ErrPageOutOfBounds
 	}
 
-	mats := make([]*gocv.Mat, 0, count)
+	mats := make([]gocv.Mat, 0, count)
 
 	for i := startIdx; i < startIdx+count; i++ {
 
 		img, err := doc.ImageDPI(int(i), float64(dpi))
 		if err != nil {
-			closeAll(mats)
+			omr.CloseAll(mats)
 			return nil, err
 		}
 		mat, err := rgbaToGrayMat(img)
 		if err != nil {
-			closeAll(mats)
+			omr.CloseAll(mats)
 			return nil, err
 		}
 
-		mats = append(mats, &mat)
+		mats = append(mats, mat)
 	}
 
 	return mats, nil

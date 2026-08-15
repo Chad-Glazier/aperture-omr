@@ -284,6 +284,7 @@ type PreprocessingTemplate struct {
 	} `json:"config"`
 	Pages []struct {
 		Anchors []struct {
+			Image string `json:"image"` // base64-encoded
 			Center struct {
 				X int `json:"x"`
 				Y int `json:"y"`
@@ -335,21 +336,29 @@ func (p *PreprocessingTemplate) Validate() error {
 				minAnchors,
 			)
 		}
-		for _, anchor := range page.Anchors {
-			err := inBounds(p.Width, p.Height, anchor.Center.X, anchor.Center.Y)
-			if err != nil {
-				return err
+		for i := range page.Anchors {
+			if page.Anchors[i].Image == "" {
+				return fmt.Errorf(
+					"base64-encoded images must be set for each anchor",
+				)
 			}
-			err = inBounds(
-				p.Width, p.Height,
-				anchor.Roi.Min.X, anchor.Roi.Min.Y,
+			err := inBounds(
+				p.Width, p.Height, 
+				page.Anchors[0].Center.X, page.Anchors[0].Center.Y,
 			)
 			if err != nil {
 				return err
 			}
 			err = inBounds(
 				p.Width, p.Height,
-				anchor.Roi.Max.X, anchor.Roi.Max.Y,
+				page.Anchors[0].Roi.Min.X, page.Anchors[0].Roi.Min.Y,
+			)
+			if err != nil {
+				return err
+			}
+			err = inBounds(
+				p.Width, p.Height,
+				page.Anchors[0].Roi.Max.X, page.Anchors[0].Roi.Max.Y,
 			)
 			if err != nil {
 				return err
@@ -379,7 +388,7 @@ func inBounds(width, height, x, y int) error {
 // does not match the number of anchors expected by the template.
 func AdaptScannerTemplate(
 	tmpl *PreprocessingTemplate,
-	anchors [][]*gocv.Mat,
+	anchors [][]gocv.Mat,
 ) (*scanner.Template, error) {
 
 	nPages := len(tmpl.Pages)

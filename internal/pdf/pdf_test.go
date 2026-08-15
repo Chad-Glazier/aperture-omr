@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/gen2brain/go-fitz"
 	"gocv.io/x/gocv"
 )
@@ -52,7 +53,7 @@ func TestRenderPageBlocks_OK(t *testing.T) {
 
 		// Ensure that each page's matrix is a well-formed image.
 		for _, page := range batch.Pages {
-			_, err := gocv.IMEncode(gocv.PNGFileExt, *page)
+			_, err := gocv.IMEncode(gocv.PNGFileExt, page)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -366,7 +367,7 @@ func TestRenderPages(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mats, err := renderPages(doc, 74, tt.startIdx, tt.count)
 			if err == nil {
-				defer closeAll(mats)
+				defer omr.CloseAll(mats)
 			}
 			if err != tt.err {
 				t.Errorf("err: got %v, want %v", err, tt.err)

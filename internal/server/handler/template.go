@@ -1,8 +1,7 @@
 package handler
 
 import (
-	"fmt"
-	"io"
+	"encoding/base64"
 	"net/http"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
@@ -11,8 +10,6 @@ import (
 	"gocv.io/x/gocv"
 )
 
-const maxUploadSize = 32 * 1024 * 1024 // 32 MB
-
 //
 // Marking templates
 //
@@ -20,20 +17,8 @@ const maxUploadSize = 32 * 1024 * 1024 // 32 MB
 func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		defer r.Body.Close()
-		jsonBuf, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(
-				w, "error reading body: "+err.Error(), http.StatusBadRequest,
-			)
-			return
-		}
-
-		tmpl, err := dto.ParseMarkingTemplate(jsonBuf)
-		if err != nil {
-			http.Error(
-				w, "error parsing body: "+err.Error(), http.StatusBadRequest,
-			)
+		tmpl, ok := dto.ParseJsonBody[*dto.MarkingTemplate](w, r, 20<<20)
+		if !ok {
 			return
 		}
 
@@ -55,17 +40,12 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		id := r.URL.Query().Get("id")
-		if id == "" {
-			http.Error(
-				w,
-				"id query parameter is missing",
-				http.StatusBadRequest,
-			)
+		q, ok := dto.ParseQuery[dto.IdQuery](w, r)
+		if !ok {
 			return
 		}
 
-		s.DeleteMarkingTemplate(id)
+		s.DeleteMarkingTemplate(q.Id)
 
 		w.WriteHeader(http.StatusOK)
 
@@ -79,21 +59,25 @@ func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
 func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		defer r.Body.Close()
-		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-			http.Error(w, "invalid multipart form", http.StatusBadRequest)
+		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessingTemplate](w, r, 20<<20)
+		if !ok {
 			return
 		}
 
-		jsonBuf := r.FormValue("template")
-		tmpl, err := dto.ParsePreprocessingTemplate([]byte(jsonBuf))
-		if err != nil {
-			http.Error(
-				w,
-				"error parsing template: "+err.Error(),
-				http.StatusBadRequest,
-			)
-			return
+		//
+		// The anchor images are base64-encoded in the JSON request body. We 
+		// will decoded them and convert them to preprocessed matrices before
+		// storing them. This means that we do not need to keep their base64
+		// versions inside of the JSON body when we store it.
+		//
+
+		anchorBase64 := make([][]string, len(tmpl.Pages))
+		for i := range anchorBase64 {
+			anchorBase64[i] = make([]string, len(tmpl.Pages[i].Anchors))
+			for j := range anchorBase64[i] {
+				anchorBase64[i][j] = tmpl.Pages[i].Anchors[j].Image
+				tmpl.Pages[i].Anchors[j].Image = ""
+			}
 		}
 
 		templateId, err := s.SavePreprocessingTemplate(tmpl)
@@ -105,7 +89,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		binarizeConf := &scanner.Config{
+		binarizeConf := scanner.Config{
 			BlurSize:            tmpl.Config.BlurSize,
 			MorphCloseSize:      tmpl.Config.MorphCloseSize,
 			MinAnchorConfidence: float32(tmpl.Config.MinAnchorConfidence),
@@ -115,58 +99,44 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 
 		for i := range tmpl.Pages {
 			for j := range tmpl.Pages[i].Anchors {
-				fileKey := fmt.Sprintf("page%danchor%d", i, j)
-				f, _, err := r.FormFile(fileKey)
+
+				buf, err := base64.StdEncoding.DecodeString(anchorBase64[i][j])
 				if err != nil {
-					http.Error(
-						w,
-						"expected anchor image file "+fileKey,
+					http.Error(w,
+						"error decoding base64 anchor image",
 						http.StatusBadRequest,
 					)
-					return
-				}
-				defer f.Close()
-
-				buf, err := io.ReadAll(f)
-				if err != nil {
-					http.Error(
-						w,
-						"unexpected read error: "+err.Error(),
-						http.StatusInternalServerError,
-					)
+					s.DeletePreprocessingTemplate(templateId)
 					return
 				}
 
 				mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 				if err != nil {
-					http.Error(
-						w,
-						"failed to decode "+fileKey+" as an image",
+					http.Error(w,
+						"anchor image format not recognized",
 						http.StatusBadRequest,
 					)
+					s.DeletePreprocessingTemplate(templateId)
 					return
 				}
 				defer mat.Close()
 
 				err = scanner.Binarize(&mat, &mat, binarizeConf)
 				if err != nil {
-					http.Error(
-						w,
-						"error preprocessing anchor "+fileKey+": ",
+					http.Error(w,
+						"error preprocessing anchor",
 						http.StatusInternalServerError,
 					)
+					s.DeletePreprocessingTemplate(templateId)
 					return
 				}
 
-				if err := s.SaveAnchor(&mat, templateId, i, j); err != nil {
-					http.Error(
-						w,
-						fmt.Sprintf(
-							"error saving anchor image page%danchor%d",
-							i, j,
-						),
+				if err := s.SaveAnchor(mat, templateId, i, j); err != nil {
+					http.Error(w,
+						"error storing anchor image",
 						http.StatusInternalServerError,
 					)
+					s.DeletePreprocessingTemplate(templateId)
 					return
 				}
 			}

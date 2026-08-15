@@ -46,11 +46,11 @@ type ServerResources interface {
 
 	// Loads anchor matrices. To get the i-th page's j-th anchor, you would
 	// index [i][j] from the returned slice.
-	LoadAnchors(templateId string) ([][]*gocv.Mat, error)
+	LoadAnchors(templateId string) ([][]gocv.Mat, error)
 
 	// Saves the given anchor matrix.
 	SaveAnchor(
-		anchors *gocv.Mat,
+		anchor gocv.Mat,
 		templateId string,
 		pageIdx, anchorIdx int,
 	) error
@@ -61,13 +61,13 @@ type ServerResources interface {
 	// snippets. The template ID refers to the preprocessing template used to
 	// produce these scans.
 	SaveScan(
-		pages []*gocv.Mat,
-		pagePictures []*gocv.Mat,
+		pages []gocv.Mat,
+		pagePictures []gocv.Mat,
 		templateId string,
 	) (string, error)
 
 	// Loads a preprocessed scan's binarized pages.
-	LoadScan(scanId string) ([]*gocv.Mat, error)
+	LoadScan(scanId string) ([]gocv.Mat, error)
 
 	// Deletes a scan and its pages. Redundant calls are safe.
 	DeleteScan(scanId string)
@@ -273,7 +273,7 @@ func (s *localResources) DeletePreprocessingTemplate(id string) {
 //
 
 func (s *localResources) SaveAnchor(
-	mat *gocv.Mat,
+	mat gocv.Mat,
 	templateId string,
 	pageIdx, anchorIdx int,
 ) error {
@@ -302,7 +302,7 @@ func (s *localResources) SaveAnchor(
 
 func (s *localResources) LoadAnchors(
 	templateId string,
-) ([][]*gocv.Mat, error) {
+) ([][]gocv.Mat, error) {
 
 	anchorRecords, err := s.DB.GetAnchorsForTemplate(
 		context.Background(),
@@ -315,7 +315,7 @@ func (s *localResources) LoadAnchors(
 		return nil, fmt.Errorf("no anchors found for template %s", templateId)
 	}
 
-	mats := make([][]*gocv.Mat, 0, 2)
+	mats := make([][]gocv.Mat, 0, 2)
 	for _, record := range anchorRecords {
 
 		// The query will sort the anchors by ascending page index and then
@@ -327,7 +327,7 @@ func (s *localResources) LoadAnchors(
 		}
 
 		if record.AnchorIndex == 0 {
-			mats = append(mats, make([]*gocv.Mat, 0, 4))
+			mats = append(mats, make([]gocv.Mat, 0, 4))
 		}
 		mats[record.PageIndex] = append(mats[record.PageIndex], anchor)
 
@@ -344,8 +344,8 @@ func (s *localResources) LoadAnchors(
 //
 
 func (s *localResources) SaveScan(
-	pages []*gocv.Mat,
-	pagePictures []*gocv.Mat,
+	pages []gocv.Mat,
+	pagePictures []gocv.Mat,
 	templateId string,
 ) (string, error) {
 
@@ -366,7 +366,7 @@ func (s *localResources) SaveScan(
 		}
 
 		pictureId := uuid.New().String() + fs.ImgFileExt
-		pictureBuf, err := gocv.IMEncode(fs.OpenCVImgExt, *pagePictures[i])
+		pictureBuf, err := gocv.IMEncode(fs.OpenCVImgExt, pagePictures[i])
 		if err != nil {
 			return "", err
 		}
@@ -394,7 +394,7 @@ func (s *localResources) SaveScan(
 	return scanId, nil
 }
 
-func (s *localResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
+func (s *localResources) LoadScan(scanId string) ([]gocv.Mat, error) {
 	records, err := s.DB.GetPagesForScan(context.Background(), scanId)
 	if err != nil {
 		return nil, err
@@ -403,7 +403,7 @@ func (s *localResources) LoadScan(scanId string) ([]*gocv.Mat, error) {
 		return nil, fmt.Errorf("no pages found for scan %s", scanId)
 	}
 
-	mats := make([]*gocv.Mat, len(records))
+	mats := make([]gocv.Mat, len(records))
 	for i, record := range records {
 		mat, err := s.Mats.Get(record.ID)
 		if err != nil {

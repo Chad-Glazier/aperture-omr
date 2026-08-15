@@ -3,74 +3,29 @@ package handler
 import (
 	"net/http"
 	"runtime"
-	"strconv"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
-//
-// Helpers
-//
-
 const defaultLimit = 30
-
-// Returns the "limit" parameter from the request's query string, parsed as a
-// positive integer. If anything goes wrong, an error response will be sent and
-// the second return value will be set to false.
-func parseLimit(w http.ResponseWriter, r *http.Request) (int, bool) {
-	limit := defaultLimit
-	limitStr := r.URL.Query().Get("limit")
-	if limitStr != "" {
-		limitVal, err := strconv.Atoi(limitStr)
-		if err != nil || limitVal < 1 {
-			http.Error(
-				w,
-				"limit parameter must be a positive integer",
-				http.StatusBadRequest,
-			)
-			return 0, false
-		}
-		limit = limitVal
-	}
-
-	return limit, true
-}
 
 //
 // Public System Info
 //
 
-type ResourceUtilization struct {
-	CpuHistory    []sys.CpuInfo `json:"cpuHistory"`
-	MemoryHistory []sys.MemInfo `json:"memoryHistory"`
-	Disk          struct {
-		Usage    sys.DiskInfo `json:"usage"`
-		OmrUsage struct {
-			Database         uint64 `json:"database"`
-			NumberOfMatrices int    `json:"numberOfMatrices"`
-			Matrices         uint64 `json:"matrices"`
-			NumberOfPictures int    `json:"numberOfPictures"`
-			Pictures         uint64 `json:"pictures"`
-			Total            uint64 `json:"total"`
-		} `json:"omrUsage"`
-	} `json:"disk"`
-	MemoryPeak uint64 `json:"memoryPeak"`
-	Uptime     uint64 `json:"uptime"`
-}
-
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		limit, ok := parseLimit(w, r)
+		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
 		if !ok {
 			return
 		}
 
-		result := ResourceUtilization{}
+		var result dto.ResourceUtilization
 
-		result.CpuHistory = sys.CpuHistory(limit)
-		result.MemoryHistory = sys.MemHistory(limit)
+		result.CpuHistory = sys.CpuHistory(int(q.Limit))
+		result.MemoryHistory = sys.MemHistory(int(q.Limit))
 
 		diskHistory := sys.DiskHistory(1)
 		if len(diskHistory) > 0 {
@@ -98,13 +53,13 @@ func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 func GetLogs(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		limit, ok := parseLimit(w, r)
+		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
 		if !ok {
 			return
 		}
 
 		w.Header().Add("Content-Type", "text/plain")
-		sys.DumpLogs(w, limit)
+		sys.DumpLogs(w, int(q.Limit))
 	}
 }
 
@@ -123,12 +78,12 @@ type DetailedCpuInfo struct {
 func GetCpuInfo(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		limit, ok := parseLimit(w, r)
+		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
 		if !ok {
 			return
 		}
 
-		samples := sys.CpuHistory(limit)
+		samples := sys.CpuHistory(int(q.Limit))
 		result := DetailedCpuInfo{
 			UsageSamples: make([]CpuUsageSample, len(samples)),
 		}
@@ -156,12 +111,12 @@ type DetailedMemoryInfo struct {
 func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		limit, ok := parseLimit(w, r)
+		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
 		if !ok {
 			return
 		}
 
-		samples := sys.MemHistory(limit)
+		samples := sys.MemHistory(int(q.Limit))
 
 		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
 			UsageSamples: samples,
@@ -177,8 +132,7 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 func CheckAdminKey(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authenticated := s.CheckAdminKey(r); !authenticated {
-			http.Error(
-				w,
+			http.Error(w,
 				"incorrect admin key",
 				http.StatusUnauthorized,
 			)

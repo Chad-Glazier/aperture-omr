@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/Chad-Glazier/aperture-omr/internal/marker"
+import (
+	"github.com/Chad-Glazier/aperture-omr/internal/marker"
+	"github.com/Chad-Glazier/aperture-omr/internal/sys"
+)
 
 //
 // ScanResult
@@ -111,5 +114,27 @@ func AdaptMark(a *marker.Answer) Mark {
 
 	return m
 
+}
+
+//
+// ResourceUtilization
+//
+
+type ResourceUtilization struct {
+	CpuHistory    []sys.CpuInfo `json:"cpuHistory"`
+	MemoryHistory []sys.MemInfo `json:"memoryHistory"`
+	Disk          struct {
+		Usage    sys.DiskInfo `json:"usage"`
+		OmrUsage struct {
+			Database         uint64 `json:"database"`
+			NumberOfMatrices int    `json:"numberOfMatrices"`
+			Matrices         uint64 `json:"matrices"`
+			NumberOfPictures int    `json:"numberOfPictures"`
+			Pictures         uint64 `json:"pictures"`
+			Total            uint64 `json:"total"`
+		} `json:"omrUsage"`
+	} `json:"disk"`
+	MemoryPeak uint64 `json:"memoryPeak"`
+	Uptime     uint64 `json:"uptime"`
 }
 

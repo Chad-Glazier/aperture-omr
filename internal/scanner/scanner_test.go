@@ -2,12 +2,12 @@ package scanner
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -38,21 +38,32 @@ func assertError(t *testing.T, err error, expectError bool, errContains string) 
 func loadTestTemplate(t *testing.T) *Template {
 	t.Helper()
 
-	f, err := os.Open("testdata/template.json")
+	buf, err := testData.ReadFile("testdata/template.json")
 	if err != nil {
-		t.Fatalf("open template: %v", err)
+		t.Fatal(err)
 	}
-	defer f.Close()
 
-	tmpl, err := LoadTemplate(f, func(path string) (io.ReadCloser, error) {
-		return os.Open(filepath.Join("testdata", path))
-	})
-	if err != nil {
-		t.Fatalf("load template: %v", err)
+	var tmpl Template
+	if err := json.Unmarshal(buf, &tmpl); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(tmpl.Close)
 
-	return tmpl
+	anchorNames := []string{ 
+		"footer.jpg", "logo.jpg", "info.jpg",
+	 }
+	for i, name := range anchorNames {
+		f, err := testData.Open("testdata/anchors/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := loadAnchorFromReader(f, tmpl.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tmpl.Pages[0].Anchors[i].Image = a
+	}
+
+	return &tmpl
 }
 
 func TestScan(t *testing.T) {
@@ -163,7 +174,7 @@ func TestBinarize(t *testing.T) {
 			dst := gocv.NewMat()
 			defer dst.Close()
 
-			err := Binarize(&tc.src, &dst, &tc.conf)
+			err := Binarize(&tc.src, &dst, tc.conf)
 			assertError(t, err, tc.expectError, tc.errContains)
 
 			if !tc.expectError && dst.Channels() != 1 {
@@ -278,7 +289,7 @@ func TestFindAnchorCenter(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			anchor := Anchor{
-				Image: &template,
+				Image: template,
 				ROI:   tc.roi,
 			}
 
@@ -342,7 +353,7 @@ func anchorsAt(mark gocv.Mat, centers []image.Point, searchMargin int) []Anchor 
 	anchors := make([]Anchor, len(centers))
 	for i, c := range centers {
 		anchors[i] = Anchor{
-			Image: &mark,
+			Image: mark,
 			ROI: image.Rect(
 				c.X-searchMargin, c.Y-searchMargin,
 				c.X+searchMargin, c.Y+searchMargin,
@@ -388,7 +399,7 @@ func TestDetectMisplacedPage(t *testing.T) {
 	defer colorMat.Close()
 	gocv.CvtColor(canvasB, &colorMat, gocv.ColorGrayToBGR)
 
-	data := &ScanData{Picture: colorMat, Binary: canvasB}
+	data := ScanData{Picture: colorMat, Binary: canvasB}
 
 	// Sanity check: canvas B must actually fail to match page A's own
 	// anchors (its bottom-left anchor has nothing there), otherwise this
@@ -437,7 +448,7 @@ func TestScanMultipleDpi(t *testing.T) {
 	// grayscale template against that loses most of its confidence.
 	mark := bullseyeMarker(markSize)
 	defer mark.Close()
-	if err := Binarize(&mark, &mark, &conf); err != nil {
+	if err := Binarize(&mark, &mark, conf); err != nil {
 		t.Fatalf("binarize anchor: %v", err)
 	}
 
@@ -497,45 +508,5 @@ func TestScanMultipleDpi(t *testing.T) {
 				)
 			}
 		})
-	}
-}
-
-//
-// Benchmarks
-//
-
-func BenchmarkScan(b *testing.B) {
-
-	f, err := os.Open("testdata/template.json")
-	if err != nil {
-		b.Fatalf("open template: %v", err)
-	}
-	defer f.Close()
-
-	tmpl, err := LoadTemplate(f, func(path string) (io.ReadCloser, error) {
-		return os.Open(filepath.Join("testdata", path))
-	})
-	if err != nil {
-		b.Fatalf("load template: %v", err)
-	}
-	defer tmpl.Close()
-
-	imgFile, err := os.Open("testdata/input.jpg")
-	if err != nil {
-		b.Fatalf("open image: %v", err)
-	}
-	defer imgFile.Close()
-
-	buf, err := io.ReadAll(imgFile)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	for b.Loop() {
-		results, err := scanPage(buf, tmpl, 0)
-		if err != nil {
-			b.Fatal(err)
-		}
-		results.Close()
 	}
 }

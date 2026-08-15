@@ -2,8 +2,8 @@ package scanner
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
-	"io"
 	"testing"
 
 	"gocv.io/x/gocv"
@@ -16,7 +16,7 @@ import (
 //go:embed testdata/*
 var testData embed.FS
 
-func loadExamBatch(t *testing.T) ([]*gocv.Mat, *Template) {
+func loadExamBatch(t *testing.T) ([]gocv.Mat, *Template) {
 	t.Helper()
 
 	const (
@@ -24,7 +24,7 @@ func loadExamBatch(t *testing.T) ([]*gocv.Mat, *Template) {
 		nPagesPerExam = 2
 	)
 
-	mats := make([]*gocv.Mat, nExams*nPagesPerExam)
+	pageMats := make([]gocv.Mat, nExams*nPagesPerExam)
 	for i := range nExams {
 		for j := range nPagesPerExam {
 
@@ -40,27 +40,37 @@ func loadExamBatch(t *testing.T) ([]*gocv.Mat, *Template) {
 				t.Fatal(err)
 			}
 
-			mats[i*nPagesPerExam+j] = &mat
+			pageMats[i*nPagesPerExam+j] = mat
 
 		}
 	}
 
-	f, err := testData.Open("testdata/multipage/preprocessing_template.json")
+	buf, err := testData.ReadFile("testdata/multipage/preprocessing_template.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tmpl, err := LoadTemplate(
-		f,
-		func(s string) (io.ReadCloser, error) {
-			return testData.Open("testdata/multipage/anchor.jpeg")
-		},
-	)
+	var tmpl Template
+	if err := json.Unmarshal(buf, &tmpl); err != nil {
+		t.Fatal(err)
+	}
+
+	anchorFile, err := testData.Open("testdata/multipage/anchor.jpeg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchor, err := loadAnchorFromReader(anchorFile, tmpl.Config)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return mats, tmpl
+	for i := range tmpl.Pages {
+		for j := range tmpl.Pages[i].Anchors {
+			tmpl.Pages[i].Anchors[j].Image = anchor
+		}
+	}
+
+	return pageMats, &tmpl
 }
 
 //
@@ -87,7 +97,7 @@ func TestScanPageMat(t *testing.T) {
 	}
 	defer mat.Close()
 
-	results, err := scanPageMat(&mat, tmpl, 0)
+	results, err := scanPageMat(mat, tmpl, 0)
 	if err != nil {
 		t.Fatalf("scanPageMat failed: %v", err)
 	}
@@ -128,7 +138,7 @@ func TestScanPageMatUpsideDown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, err := scanPageMat(&mat, tmpl, 0)
+	results, err := scanPageMat(mat, tmpl, 0)
 	if err != nil {
 		t.Fatalf("scanPageMat failed with flipped scan: %v", err)
 	}
@@ -191,8 +201,8 @@ func TestScanExamMatsOutOfOrder(t *testing.T) {
 
 	// mess stuff up
 	pages[0], pages[1] = pages[1], pages[0]
-	gocv.Flip(*pages[0], pages[0], -1)
-	gocv.Flip(*pages[1], pages[1], -1)
+	gocv.Flip(pages[0], &pages[0], -1)
+	gocv.Flip(pages[1], &pages[1], -1)
 
 	exam, err := ScanExamMats(pages[0:2], tmpl)
 	if err != nil {
@@ -224,12 +234,6 @@ func TestScanMatsBadInputs(t *testing.T) {
 			"ScanMats should fail when the number of pages given is not " +
 				"divisible by the number of pages in the template",
 		)
-		t.Fail()
-	}
-
-	nilMats := make([]*gocv.Mat, 4)
-	if _, err := ScanMats(nilMats, tmpl); err == nil {
-		t.Log("ScanMats should fail when given nil matrices")
 		t.Fail()
 	}
 

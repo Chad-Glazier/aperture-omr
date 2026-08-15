@@ -1,7 +1,6 @@
 package scanner
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -65,7 +64,7 @@ func (d *ScanData) Empty() bool {
 }
 
 type Anchor struct {
-	Image  *gocv.Mat       `json:"-"`
+	Image  gocv.Mat       `json:"-"`
 	Path   string          `json:"path"`
 	ROI    image.Rectangle `json:"roi"`
 	Center image.Point     `json:"center"`
@@ -149,7 +148,7 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 			if err != nil {
 				return fmt.Errorf("page %d: %w", i, err)
 			}
-			results[i] = data
+			results[i] = &data
 			return nil
 		})
 	}
@@ -167,35 +166,35 @@ func Scan(readers []io.Reader, tmpl *Template) ([]*ScanData, error) {
 
 // scanPage runs a single reader through the preprocessing pipeline using the
 // anchors for page idx.
-func scanPage(buf []byte, tmpl *Template, idx int) (*ScanData, error) {
+func scanPage(buf []byte, tmpl *Template, idx int) (ScanData, error) {
 
 	img, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 	if err != nil {
-		return nil, newQualityError("decode: %s", err.Error())
+		return ScanData{}, newQualityError("decode: %s", err.Error())
 	}
 
 	if img.Empty() {
 		img.Close()
-		return nil, newQualityError("decoded image is empty")
+		return ScanData{}, newQualityError("decoded image is empty")
 	}
 
 	if img.Cols() <= 100 || img.Rows() <= 100 {
 		img.Close()
-		return nil, newQualityError("image dimensions too small: %dx%d", img.Cols(), img.Rows())
+		return ScanData{}, newQualityError("image dimensions too small: %dx%d", img.Cols(), img.Rows())
 	}
 
 	data, err := preprocessPage(img, tmpl, idx)
 	if err != nil {
 		var qerr *QualityError
 		if !errors.As(err, &qerr) {
-			return nil, err
+			return ScanData{}, err
 		}
 		if detected, ok := detectMisplacedPage(data, tmpl, idx); ok {
 			data.Close()
-			return nil, &OrderError{PageIndex: idx, DetectedPageIndex: detected}
+			return ScanData{}, &OrderError{PageIndex: idx, DetectedPageIndex: detected}
 		}
 		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		return ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
 	return data, nil
@@ -224,8 +223,8 @@ const (
 // to align the page, the still-open ScanData is returned alongside the raw
 // *QualityError so the caller can attempt further recovery (e.g. page-order
 // detection) before closing it.
-func preprocessPage(picture gocv.Mat, tmpl *Template, idx int) (*ScanData, error) {
-	data := &ScanData{Picture: picture, Binary: gocv.NewMat()}
+func preprocessPage(picture gocv.Mat, tmpl *Template, idx int) (ScanData, error) {
+	data := ScanData{Picture: picture, Binary: gocv.NewMat()}
 
 	ratio := sizeRatio(
 		image.Pt(picture.Cols(), picture.Rows()),
@@ -260,13 +259,13 @@ func preprocessPage(picture gocv.Mat, tmpl *Template, idx int) (*ScanData, error
 	}
 
 	scaledConf := scaleConfig(tmpl.Config, scaleFactor)
-	if err := Binarize(&data.Picture, &data.Binary, &scaledConf); err != nil {
+	if err := Binarize(&data.Picture, &data.Binary, scaledConf); err != nil {
 		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		return ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
 	err := warp(
-		data, data,
+		data, &data,
 		tmpl.Pages[idx].Anchors,
 		tmpl.Width,
 		tmpl.Height,
@@ -279,10 +278,10 @@ func preprocessPage(picture gocv.Mat, tmpl *Template, idx int) (*ScanData, error
 	var qerr *QualityError
 	if !errors.As(err, &qerr) {
 		data.Close()
-		return nil, fmt.Errorf("preprocessing pipeline failed: %w", err)
+		return ScanData{}, fmt.Errorf("preprocessing pipeline failed: %w", err)
 	}
 
-	if rotErr := recoverUpsideDown(data, tmpl.Pages[idx].Anchors, tmpl); rotErr != nil {
+	if rotErr := recoverUpsideDown(&data, tmpl.Pages[idx].Anchors, tmpl); rotErr != nil {
 		return data, err
 	}
 
@@ -356,7 +355,7 @@ func recoverUpsideDown(
 	anchors []Anchor,
 	tmpl *Template,
 ) error {
-	rotated := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
+	rotated := ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
 	defer rotated.Close()
 
 	err := gocv.Rotate(data.Picture, &rotated.Picture, gocv.Rotate180Clockwise)
@@ -370,7 +369,7 @@ func recoverUpsideDown(
 	}
 
 	err = warp(
-		rotated, rotated,
+		rotated, &rotated,
 		anchors,
 		tmpl.Width, tmpl.Height,
 		tmpl.Config,
@@ -394,19 +393,19 @@ func recoverUpsideDown(
 // evidence this image was fed into the wrong slot, and reports which page
 // it actually looks like.
 func detectMisplacedPage(
-	data *ScanData,
+	data ScanData,
 	tmpl *Template,
 	idx int,
 ) (detected int, ok bool) {
 
-	rotated := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
+	rotated := ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
 	defer rotated.Close()
 
 	rotatedOK :=
 		gocv.Rotate(data.Picture, &rotated.Picture, gocv.Rotate180Clockwise) == nil &&
 			gocv.Rotate(data.Binary, &rotated.Binary, gocv.Rotate180Clockwise) == nil
 
-	probe := &ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
+	probe := ScanData{Picture: gocv.NewMat(), Binary: gocv.NewMat()}
 	defer probe.Close()
 
 	for j := range tmpl.Pages {
@@ -418,7 +417,7 @@ func detectMisplacedPage(
 
 		err := warp(
 			data,
-			probe,
+			&probe,
 			otherAnchors,
 			tmpl.Width, tmpl.Height,
 			tmpl.Config,
@@ -429,7 +428,7 @@ func detectMisplacedPage(
 
 		err = warp(
 			rotated,
-			probe,
+			&probe,
 			otherAnchors,
 			tmpl.Width, tmpl.Height,
 			tmpl.Config,
@@ -443,7 +442,7 @@ func detectMisplacedPage(
 }
 
 // Note: the given matrix must be in grayscale.
-func Binarize(src, dst *gocv.Mat, conf *Config) error {
+func Binarize(src, dst *gocv.Mat, conf Config) error {
 
 	//
 	// Handle bad inputs and set defaults.
@@ -530,7 +529,12 @@ func Binarize(src, dst *gocv.Mat, conf *Config) error {
 	return nil
 }
 
-func warp(src, dst *ScanData, anchors []Anchor, width, height int, conf Config) error {
+func warp(
+	src ScanData, dst *ScanData, 
+	anchors []Anchor, 
+	width, height int, 
+	conf Config,
+) error {
 	if src.Empty() {
 		return fmt.Errorf("cannot warp an empty image")
 	}
@@ -679,7 +683,7 @@ func findAnchorCenter(
 		for _, angle := range angles {
 			matrix := gocv.GetRotationMatrix2D(center, angle, 1.0)
 
-			gocv.WarpAffine(*anchor.Image, &rotated, matrix, size)
+			gocv.WarpAffine(anchor.Image, &rotated, matrix, size)
 			matrix.Close()
 
 			gocv.MatchTemplate(roi, rotated, &result, gocv.TmCcoeffNormed, mask)
@@ -719,7 +723,7 @@ func findAnchorCenter(
 // scaleAnchorTemplate resizes the anchor PNG to the size it occupies in the
 // scanned image (src), given the template coordinate space (target). The caller
 // must Close the returned Mat.
-func scaleAnchorTemplate(tmpl *gocv.Mat, src, target image.Point) *gocv.Mat {
+func scaleAnchorTemplate(tmpl gocv.Mat, src, target image.Point) gocv.Mat {
 	newW := int(float64(tmpl.Cols())*float64(src.X)/float64(target.X) + 0.5)
 	newH := int(float64(tmpl.Rows())*float64(src.Y)/float64(target.Y) + 0.5)
 	if newW < 1 {
@@ -740,8 +744,8 @@ func scaleAnchorTemplate(tmpl *gocv.Mat, src, target image.Point) *gocv.Mat {
 	}
 
 	scaled := gocv.NewMat()
-	gocv.Resize(*tmpl, &scaled, image.Pt(newW, newH), 0, 0, interpolation)
-	return &scaled
+	gocv.Resize(tmpl, &scaled, image.Pt(newW, newH), 0, 0, interpolation)
+	return scaled
 }
 
 // ROI coordinates are defined relative to the target image so that they
@@ -756,64 +760,22 @@ func scaleROI(roi image.Rectangle, src, target image.Point) image.Rectangle {
 	)
 }
 
-// LoadTemplate parses a template from r and loads anchor images using open.
-// open receives each anchor's path as written in the JSON; the caller is
-// responsible for resolving relative paths and expanding ~ if needed.
-// Both single-page (top-level anchors) and multi-page (pages array) formats
-// are supported.
-func LoadTemplate(
-	r io.Reader, open func(string) (io.ReadCloser, error),
-) (*Template, error) {
+func loadAnchorFromReader(r io.Reader, conf Config) (gocv.Mat, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
-	}
-	var tmpl Template
-	if err := json.Unmarshal(data, &tmpl); err != nil {
-		return nil, fmt.Errorf("parse: %w", err)
-	}
-
-	loadAnchors := func(anchors []Anchor, label string) error {
-		for i := range anchors {
-			ar, err := open(anchors[i].Path)
-			if err != nil {
-				return fmt.Errorf("%s anchor %d: open: %w", label, i, err)
-			}
-			anchors[i].Image, err = loadAnchorFromReader(ar, &tmpl.Config)
-			ar.Close()
-			if err != nil {
-				return fmt.Errorf("%s anchor %d: %w", label, i, err)
-			}
-		}
-		return nil
-	}
-
-	for pi := range tmpl.Pages {
-		if err := loadAnchors(tmpl.Pages[pi].Anchors, fmt.Sprintf("page %d", pi)); err != nil {
-			tmpl.Close()
-			return nil, err
-		}
-	}
-
-	return &tmpl, nil
-}
-
-func loadAnchorFromReader(r io.Reader, conf *Config) (*gocv.Mat, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
+		return gocv.Mat{}, fmt.Errorf("read: %w", err)
 	}
 	img, err := gocv.IMDecode(data, gocv.IMReadGrayScale)
 	if err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
+		return gocv.Mat{}, fmt.Errorf("decode: %w", err)
 	}
 	if img.Empty() {
-		return nil, fmt.Errorf("decoded image is empty")
+		return gocv.Mat{}, fmt.Errorf("decoded image is empty")
 	}
 
 	if err := Binarize(&img, &img, conf); err != nil {
 		img.Close()
-		return nil, fmt.Errorf("binarize: %w", err)
+		return gocv.Mat{}, fmt.Errorf("binarize: %w", err)
 	}
-	return &img, nil
+	return img, nil
 }

@@ -1,7 +1,9 @@
 go test `
+	--count=1 `
 	./internal/fs `
 	./internal/server/handler `
-	./internal/server/middleware `
+	./internal/server/mw `
+	./internal/server/dto `
 	./internal/marker `
 	./internal/pdf `
 	./internal/scanner `

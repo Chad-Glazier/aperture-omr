@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 )
 
 func newTestResources(t *testing.T) ServerResources {
@@ -61,7 +63,11 @@ func TestParseLimit(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/test"+tt.query, nil)
 			rr := httptest.NewRecorder()
 
-			got, ok := parseLimit(rr, req)
+			q, ok := dto.ParseQuery[dto.LimitQuery](rr, req)
+			if !ok {
+				return
+			}
+			got := int(q.Limit)
 
 			if rr.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
@@ -87,7 +93,8 @@ func TestGetResourceUtilization(t *testing.T) {
 		t.Fatalf("status = %d", rr.Code)
 	}
 
-	var result ResourceUtilization
+	var result dto.ResourceUtilization
+	
 	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
 		t.Fatal("invalid JSON:", err)
 	}

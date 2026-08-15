@@ -99,7 +99,7 @@ func TestMarkIntegration(t *testing.T) {
 		t.Fatalf("load mark template: %v", err)
 	}
 
-	result, err := Evaluate([]*gocv.Mat{&img}, markTmpl)
+	result, err := Evaluate([]gocv.Mat{img}, markTmpl)
 	if err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}
@@ -409,7 +409,7 @@ func TestEvaluate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := Evaluate([]*gocv.Mat{&tc.img}, tc.tmpl)
+			result, err := Evaluate([]gocv.Mat{tc.img}, tc.tmpl)
 			assertError(t, err, tc.expectError, tc.errContains)
 			if tc.expectError {
 				return
@@ -484,7 +484,7 @@ func TestEvaluate_PageIndex(t *testing.T) {
 		},
 	}
 
-	result, err := Evaluate([]*gocv.Mat{&page0Img, &page1Img}, tmpl)
+	result, err := Evaluate([]gocv.Mat{page0Img, page1Img}, tmpl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +531,7 @@ func BenchmarkEvaluate(b *testing.B) {
 	}
 
 	for b.Loop() {
-		_, err = Evaluate([]*gocv.Mat{&img}, tmpl)
+		_, err = Evaluate([]gocv.Mat{img}, tmpl)
 		if err != nil {
 			b.Fatalf("evaluate: %v", err)
 		}

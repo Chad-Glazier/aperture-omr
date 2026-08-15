@@ -191,7 +191,7 @@ type Result struct {
 // imgs must contain one binary image per page (output of the preprocessing
 // pipeline), in page order. For single-page templates a one-element slice is
 // expected.
-func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
+func Evaluate(imgs []gocv.Mat, tmpl *Template) (*Result, error) {
 	pages := tmpl.pages()
 	if len(imgs) != len(pages) {
 		return nil, fmt.Errorf("template has %d page(s), got %d image(s)", len(pages), len(imgs))
@@ -266,7 +266,7 @@ func Evaluate(imgs []*gocv.Mat, tmpl *Template) (*Result, error) {
 // the template's bubble positions, one pair per q.Options entry in order)
 // that were used to take the measurements.
 func detectAnswers(
-	img *gocv.Mat, q Question, threshold, selectionThreshold, inset, labelInset float64,
+	img gocv.Mat, q Question, threshold, selectionThreshold, inset, labelInset float64,
 	searchRadius, searchGroupSize, groupSearchRadius int,
 ) ([]string, float64, []int, []int) {
 	if len(q.Options) == 0 {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/handler"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
@@ -25,7 +26,7 @@ func Start(hostname, port string) {
 	}
 	defer s.Close()
 
-	j := handler.NewJobRegistrar(time.Hour * 24)
+	j := mw.NewJobRegistrar(time.Hour * 24)
 	defer j.Close()
 
 	adminKey := os.Getenv("OMR_ADMIN_KEY")
@@ -58,7 +59,6 @@ func Start(hostname, port string) {
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(s))
 	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
 
-	mux.HandleFunc("POST /scan/images", handler.PostScan(s))
 	mux.HandleFunc("POST /scan/pdf", handler.PostScanPdfSync(s))
 	mux.HandleFunc("DELETE /scan", handler.DeleteScans(s))
 
@@ -80,13 +80,6 @@ func Start(hostname, port string) {
 	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(s))
 
 	//
-	// Deprecated endpoints
-	//
-
-	mux.HandleFunc("POST /scan", handler.PostScan(s))
-	mux.HandleFunc("GET /snippet", handler.GetSnippet(s))
-
-	//
 	// Static Pages
 	//
 
@@ -96,9 +89,9 @@ func Start(hostname, port string) {
 	// Middleware
 	//
 
-	httpHandler := middleware.Cors(mux)
-	httpHandler = middleware.Recovery(httpHandler)
-	httpHandler = middleware.Logger(httpHandler)
+	httpHandler := mw.Cors(mux)
+	httpHandler = mw.Recovery(httpHandler)
+	httpHandler = mw.Logger(httpHandler)
 
 	//
 	// Serve!

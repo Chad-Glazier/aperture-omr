@@ -72,7 +72,7 @@ func TestLocalMatStore(t *testing.T) {
 	}
 	defer mat.Close()
 
-	s.Set("testkey", &mat)
+	s.Set("testkey", mat)
 
 	loaded, err := s.Get("testkey")
 	if err != nil {
@@ -218,7 +218,7 @@ func TestLocalMatStoreDelete(t *testing.T) {
 	}
 	defer mat.Close()
 
-	err = store.Set("testkey", &mat)
+	err = store.Set("testkey", mat)
 	if err != nil {
 		t.Fatal("error storing matrix: " + err.Error())
 	}
@@ -352,7 +352,7 @@ func TestMatStoreCount(t *testing.T) {
 		mat := gocv.IMRead("testdata/sample_image.jpg", gocv.IMReadGrayScale)
 		defer mat.Close()
 
-		if err := store.Set("a", &mat); err != nil {
+		if err := store.Set("a", mat); err != nil {
 			t.Fatal(err)
 		}
 
@@ -386,10 +386,10 @@ func TestMatStoreCount(t *testing.T) {
 		mat := gocv.IMRead("testdata/sample_image.jpg", gocv.IMReadGrayScale)
 		defer mat.Close()
 
-		if err := store.Set("a", &mat); err != nil {
+		if err := store.Set("a", mat); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.Set("a", &mat); err != nil {
+		if err := store.Set("a", mat); err != nil {
 			t.Fatal(err)
 		}
 
@@ -415,7 +415,7 @@ func BenchmarkLocalMatLoad(b *testing.B) {
 		b.Fatal("failed to read source image")
 	}
 
-	s.Set("testkey", &mat)
+	s.Set("testkey", mat)
 	mat.Close()
 
 	for b.Loop() {
@@ -437,6 +437,6 @@ func BenchmarkLocalMatSave(b *testing.B) {
 	defer mat.Close()
 
 	for b.Loop() {
-		s.Set("testkey", &mat)
+		s.Set("testkey", mat)
 	}
 }

@@ -43,10 +43,10 @@ type ImageStore interface {
 type MatStore interface {
 	// Saves an OpenCV matrix under the given key. If a matrix already exists
 	// with the given key, it will be overwritten.
-	Set(key string, mat *gocv.Mat) error
+	Set(key string, mat gocv.Mat) error
 	// Loads an OpenCV matrix by the given key. If no matrix is associated with
 	// the key, then [ErrNotFound] is returned.
-	Get(key string) (*gocv.Mat, error)
+	Get(key string) (gocv.Mat, error)
 	// Deletes a stored matrix.
 	Delete(key string) error
 	// Counts the number of stored matrices and the total number of bytes they

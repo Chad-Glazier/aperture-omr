@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,8 +26,9 @@ type Validator interface {
 	Validate() error
 }
 
-// Parses a request body as JSON, decoding it with gzip or deflate as
-// instructed by the Content-Encoding header.
+// Parses a request body as JSON, decoding it with gzip and/or deflate as
+// instructed by the Content-Encoding header. This function will also close the
+// given request body.
 //
 // The second return value will be false if there was an error. In that case,
 // this function will have already sent an appropriate response to the client.
@@ -283,24 +285,32 @@ func ParseQuery[T Validator](
 	
 	if err := v.Validate(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return v, false
 	}
 
 	return v, true
 }
 
-// Returns the reader for a request body except it is decoded with gzip and/or 
+// Returns the bytes for a request body except it is decoded with gzip and/or
 // deflate as instructed by the Content-Encoding header. The Content-Type 
-// header is also checked, though the content is not actually sniffed.
+// header is checked and the content is sniffed to verify the correct file 
+// type. This function closes the request body.
+//
+// Since this function maintains the bytes in memory, it should be used only
+// when the request body is not excessively large. Consider using 
+// [ParseBodyFile] in those cases. 
 //
 // The second return value will be false if there was an error. In that case,
 // this function will have already sent an appropriate response to the client
 // and the request body will be closed. Possible response statuses include 
-// 400 Bad Request and 415 Unsupported Media Type.
-func ParseBody(
+// 400 Bad Request, 415 Unsupported Media Type, 413 Request Entity Too Large,
+// and 500 Internal Server Error.
+func ParseBodyBytes(
 	w http.ResponseWriter, 
 	r *http.Request, 
 	contentType string,
-) (io.ReadCloser, bool) {
+	maxSize uint64,
+) (io.ReadSeekCloser, bool) {
 		
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w,
@@ -332,6 +342,174 @@ func ParseBody(
 			panic("dto: decode returned an unexpected error")
 		}
 	}
+	body = http.MaxBytesReader(w, body, int64(maxSize))
+	defer body.Close()
 
-	return body, true
+	buf, err := io.ReadAll(body)
+	if err != nil {
+		m := &http.MaxBytesError{}
+		if ok := errors.As(err, &m); ok {
+			http.Error(w,
+				"request body exceeds " + formatMemorySize(maxSize),
+				http.StatusRequestEntityTooLarge,
+			)
+			return nil, false
+		}
+		http.Error(w,
+			"unexpected error while reading request body",
+			http.StatusInternalServerError,
+		)
+		return nil, false
+	}
+
+	if http.DetectContentType(buf) != contentType {
+		http.Error(w,
+			"request body does not match the given Content-Type",
+			http.StatusUnsupportedMediaType,
+		)
+		return nil, false
+	}
+
+	return &rsc{ b: buf }, true
+}
+
+// A simple [io.ReadSeekCloser] implementation.
+type rsc struct {
+	idx int64
+	b   []byte
+}
+
+var _ io.ReadSeekCloser = (*rsc)(nil)
+
+func (r *rsc) Read(p []byte) (int, error) {
+	n := min(len(p), len(r.b) - int(r.idx))
+	if copied := copy(p, r.b[r.idx:n]); copied != n {
+		panic("copy returned fewer bytes than expected")
+	}
+	r.idx += int64(n)
+	return n, nil
+}
+
+func (r *rsc) Seek(offset int64, whence int) (int64, error) {
+
+	var newIdx int64
+
+	switch whence {
+	case io.SeekStart:
+		newIdx = offset
+	case io.SeekEnd:
+		newIdx = int64(len(r.b)) + offset
+	case io.SeekCurrent:
+		newIdx = r.idx + offset
+	default:
+		panic("dto: Seek was given an invalid whence argument")
+	}
+
+	if newIdx < 0 {
+		return 0, errors.New("dto: Seek call sought a negative byte index")
+	}
+
+	r.idx = newIdx
+	return newIdx, nil
+}
+
+func (r *rsc) Close() error {
+	r.idx = 0
+	r.b = nil
+	return nil
+}
+
+// Equivalent to [ParseBodyBytes], except it uses a backing temporary file 
+// instead of an in-memory byte buffer. It's essential that the Close method of
+// the result be called.
+func ParseBodyFile(
+	w http.ResponseWriter, 
+	r *http.Request, 
+	contentType string,
+	maxSize uint64,
+) (io.ReadSeekCloser, bool) {
+
+	if r.Header.Get("Content-Type") != "application/json" {
+		http.Error(w,
+			"expected Content-Type header to " + contentType,
+			http.StatusUnsupportedMediaType,
+		)
+		r.Body.Close()
+		return nil, false
+	}
+
+	body, err := decode(r)
+	if err != nil {
+		switch err {
+		case errMalformedContent:
+			http.Error(w,
+				"request body content was not encoded correctly",
+				http.StatusBadRequest,
+			)
+			return nil, false
+		case errUnsupportedContentEncoding:
+			http.Error(w,
+				"request Content-Encoding contains an unsupported "+
+					"compression format "+
+					"(supported formats are gzip and deflate)",
+				http.StatusUnsupportedMediaType,
+			)
+			return nil, false
+		default:
+			panic("dto: decode returned an unexpected error")
+		}
+	}
+	body = http.MaxBytesReader(w, body, int64(maxSize))
+	defer body.Close()
+
+	f, err := os.CreateTemp("", "omr_temp_*")
+	if err != nil {
+		http.Error(w,
+			"unexpected error making system call",
+			http.StatusInternalServerError,
+		)
+		return nil, false
+	}
+
+	if _, err := io.Copy(f, body); err != nil {
+		m := &http.MaxBytesError{}
+		if ok := errors.As(err, &m); ok {
+			http.Error(w,
+				"request body exceeds " + formatMemorySize(maxSize),
+				http.StatusRequestEntityTooLarge,
+			)
+			return nil, false
+		}
+		http.Error(w,
+			"unexpected error while reading request body",
+			http.StatusInternalServerError,
+		)
+		return nil, false		
+	}
+	
+	head := make([]byte, 512)
+	f.Seek(0, io.SeekStart)
+	f.Read(head)
+	if http.DetectContentType(head) != contentType {
+		http.Error(w,
+			"request body does not match the given Content-Type",
+			http.StatusUnsupportedMediaType,
+		)
+		return nil, false
+	}
+
+	f.Seek(0, io.SeekStart)
+	return &rscFile{ File: f }, true
+}
+
+// A simple [io.ReadSeekCloser] implementation that uses a temporary file.
+// Importantly, calling the Close method will also remove the file.
+type rscFile struct {
+	*os.File
+}
+
+func (r *rscFile) Close() error {
+	r.File.Close()
+	os.Remove(r.File.Name())
+	return nil
 }

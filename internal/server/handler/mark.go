@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"runtime"
 	"sync"
@@ -15,9 +14,89 @@ import (
 	"gocv.io/x/gocv"
 )
 
+func PostMarkingJob(s ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		//
+		// Parse the request.
+		//
+
+		defer sys.Tidy()
+		defer r.Body.Close()
+
+		body, ok := dto.ParseJsonBody[*dto.MarkingJobRequest](w, r, 1<<20)
+		if !ok {
+			return
+		}
+
+		//
+		// Fetch the required resources.
+		//
+
+		t, err := s.LoadMarkingTemplate(body.TemplateId)
+		if err != nil {
+			http.Error(w,
+				"template ID not recognized",
+				http.StatusNotFound,
+			)
+			return
+		}
+		template := dto.AdaptMarkerTemplate(t)
+
+		//
+		// We stream the scans and mark them in parallel.
+		//
+
+		nextIdx := atomic.Uint32{}
+		nScans := len(body.ScanIds)
+
+		scans := make([]*dto.Scan, nScans)
+		errs := make([]*dto.MarkingError, nScans)
+
+		wg := sync.WaitGroup{}
+		for range max(1, runtime.GOMAXPROCS(0)-1) {
+			wg.Go(func() {
+
+				//
+				// Each thread runs until the pool of scan IDs is exhausted.
+				//
+
+				for {
+					idx := nextIdx.Add(1) - 1
+					if int(idx) >= nScans {
+						break
+					}
+					scanId := body.ScanIds[idx]
+
+					if err := markScan(s, template, scanId, scans[idx]); err != nil {
+						errs[idx] = &dto.MarkingError{ScanId: scanId, Debug: err.Error()}
+					}
+				}
+			})
+		}
+		wg.Wait()
+
+		result := dto.NewMarkingResult(
+			body.TemplateId, 
+			len(template.Pages), 
+			scans, 
+			errs,
+		)
+
+		switch {
+		case len(result.Scans) == 0:
+			// Every scan in the batch failed to mark.
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			dto.SendCompressedJson(w, r, result.Errors)
+		default:
+			dto.SendCompressedJson(w, r, result)
+		}
+	}
+}
+
 type scan struct {
 	id     string
-	pages  []*gocv.Mat
+	pages  []gocv.Mat
 	closed bool
 }
 
@@ -33,112 +112,6 @@ func (s *scan) close() {
 	s.closed = true
 }
 
-func PostMarkingJob(s ServerResources) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		//
-		// Parse the request.
-		//
-
-		defer sys.Tidy()
-		defer r.Body.Close()
-
-		jsonBuf, err := io.ReadAll(r.Body)
-		if err != nil {
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrInvalidRequest,
-				"error reading body: "+err.Error(),
-			)
-			return
-		}
-
-		markingJob, err := dto.ParseMarkingJobRequest(jsonBuf)
-		if err != nil {
-			dto.SendError(
-				w,
-				http.StatusBadRequest,
-				dto.ErrInvalidRequest,
-				"error parsing body: "+err.Error(),
-			)
-			return
-		}
-
-		//
-		// Fetch the required resources.
-		//
-
-		t, err := s.LoadMarkingTemplate(markingJob.TemplateId)
-		if err != nil {
-			dto.SendError(
-				w,
-				http.StatusNotFound,
-				dto.ErrTemplateNotFound,
-				"error retrieving template: "+err.Error(),
-			)
-			return
-		}
-		template := dto.AdaptMarkerTemplate(t)
-
-		//
-		// We stream the scans and mark them in parallel. This sets a limit
-		// on the number of scans that are kept in memory at a given time.
-		// A single scan's failure (a missing scan, a page count mismatch,
-		// a marking failure, or a panic) is attached to that scan instead
-		// of aborting the whole batch, mirroring how POST /scan/pdf reports
-		// partial batch failures.
-		//
-
-		nextIdx := atomic.Uint32{}
-		nScans := len(markingJob.ScanIds)
-
-		scans := make([]dto.Scan, nScans)
-		errs := make([]*dto.MarkingError, nScans)
-
-		wg := sync.WaitGroup{}
-		for range runtime.GOMAXPROCS(0) {
-			wg.Go(func() {
-
-				//
-				// Each thread runs until the pool of scan IDs is exhausted.
-				//
-
-				for {
-					idx := nextIdx.Add(1) - 1
-					if int(idx) >= nScans {
-						break
-					}
-					scanId := markingJob.ScanIds[idx]
-
-					if err := markScan(s, template, scanId, &scans[idx]); err != nil {
-						errs[idx] = &dto.MarkingError{ScanId: scanId, Debug: err.Error()}
-					}
-				}
-			})
-		}
-		wg.Wait()
-
-		result := dto.NewMarkingResult(
-			markingJob.TemplateId, len(template.Pages), scans, errs,
-		)
-
-		switch {
-		case len(result.Scans) == 0:
-			// Every scan in the batch failed to mark.
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			dto.SendCompressedJson(w, r, result.Errors)
-		default:
-			dto.SendCompressedJson(w, r, result)
-		}
-	}
-}
-
-// markScan marks a single scan against the given template, writing the
-// result into *out on success. On failure, including a panic while marking
-// (which would otherwise crash the whole process, since it happens on a
-// goroutine the top-level recovery middleware can't see), it returns a
-// non-nil error describing what went wrong, and *out is left untouched.
 func markScan(
 	s ServerResources,
 	template *marker.Template,
@@ -174,7 +147,7 @@ func markScan(
 	out.ScanId = scanId
 	out.Marks = make([]dto.Mark, len(marks.Answers))
 	for i, a := range marks.Answers {
-		out.Marks[i] = *dto.AdaptMark(&a)
+		out.Marks[i] = dto.AdaptMark(&a)
 	}
 	return nil
 }
