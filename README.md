@@ -6,7 +6,7 @@
 <br />
 <br />
 
-Aperture OMR is a [high-performance](#benchmarks) [Optical Mark Recognition](https://en.wikipedia.org/wiki/Optical_mark_recognition) (OMR) system which receives scanned exams and analyzes them to produce marks. Aperture OMR exposes its functionality through a REST API served over HTTP and is meant to be integrated with other apps.
+Aperture OMR is a high-performance [Optical Mark Recognition](https://en.wikipedia.org/wiki/Optical_mark_recognition) system which receives scanned bubble sheet exams and analyzes them to produce marks. Aperture OMR exposes its functionality through a REST API served over HTTP and is meant to be integrated with other apps.
 
 ## Benchmarks
 
