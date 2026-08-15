@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -16,18 +15,6 @@ import (
 
 	"gocv.io/x/gocv"
 )
-
-type PostScanPdfQuery struct {
-	PreprocessingTemplate string
-	Dpi                   uint   `default:"300"`
-}
-
-func (p PostScanPdfQuery) Validate() error {
-	if p.Dpi == 0 {
-		return errors.New("dpi must be positive")
-	}
-	return nil
-}
 
 func PostScanPdfSync(s ServerResources) http.HandlerFunc {
 	fn := PostScanPdf(s)
@@ -53,7 +40,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 		// Read and validate the body
 		//
 
-		q, ok := dto.ParseQuery[PostScanPdfQuery](w, r)
+		q, ok := dto.ParseQuery[dto.PostScanPdfQuery](w, r)
 		if !ok {
 			return
 		}

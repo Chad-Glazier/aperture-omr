@@ -1,6 +1,9 @@
 package dto
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 //
 // In this file we implement some types for query parameters, to be used with
@@ -34,3 +37,31 @@ func (l LimitQuery) Validate() error {
 //
 // Endpoint-Specific Types
 //
+
+type GetSnippetQuery struct {
+	Template string
+	Scan     string
+	Question string
+}
+
+func (g GetSnippetQuery) Validate() error { return nil }
+
+
+type GetImageQuery struct {
+	Scan string
+	Page uint
+}
+
+func (g GetImageQuery) Validate() error { return nil }
+
+type PostScanPdfQuery struct {
+	PreprocessingTemplate string
+	Dpi                   uint   `default:"300"`
+}
+
+func (p PostScanPdfQuery) Validate() error {
+	if p.Dpi == 0 {
+		return errors.New("dpi must be positive")
+	}
+	return nil
+}

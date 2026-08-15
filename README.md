@@ -3,9 +3,11 @@
     <img width="160px" alt="aperture logo" src="./pages/img/logo.gif" />
 </div>
 
-<!-- # Aperture OMR -->
+Aperture OMR is a [high-performance](#benchmarks) [Optical Mark Recognition](https://en.wikipedia.org/wiki/Optical_mark_recognition) (OMR) system which receives scanned exams and analyzes them to produce marks. Aperture OMR exposes its functionality through a REST API served over HTTP and is meant to be integrated with other apps.
 
-[description placeholder]
+## Benchmarks
+
+[Placeholder.]
 
 ## Setup
 

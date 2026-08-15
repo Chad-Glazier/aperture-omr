@@ -16,17 +16,10 @@ import (
 // Send an scan's page image.
 //
 
-type GetImageQuery struct {
-	Scan string
-	Page uint
-}
-
-func (g GetImageQuery) Validate() error { return nil }
-
 func GetImage(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		q, ok := dto.ParseQuery[GetImageQuery](w, r)
+		q, ok := dto.ParseQuery[dto.GetImageQuery](w, r)
 		if !ok {
 			return
 		}
@@ -56,18 +49,10 @@ func GetImage(s ServerResources) http.HandlerFunc {
 // Send a scan's question snippet.
 //
 
-type GetSnippetQuery struct {
-	Template string
-	Scan     string
-	Question string
-}
-
-func (g GetSnippetQuery) Validate() error { return nil }
-
 func GetSnippet(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		q, ok := dto.ParseQuery[GetSnippetQuery](w, r)
+		q, ok := dto.ParseQuery[dto.GetSnippetQuery](w, r)
 		if !ok {
 			return
 		}

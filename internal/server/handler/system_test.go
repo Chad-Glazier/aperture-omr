@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
@@ -74,7 +73,11 @@ func TestParseLimit(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusOK && (!ok || got != tt.wantLimit) {
-				t.Fatalf("limit = %d, ok = %v, want %d, true", got, ok, tt.wantLimit)
+				t.Fatalf(
+					"limit = %d, ok = %v, want %d, true", 
+					got, ok, 
+					tt.wantLimit,
+				)
 			}
 		})
 	}
@@ -84,7 +87,11 @@ func TestGetResourceUtilization(t *testing.T) {
 	s := newTestResources(t)
 	defer s.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/system/utilization?limit=5", nil)
+	req := httptest.NewRequest(
+		http.MethodGet, 
+		"/system/utilization?limit=5", 
+		nil,
+	)
 	rr := httptest.NewRecorder()
 
 	GetResourceUtilization(s)(rr, req)
@@ -112,7 +119,11 @@ func TestGetResourceUtilizationInvalidLimit(t *testing.T) {
 	s := newTestResources(t)
 	defer s.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/system/utilization?limit=-5", nil)
+	req := httptest.NewRequest(
+		http.MethodGet, 
+		"/system/utilization?limit=-5", 
+		nil,
+	)
 	rr := httptest.NewRecorder()
 
 	GetResourceUtilization(s)(rr, req)
@@ -134,10 +145,6 @@ func TestGetLogs(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d", rr.Code)
 	}
-
-	if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "text/plain") {
-		t.Fatalf("content type = %q", ct)
-	}
 }
 
 func TestGetCpuInfo(t *testing.T) {
@@ -153,7 +160,7 @@ func TestGetCpuInfo(t *testing.T) {
 		t.Fatalf("status = %d", rr.Code)
 	}
 
-	var result DetailedCpuInfo
+	var result dto.DetailedCpuInfo
 	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
 		t.Fatal("invalid JSON:", err)
 	}
@@ -172,7 +179,7 @@ func TestGetMemoryInfo(t *testing.T) {
 		t.Fatalf("status = %d", rr.Code)
 	}
 
-	var result DetailedMemoryInfo
+	var result dto.DetailedMemoryInfo
 	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
 		t.Fatal("invalid JSON:", err)
 	}

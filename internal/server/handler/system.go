@@ -63,18 +63,6 @@ func GetLogs(s ServerResources) http.HandlerFunc {
 	}
 }
 
-type CpuUsageSample struct {
-	Overall   float64   `json:"overall"`
-	PerThread []float64 `json:"perThread"`
-}
-
-type DetailedCpuInfo struct {
-	Description  string           `json:"description"`
-	FrequencyMhz float64          `json:"frequencyMhz"`
-	MaxThreads   int              `json:"maxThreads"`
-	UsageSamples []CpuUsageSample `json:"usageSamples"`
-}
-
 func GetCpuInfo(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -84,8 +72,8 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 		}
 
 		samples := sys.CpuHistory(int(q.Limit))
-		result := DetailedCpuInfo{
-			UsageSamples: make([]CpuUsageSample, len(samples)),
+		result := dto.DetailedCpuInfo{
+			UsageSamples: make([]dto.CpuUsageSample, len(samples)),
 		}
 		for i, s := range samples {
 			result.UsageSamples[i].Overall = s.OverallPercent
@@ -104,10 +92,6 @@ func GetCpuInfo(s ServerResources) http.HandlerFunc {
 	}
 }
 
-type DetailedMemoryInfo struct {
-	UsageSamples []sys.MemInfo `json:"usageSamples"`
-}
-
 func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -118,7 +102,7 @@ func GetMemoryInfo(s ServerResources) http.HandlerFunc {
 
 		samples := sys.MemHistory(int(q.Limit))
 
-		dto.SendCompressedJson(w, r, DetailedMemoryInfo{
+		dto.SendCompressedJson(w, r, dto.DetailedMemoryInfo{
 			UsageSamples: samples,
 		})
 

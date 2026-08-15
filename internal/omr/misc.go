@@ -2,10 +2,6 @@ package omr
 
 import "gocv.io/x/gocv"
 
-type Closer interface {
-	Close() error
-}
-
 func CloseAll(c []gocv.Mat) {
 	for i := range c {
 		c[i].Close()

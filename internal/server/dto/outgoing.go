@@ -138,3 +138,32 @@ type ResourceUtilization struct {
 	Uptime     uint64 `json:"uptime"`
 }
 
+//
+// CpuUsageSample
+//
+
+type CpuUsageSample struct {
+	Overall   float64   `json:"overall"`
+	PerThread []float64 `json:"perThread"`
+}
+
+//
+// DetailedCpuInfo
+//
+
+type DetailedCpuInfo struct {
+	Description  string           `json:"description"`
+	FrequencyMhz float64          `json:"frequencyMhz"`
+	MaxThreads   int              `json:"maxThreads"`
+	UsageSamples []CpuUsageSample `json:"usageSamples"`
+}
+
+//
+// DetailedMemoryInfo
+//
+
+type DetailedMemoryInfo struct {
+	UsageSamples []sys.MemInfo `json:"usageSamples"`
+}
+
+
