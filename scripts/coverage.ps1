@@ -3,7 +3,6 @@ go test `
 	./internal/fs `
 	./internal/server/handler `
 	./internal/server/mw `
-	./internal/server/dto `
 	./internal/marker `
 	./internal/pdf `
 	./internal/scanner `

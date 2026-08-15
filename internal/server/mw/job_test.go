@@ -531,7 +531,7 @@ func TestJobResultResponseWriter(t *testing.T) {
 func TestJobRegistrarJob(t *testing.T) {
 	j := newRegistrar(t)
 
-	handler := j.Job(func(
+	handler := j.AsyncJob(func(
 		w http.ResponseWriter,
 		r *http.Request,
 		res JobResources,

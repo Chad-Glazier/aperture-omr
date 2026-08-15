@@ -16,13 +16,6 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func PostScanPdfSync(s ServerResources) http.HandlerFunc {
-	fn := PostScanPdf(s)
-	return func(w http.ResponseWriter, r *http.Request) {
-		fn(w, r, nil)
-	}
-}
-
 var inUse = sync.Mutex{}
 
 func PostScanPdf(s ServerResources) mw.JobHandlerFunc {

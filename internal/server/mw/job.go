@@ -2,10 +2,9 @@ package mw
 
 import (
 	"bytes"
+	"context"
 	"errors"
-	"io"
 	"net/http"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -206,6 +205,10 @@ func (j *JobRegistrar) SetFinished(
 	success bool,
 	result *JobResult,
 ) error {
+	if result == nil {
+		return nil
+	}
+
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -514,29 +517,25 @@ func (j *jobRes) SetNotes(notes string) {
 
 // Wraps the given job-ifiable handler function to automatically run it as an
 // asynchronous job.
-func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
+func (j *JobRegistrar) AsyncJob(handler JobHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		id := uuid.New().String()
 		if err := j.Register(id, r); err != nil {
-			http.Error(
-				w,
+			http.Error(w,
 				"error creating job. UUID collision?",
 				http.StatusInternalServerError,
 			)
 			return
 		}
 
-		copiedReq, cleanup, err := copyRequest(r, MaxBodySize)
-		r.Body.Close()
-		if err != nil {
-			http.Error(
-				w,
-				"error reading request body: "+err.Error(),
-				http.StatusBadRequest,
-			)
+		body, ok := dto.ParseBodyFile(w, r, "", MaxBodySize)
+		if !ok {
 			return
 		}
+
+		copiedReq := r.Clone(context.Background())
+		copiedReq.Body = body
 
 		resources := jobRes{id: id, r: j}
 		result := NewJobResult()
@@ -547,10 +546,10 @@ func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
 		})
 
 		go func() {
-			defer cleanup()
+			defer copiedReq.Body.Close()
 			sys.Log("job started", "id", id)
 			defer sys.Log("job finished", "id", id)
-			RecoverAndRespond(w, r)
+			defer RecoverAndRespond(w, r)
 
 			handler(result, copiedReq, &resources)
 
@@ -563,56 +562,23 @@ func (j *JobRegistrar) Job(handler JobHandlerFunc) http.HandlerFunc {
 	}
 }
 
-// Creates a copy of an HTTP request whose body is backed by a temporary file.
-// The returned cleanup function must be called when the copied request is no
-// longer needed.
-func copyRequest(
-	r *http.Request,
-	maxBodySize uint64,
-) (*http.Request, func(), error) {
+func (j *JobRegistrar) SyncJob(handler JobHandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-	req := r.Clone(r.Context())
+		id := uuid.New().String()
+		if err := j.Register(id, r); err != nil {
+			http.Error(w,
+				"error creating job. UUID collision?",
+				http.StatusInternalServerError,
+			)
+			return
+		}
 
-	if r.Body == nil {
-		return req, func() {}, nil
+		resources := jobRes{id: id, r: j}
+
+		handler(w, r, &resources)
+
+		job, _ := j.Get(id)
+		j.SetFinished(id, job.Progress == 1, nil)
 	}
-
-	//
-	// Copy the request body into a temporary file.
-	//
-
-	tmp, err := os.CreateTemp("", "omr-job-*")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cleanup := func() {
-		tmp.Close()
-		os.Remove(tmp.Name())
-	}
-
-	n, err := io.Copy(tmp, io.LimitReader(r.Body, int64(maxBodySize)+1))
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-
-	if n > int64(maxBodySize) {
-		cleanup()
-		return nil, nil, ErrRequestTooLarge
-	}
-
-	//
-	// Rewind and attach the file to the copied request.
-	//
-
-	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-
-	req.Body = tmp
-	req.ContentLength = n
-
-	return req, cleanup, nil
 }

@@ -294,7 +294,8 @@ func ParseQuery[T Validator](
 // Returns the bytes for a request body except it is decoded with gzip and/or
 // deflate as instructed by the Content-Encoding header. The Content-Type 
 // header is checked and the content is sniffed to verify the correct file 
-// type. This function closes the request body.
+// type. If you do not need to check the content type, pass an empty string. 
+// This function closes the request body.
 //
 // Since this function maintains the bytes in memory, it should be used only
 // when the request body is not excessively large. Consider using 
@@ -312,7 +313,9 @@ func ParseBodyBytes(
 	maxSize uint64,
 ) (io.ReadSeekCloser, bool) {
 		
-	if r.Header.Get("Content-Type") != "application/json" {
+	checkContentType := contentType != ""
+
+	if checkContentType && r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w,
 			"expected Content-Type header to " + contentType,
 			http.StatusUnsupportedMediaType,
@@ -362,7 +365,7 @@ func ParseBodyBytes(
 		return nil, false
 	}
 
-	if http.DetectContentType(buf) != contentType {
+	if checkContentType && http.DetectContentType(buf) != contentType {
 		http.Error(w,
 			"request body does not match the given Content-Type",
 			http.StatusUnsupportedMediaType,
@@ -429,7 +432,9 @@ func ParseBodyFile(
 	maxSize uint64,
 ) (io.ReadSeekCloser, bool) {
 
-	if r.Header.Get("Content-Type") != "application/json" {
+	checkContentType := contentType != ""
+
+	if checkContentType && r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w,
 			"expected Content-Type header to " + contentType,
 			http.StatusUnsupportedMediaType,
@@ -490,7 +495,7 @@ func ParseBodyFile(
 	head := make([]byte, 512)
 	f.Seek(0, io.SeekStart)
 	f.Read(head)
-	if http.DetectContentType(head) != contentType {
+	if checkContentType && http.DetectContentType(head) != contentType {
 		http.Error(w,
 			"request body does not match the given Content-Type",
 			http.StatusUnsupportedMediaType,
