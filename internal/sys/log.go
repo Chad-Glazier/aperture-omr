@@ -195,14 +195,14 @@ func FgWhite(s string) string   { return FG_WHITE + s + RESET_FG }
 func FgBrightBlack(s string) string { return FG_BRIGHT_BLACK + s + RESET_FG }
 func FgBrightRed(s string) string   { return FG_BRIGHT_RED + s + RESET_FG }
 
-func FgBrightGreen(s string) string   { return FG_BRIGHT_GREEN + s + RESET_FG }
+func FgBrightGreen(s string) string  { return FG_BRIGHT_GREEN + s + RESET_FG }
 func FgBrightYellow(s string) string { return FG_BRIGHT_YELLOW + s + RESET_FG }
 func FgBrightBlue(s string) string   { return FG_BRIGHT_BLUE + s + RESET_FG }
 
 func FgBrightMagenta(s string) string { return FG_BRIGHT_MAGENTA + s + RESET_FG }
-func FgBrightCyan(s string) string { return FG_BRIGHT_CYAN + s + RESET_FG }
+func FgBrightCyan(s string) string    { return FG_BRIGHT_CYAN + s + RESET_FG }
 
-func FgBrightWhite(s string) string   { return FG_BRIGHT_WHITE + s + RESET_FG }
+func FgBrightWhite(s string) string { return FG_BRIGHT_WHITE + s + RESET_FG }
 
 func Bold(s string) string { return BOLD + s + RESET_INTENSITY }
 func Dim(s string) string  { return DIM + s + RESET_INTENSITY }

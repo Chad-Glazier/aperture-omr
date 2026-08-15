@@ -9,10 +9,12 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
+// We don't log the commonly-polled endpoints.
 var omittedEndpoints = []string{
 	"GET /system/utilization",
 	"GET /system/logs",
 	"GET /jobs",
+	"GET /job",
 }
 
 // Creates middleware that logs each request and response.
@@ -39,7 +41,7 @@ func Logger(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(wrappedWriter, r)
 
-		if wrappedWriter.statusCode >= http.StatusInternalServerError {
+		if wrappedWriter.statusCode >= 500 {
 			sys.Error(
 				"outgoing",
 				"endpoint", r.Method+" "+r.URL.Path,
@@ -64,9 +66,14 @@ func Logger(next http.Handler) http.Handler {
 //
 
 type loggedResponseWriter struct {
-	resp             http.ResponseWriter
-	statusCode       int
-	plainTextContent string
+	resp       http.ResponseWriter
+	statusCode int
+}
+
+var _ http.ResponseWriter = (*loggedResponseWriter)(nil)
+
+func (l *loggedResponseWriter) Write(p []byte) (int, error) {
+	return l.resp.Write(p)
 }
 
 func (l *loggedResponseWriter) Header() http.Header {
@@ -76,18 +83,4 @@ func (l *loggedResponseWriter) Header() http.Header {
 func (l *loggedResponseWriter) WriteHeader(statusCode int) {
 	l.statusCode = statusCode
 	l.resp.WriteHeader(statusCode)
-}
-
-func (l *loggedResponseWriter) Write(data []byte) (int, error) {
-	if strings.HasPrefix(l.resp.Header().Get("Content-Type"), "text/plain") {
-		l.plainTextContent = truncateContent(data, 20)
-	}
-	return l.resp.Write(data)
-}
-
-func truncateContent(text []byte, length int) string {
-	if len(text) <= length {
-		return string(text)
-	}
-	return string(text[:length-3]) + "..."
 }

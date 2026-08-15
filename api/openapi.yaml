@@ -1,7 +1,7 @@
 openapi: 3.0.3
 
 info:
-  title: OMR Service
+  title: Aperture OMR
   version: "0.0.1"
   description: |
     A service to perform Optical Mark Recognition (OMR) on scanned 

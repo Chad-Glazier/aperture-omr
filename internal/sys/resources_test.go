@@ -123,14 +123,14 @@ func TestDiskHistory(t *testing.T) {
 		}
 
 		if Docker() {
-			
+
 			//
 			// Docker may give inconsistent counts for free/used/total memory,
 			// so the following condition is not guaranteed to hold. If there
 			// is a substitute condition or an alternative, consistent
 			// implementation, I do not know of it.
 			//
-			
+
 			continue
 		}
 

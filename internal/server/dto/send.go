@@ -6,11 +6,11 @@ functions for serialization, deserialization, and validation where appropriate.
 package dto
 
 import (
-	"net/http"
-	"strings"
-	"encoding/json"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/json"
+	"net/http"
+	"strings"
 )
 
 // Sends a JSON body.

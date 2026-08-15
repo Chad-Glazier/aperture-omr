@@ -10,6 +10,11 @@ import (
 	"gocv.io/x/gocv"
 )
 
+const (
+	MaxSizeMarkingTemplate       = 20 << 20 // 20 MB
+	MaxSizePreprocessingTemplate = 20 << 20 // 20 MB
+)
+
 //
 // Marking templates
 //
@@ -17,7 +22,9 @@ import (
 func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		tmpl, ok := dto.ParseJsonBody[*dto.MarkingTemplate](w, r, 20<<20)
+		tmpl, ok := dto.ParseJsonBody[*dto.MarkingTemplate](
+			w, r, MaxSizeMarkingTemplate,
+		)
 		if !ok {
 			return
 		}
@@ -31,9 +38,7 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 			return
 		}
 
-		dto.SendJson(w, map[string]string{
-			"templateId": id,
-		})
+		dto.SendJson(w, dto.IdResponse{Id: id})
 	}
 }
 
@@ -59,13 +64,15 @@ func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
 func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessingTemplate](w, r, 20<<20)
+		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessingTemplate](
+			w, r, MaxSizePreprocessingTemplate,
+		)
 		if !ok {
 			return
 		}
 
 		//
-		// The anchor images are base64-encoded in the JSON request body. We 
+		// The anchor images are base64-encoded in the JSON request body. We
 		// will decode them and convert them to preprocessed matrices before
 		// storing them. This means that we do not need to keep their base64
 		// versions inside of the JSON body when we store it.
@@ -142,9 +149,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 			}
 		}
 
-		dto.SendJson(w, map[string]string{
-			"templateId": templateId,
-		})
+		dto.SendJson(w, dto.IdResponse{Id: templateId})
 	}
 }
 

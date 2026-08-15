@@ -267,7 +267,6 @@ func AdaptMarkerTemplate(tmpl *MarkingTemplate) *marker.Template {
 	return &template
 }
 
-
 //
 // PreprocessingTemplate
 //
@@ -275,7 +274,7 @@ func AdaptMarkerTemplate(tmpl *MarkingTemplate) *marker.Template {
 type PreprocessingTemplate struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
-	Config    struct {
+	Config struct {
 		BlurSize            int     `json:"blurSize"`
 		MorphCloseSize      int     `json:"morphCloseSize"`
 		MinAnchorConfidence float64 `json:"minAnchorConfidence"`
@@ -284,7 +283,7 @@ type PreprocessingTemplate struct {
 	} `json:"config"`
 	Pages []struct {
 		Anchors []struct {
-			Image string `json:"image"` // base64-encoded
+			Image  string `json:"image"` // base64-encoded
 			Center struct {
 				X int `json:"x"`
 				Y int `json:"y"`
@@ -343,7 +342,7 @@ func (p *PreprocessingTemplate) Validate() error {
 				)
 			}
 			err := inBounds(
-				p.Width, p.Height, 
+				p.Width, p.Height,
 				page.Anchors[0].Center.X, page.Anchors[0].Center.Y,
 			)
 			if err != nil {
@@ -383,8 +382,8 @@ func inBounds(width, height, x, y int) error {
 	return nil
 }
 
-// Converts a PreprocessingTemplate into a [scanner.Template], populating it 
-// with the given anchors. An error will be returned if the number of anchors 
+// Converts a PreprocessingTemplate into a [scanner.Template], populating it
+// with the given anchors. An error will be returned if the number of anchors
 // does not match the number of anchors expected by the template.
 func AdaptScannerTemplate(
 	tmpl *PreprocessingTemplate,
@@ -411,8 +410,8 @@ func AdaptScannerTemplate(
 	}
 
 	scannerTmpl := scanner.Template{
-		Width:     tmpl.Width,
-		Height:    tmpl.Height,
+		Width:  tmpl.Width,
+		Height: tmpl.Height,
 		Config: scanner.Config{
 			BlurSize:            tmpl.Config.BlurSize,
 			MorphCloseSize:      tmpl.Config.MorphCloseSize,

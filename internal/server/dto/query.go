@@ -19,8 +19,8 @@ type IdQuery struct {
 	Id string
 }
 
-func (i IdQuery) Validate() error { 
-	return nil 
+func (i IdQuery) Validate() error {
+	return nil
 }
 
 type LimitQuery struct {
@@ -46,7 +46,6 @@ type GetSnippetQuery struct {
 
 func (g GetSnippetQuery) Validate() error { return nil }
 
-
 type GetImageQuery struct {
 	Scan string
 	Page uint
@@ -56,7 +55,7 @@ func (g GetImageQuery) Validate() error { return nil }
 
 type PostScanPdfQuery struct {
 	PreprocessingTemplate string
-	Dpi                   uint   `default:"300"`
+	Dpi                   uint `default:"300"`
 }
 
 func (p PostScanPdfQuery) Validate() error {

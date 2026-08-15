@@ -1,10 +1,4 @@
 {
-    "performanceMetrics": {
-        "startTime": 0,
-        "endTime": 0,
-        "diskTime": 0,
-        "omrTime": 0
-    },
     "pagesMarked": 2,
     "templateId": "dummy value",
     "scans": [

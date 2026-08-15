@@ -16,8 +16,9 @@ import (
 )
 
 //
-// This file implements two important "parsers": one to parse a JSON body to
-// a struct, and another to parse the query parameters to a struct.
+// This file implements a few "parsers". Parsers are responsible for taking a
+// request and ensuring that its body matches a given type and is within a
+// certain size limit.
 //
 
 type Validator interface {
@@ -185,10 +186,10 @@ func (w *wrappingReadCloser) Close() error {
 // of the given type. For each exported field on the struct, a matching query
 // parameter will be checked, except that the query parameter is expected to
 // begin with a lowercase letter. For example, the struct field "Foo" will be
-// assigned the value of the query parameter "foo". In order to make a value 
+// assigned the value of the query parameter "foo". In order to make a value
 // optional, give it a struct tag "default" which is set to its default value.
 //
-// Currently supported field types include string, bool, all unsigned integer 
+// Currently supported field types include string, bool, all unsigned integer
 // types, and all signed integer types. The function calls [strconv.ParseBool]
 // and thereby uses the same rules for converting strings to bools.
 //
@@ -234,8 +235,8 @@ func ParseQuery[T Validator](
 				FieldByName(f.Name).
 				SetString(strVal)
 
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, 
-		     reflect.Uint32, reflect.Uint64:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16,
+			reflect.Uint32, reflect.Uint64:
 			val, err := strconv.ParseUint(strVal, 10, 64)
 			if err != nil {
 				http.Error(w,
@@ -248,8 +249,8 @@ func ParseQuery[T Validator](
 				FieldByName(f.Name).
 				SetUint(val)
 
-		case reflect.Int, reflect.Int8,	reflect.Int16, 
-		     reflect.Int32, reflect.Int64:
+		case reflect.Int, reflect.Int8, reflect.Int16,
+			reflect.Int32, reflect.Int64:
 			val, err := strconv.Atoi(strVal)
 			if err != nil {
 				http.Error(w,
@@ -274,15 +275,15 @@ func ParseQuery[T Validator](
 			reflect.ValueOf(&v).Elem().
 				FieldByName(f.Name).
 				SetBool(val)
-				
+
 		default:
 			panic(
-				"dto: type parameter passed to ParseQuery includes "+
-				"unsupported field type " + f.Name,
+				"dto: type parameter passed to ParseQuery includes " +
+					"unsupported field type " + f.Name,
 			)
 		}
 	}
-	
+
 	if err := v.Validate(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return v, false
@@ -292,32 +293,32 @@ func ParseQuery[T Validator](
 }
 
 // Returns the bytes for a request body except it is decoded with gzip and/or
-// deflate as instructed by the Content-Encoding header. The Content-Type 
-// header is checked and the content is sniffed to verify the correct file 
-// type. If you do not need to check the content type, pass an empty string. 
+// deflate as instructed by the Content-Encoding header. The Content-Type
+// header is checked and the content is sniffed to verify the correct file
+// type. If you do not need to check the content type, pass an empty string.
 // This function closes the request body.
 //
 // Since this function maintains the bytes in memory, it should be used only
-// when the request body is not excessively large. Consider using 
-// [ParseBodyFile] in those cases. 
+// when the request body is not excessively large. Consider using
+// [ParseBodyFile] in those cases.
 //
 // The second return value will be false if there was an error. In that case,
 // this function will have already sent an appropriate response to the client
-// and the request body will be closed. Possible response statuses include 
+// and the request body will be closed. Possible response statuses include
 // 400 Bad Request, 415 Unsupported Media Type, 413 Request Entity Too Large,
 // and 500 Internal Server Error.
 func ParseBodyBytes(
-	w http.ResponseWriter, 
-	r *http.Request, 
+	w http.ResponseWriter,
+	r *http.Request,
 	contentType string,
 	maxSize uint64,
 ) (io.ReadSeekCloser, bool) {
-		
+
 	checkContentType := contentType != ""
 
 	if checkContentType && r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w,
-			"expected Content-Type header to " + contentType,
+			"expected Content-Type header to "+contentType,
 			http.StatusUnsupportedMediaType,
 		)
 		r.Body.Close()
@@ -353,7 +354,7 @@ func ParseBodyBytes(
 		m := &http.MaxBytesError{}
 		if ok := errors.As(err, &m); ok {
 			http.Error(w,
-				"request body exceeds " + formatMemorySize(maxSize),
+				"request body exceeds "+formatMemorySize(maxSize),
 				http.StatusRequestEntityTooLarge,
 			)
 			return nil, false
@@ -373,7 +374,7 @@ func ParseBodyBytes(
 		return nil, false
 	}
 
-	return &rsc{ b: buf }, true
+	return &rsc{b: buf}, true
 }
 
 // A simple [io.ReadSeekCloser] implementation.
@@ -385,7 +386,7 @@ type rsc struct {
 var _ io.ReadSeekCloser = (*rsc)(nil)
 
 func (r *rsc) Read(p []byte) (int, error) {
-	n := min(len(p), len(r.b) - int(r.idx))
+	n := min(len(p), len(r.b)-int(r.idx))
 	if copied := copy(p, r.b[r.idx:n]); copied != n {
 		panic("copy returned fewer bytes than expected")
 	}
@@ -422,12 +423,12 @@ func (r *rsc) Close() error {
 	return nil
 }
 
-// Equivalent to [ParseBodyBytes], except it uses a backing temporary file 
+// Equivalent to [ParseBodyBytes], except it uses a backing temporary file
 // instead of an in-memory byte buffer. It's essential that the Close method of
 // the result be called.
 func ParseBodyFile(
-	w http.ResponseWriter, 
-	r *http.Request, 
+	w http.ResponseWriter,
+	r *http.Request,
 	contentType string,
 	maxSize uint64,
 ) (io.ReadSeekCloser, bool) {
@@ -436,7 +437,7 @@ func ParseBodyFile(
 
 	if checkContentType && r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w,
-			"expected Content-Type header to " + contentType,
+			"expected Content-Type header to "+contentType,
 			http.StatusUnsupportedMediaType,
 		)
 		r.Body.Close()
@@ -480,7 +481,7 @@ func ParseBodyFile(
 		m := &http.MaxBytesError{}
 		if ok := errors.As(err, &m); ok {
 			http.Error(w,
-				"request body exceeds " + formatMemorySize(maxSize),
+				"request body exceeds "+formatMemorySize(maxSize),
 				http.StatusRequestEntityTooLarge,
 			)
 			return nil, false
@@ -489,9 +490,9 @@ func ParseBodyFile(
 			"unexpected error while reading request body",
 			http.StatusInternalServerError,
 		)
-		return nil, false		
+		return nil, false
 	}
-	
+
 	head := make([]byte, 512)
 	f.Seek(0, io.SeekStart)
 	f.Read(head)
@@ -504,7 +505,7 @@ func ParseBodyFile(
 	}
 
 	f.Seek(0, io.SeekStart)
-	return &rscFile{ File: f }, true
+	return &rscFile{File: f}, true
 }
 
 // A simple [io.ReadSeekCloser] implementation that uses a temporary file.

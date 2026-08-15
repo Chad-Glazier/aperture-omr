@@ -411,7 +411,7 @@ func (j *JobRegistrar) ListHandler(s AdminKeyChecker) http.HandlerFunc {
 }
 
 type AdminKeyChecker interface {
-	// This should return true if and only if the given request has a valid 
+	// This should return true if and only if the given request has a valid
 	// admin key.
 	CheckAdminKey(r *http.Request) bool
 }
@@ -560,9 +560,20 @@ func (j *JobRegistrar) SyncJob(handler JobHandlerFunc) http.HandlerFunc {
 
 		resources := jobRes{id: id, r: j}
 
-		handler(w, r, &resources)
+		// We wrap the writer just to track the status. This lets us set the
+		// correct "success" status on the job.
+		wrappedWriter := &loggedResponseWriter{
+			resp:       w,
+			statusCode: http.StatusOK,
+		}
 
-		job, _ := j.Get(id)
-		j.SetFinished(id, job.Progress == 1, nil)
+		handler(wrappedWriter, r, &resources)
+
+		j.SetFinished(
+			id,
+			wrappedWriter.statusCode >= 200 &&
+				wrappedWriter.statusCode < 300,
+			nil,
+		)
 	}
 }

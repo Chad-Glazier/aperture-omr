@@ -105,7 +105,6 @@ func NewMarkingResult(
 func AdaptMark(a *marker.Answer) Mark {
 
 	var m Mark
-
 	m.Flagged = a.Flag
 	m.QuestionId = a.QuestionID
 	m.Selected = a.Selected
@@ -113,7 +112,6 @@ func AdaptMark(a *marker.Answer) Mark {
 	m.Confidence = a.Confidence
 
 	return m
-
 }
 
 //
@@ -166,4 +164,10 @@ type DetailedMemoryInfo struct {
 	UsageSamples []sys.MemInfo `json:"usageSamples"`
 }
 
+//
+// IdResponse
+//
 
+type IdResponse struct {
+	Id string `json:"id"`
+}

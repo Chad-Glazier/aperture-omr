@@ -28,7 +28,8 @@ type ServerResources interface {
 	// Saves a marking template and returns the new ID for it.
 	SaveMarkingTemplate(tmpl *dto.MarkingTemplate) (string, error)
 
-	// Loads a marking template and returns the new ID for it.
+	// Loads a marking template and returns the new ID for it. Returns an error
+	// if the template was not found.
 	LoadMarkingTemplate(id string) (*dto.MarkingTemplate, error)
 
 	// Deletes a marking template. Redundant calls are safe.

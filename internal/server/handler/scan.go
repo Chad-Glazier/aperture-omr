@@ -97,7 +97,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 		case pdf.ErrPageCountMismatch:
 			http.Error(w,
 				"the number of pages in the PDF is incompatible with the "+
-				"number of pages in the template",
+					"number of pages in the template",
 				http.StatusBadRequest,
 			)
 			return
@@ -149,7 +149,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 				defer func() {
 					<-semaphore
 					rendered := examsRendered.Add(1)
-					j.SetProgress(float64(rendered)/float64(nExams))
+					j.SetProgress(float64(rendered) / float64(nExams))
 				}()
 
 				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)
@@ -173,8 +173,8 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 				}
 
 				scanId, err := s.SaveScan(
-					binarized, 
-					pictures, 
+					binarized,
+					pictures,
 					q.PreprocessingTemplate,
 				)
 				if err != nil {
@@ -219,19 +219,10 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 func DeleteScans(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		//
-		// Validate the request
-		//
-
 		scanIds, ok := dto.ParseJsonBody[dto.ScanDeleteRequest](w, r, 1<<20)
 		if !ok {
 			return
 		}
-
-		//
-		// Delete the scans and send back 200, whether or not the scans are
-		// actually present.
-		//
 
 		for _, scanId := range scanIds {
 			s.DeleteScan(scanId)

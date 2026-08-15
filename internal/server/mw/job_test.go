@@ -36,7 +36,7 @@ type adminKeyChecker struct {
 }
 
 func newAdminKeyChecker(key string) AdminKeyChecker {
-	return adminKeyChecker{ key: key }
+	return adminKeyChecker{key: key}
 }
 
 func (a adminKeyChecker) CheckAdminKey(r *http.Request) bool {

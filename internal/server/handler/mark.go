@@ -7,8 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/marker"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"gocv.io/x/gocv"
@@ -80,9 +80,9 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		wg.Wait()
 
 		result := dto.NewMarkingResult(
-			body.TemplateId, 
-			len(template.Pages), 
-			scans, 
+			body.TemplateId,
+			len(template.Pages),
+			scans,
 			errs,
 		)
 

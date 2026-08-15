@@ -4,5 +4,3 @@ package omr
 //
 // #include "aperture.h"
 import "C"
-
-

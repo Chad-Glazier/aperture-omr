@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 	"runtime"
+	"strings"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 	"github.com/gen2brain/go-fitz"
 	"github.com/spf13/cobra"
 	"gocv.io/x/gocv"
@@ -18,19 +19,20 @@ var versionCmd = &cobra.Command{
 	Short: "Prints the version of the service and its major dependencies",
 	Long:  `Prints the version of the service and its major dependencies.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		s := "\n"
-		s += "  Aperture OMR       \u001B[96m" +
-			version + "\u001B[0m\n"
-		s += "  ─┬──────────\n"
-		s += fmt.Sprintf(
-			"   ├──go            %s\n", 
-			strings.Split(strings.TrimPrefix(runtime.Version(), "go"), "-")[0],
-		)
-		s += fmt.Sprintf("   ├──opencv        %s\n", gocv.OpenCVVersion())
-		s += fmt.Sprintf("   └──mupdf         %s\n", fitz.FzVersion)
-		s += "\n"
+		fmt.Printf(
+			`
+  Aperture OMR          %s
+  ─┬────────────────────────────
+   ├──go                %s
+   ├──opencv            %s
+   └──mupdf             %s
 
-		fmt.Print(s)
+`,
+			sys.FgBrightCyan(version),
+			strings.Split(strings.TrimPrefix(runtime.Version(), "go"), "-")[0],
+			gocv.OpenCVVersion(),
+			fitz.FzVersion,
+		)
 	},
 }
 

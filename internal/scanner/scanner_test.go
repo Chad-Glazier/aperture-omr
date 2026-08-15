@@ -48,9 +48,9 @@ func loadTestTemplate(t *testing.T) *Template {
 		t.Fatal(err)
 	}
 
-	anchorNames := []string{ 
+	anchorNames := []string{
 		"footer.jpg", "logo.jpg", "info.jpg",
-	 }
+	}
 	for i, name := range anchorNames {
 		f, err := testData.Open("testdata/anchors/" + name)
 		if err != nil {

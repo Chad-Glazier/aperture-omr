@@ -64,7 +64,7 @@ func (d *ScanData) Empty() bool {
 }
 
 type Anchor struct {
-	Image  gocv.Mat       `json:"-"`
+	Image  gocv.Mat        `json:"-"`
 	Path   string          `json:"path"`
 	ROI    image.Rectangle `json:"roi"`
 	Center image.Point     `json:"center"`
@@ -530,9 +530,9 @@ func Binarize(src, dst *gocv.Mat, conf Config) error {
 }
 
 func warp(
-	src ScanData, dst *ScanData, 
-	anchors []Anchor, 
-	width, height int, 
+	src ScanData, dst *ScanData,
+	anchors []Anchor,
+	width, height int,
 	conf Config,
 ) error {
 	if src.Empty() {
