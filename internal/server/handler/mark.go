@@ -68,8 +68,11 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 					}
 					scanId := body.ScanIds[idx]
 
-					if err := markScan(s, template, scanId, scans[idx]); err != nil {
-						errs[idx] = &dto.MarkingError{ScanId: scanId, Debug: err.Error()}
+					err := markScan(s, template, scanId, scans[idx])
+					if err != nil {
+						errs[idx] = &dto.MarkingError{
+							ScanId: scanId, Debug: err.Error(),
+						}
 					}
 				}
 			})

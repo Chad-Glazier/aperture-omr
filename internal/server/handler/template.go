@@ -66,7 +66,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 
 		//
 		// The anchor images are base64-encoded in the JSON request body. We 
-		// will decoded them and convert them to preprocessed matrices before
+		// will decode them and convert them to preprocessed matrices before
 		// storing them. This means that we do not need to keep their base64
 		// versions inside of the JSON body when we store it.
 		//

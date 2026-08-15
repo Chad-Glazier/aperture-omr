@@ -109,9 +109,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			return
 		}
 
-		mw.SetNotes(j,
-			fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)),
-		)
+		j.SetNotes(fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)))
 
 		// Clean up the incoming file resources. These calls have already been
 		// deferred, but that won't lead to any panics (the standard library
@@ -151,7 +149,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 				defer func() {
 					<-semaphore
 					rendered := examsRendered.Add(1)
-					mw.SetProgress(j, float64(rendered)/float64(nExams))
+					j.SetProgress(float64(rendered)/float64(nExams))
 				}()
 
 				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)

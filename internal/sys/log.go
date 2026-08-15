@@ -183,35 +183,35 @@ const (
 	SHOW_CURSOR = "\u001B[?25h"
 )
 
-// func FgBlack(s string) string   { return FG_BLACK + s + RESET_FG }
-// func FgRed(s string) string     { return FG_RED + s + RESET_FG }
-// func FgGreen(s string) string   { return FG_GREEN + s + RESET_FG }
-// func FgYellow(s string) string  { return FG_YELLOW + s + RESET_FG }
-// func FgBlue(s string) string    { return FG_BLUE + s + RESET_FG }
-// func FgMagenta(s string) string { return FG_MAGENTA + s + RESET_FG }
-// func FgCyan(s string) string    { return FG_CYAN + s + RESET_FG }
-// func FgWhite(s string) string   { return FG_WHITE + s + RESET_FG }
+func FgBlack(s string) string   { return FG_BLACK + s + RESET_FG }
+func FgRed(s string) string     { return FG_RED + s + RESET_FG }
+func FgGreen(s string) string   { return FG_GREEN + s + RESET_FG }
+func FgYellow(s string) string  { return FG_YELLOW + s + RESET_FG }
+func FgBlue(s string) string    { return FG_BLUE + s + RESET_FG }
+func FgMagenta(s string) string { return FG_MAGENTA + s + RESET_FG }
+func FgCyan(s string) string    { return FG_CYAN + s + RESET_FG }
+func FgWhite(s string) string   { return FG_WHITE + s + RESET_FG }
 
 func FgBrightBlack(s string) string { return FG_BRIGHT_BLACK + s + RESET_FG }
 func FgBrightRed(s string) string   { return FG_BRIGHT_RED + s + RESET_FG }
 
-// func FgBrightGreen(s string) string   { return FG_BRIGHT_GREEN + s + RESET_FG }
+func FgBrightGreen(s string) string   { return FG_BRIGHT_GREEN + s + RESET_FG }
 func FgBrightYellow(s string) string { return FG_BRIGHT_YELLOW + s + RESET_FG }
 func FgBrightBlue(s string) string   { return FG_BRIGHT_BLUE + s + RESET_FG }
 
-// func FgBrightMagenta(s string) string { return FG_BRIGHT_MAGENTA + s + RESET_FG }
+func FgBrightMagenta(s string) string { return FG_BRIGHT_MAGENTA + s + RESET_FG }
 func FgBrightCyan(s string) string { return FG_BRIGHT_CYAN + s + RESET_FG }
 
-// func FgBrightWhite(s string) string   { return FG_BRIGHT_WHITE + s + RESET_FG }
+func FgBrightWhite(s string) string   { return FG_BRIGHT_WHITE + s + RESET_FG }
 
-// func Bold(s string) string { return BOLD + s + RESET_INTENSITY }
-// func Dim(s string) string  { return DIM + s + RESET_INTENSITY }
+func Bold(s string) string { return BOLD + s + RESET_INTENSITY }
+func Dim(s string) string  { return DIM + s + RESET_INTENSITY }
 
-// func Italic(s string) string        { return ITALIC + s + ITALIC_RESET }
-// func Underline(s string) string     { return UNDERLINE + s + UNDERLINE_RESET }
-// func Blink(s string) string         { return BLINK + s + BLINK_RESET }
-// func Reverse(s string) string       { return REVERSE + s + REVERSE_RESET }
-// func Hidden(s string) string        { return HIDDEN + s + HIDDEN_RESET }
-// func Strikethrough(s string) string { return STRIKETHROUGH + s + STRIKETHROUGH_RESET }
+func Italic(s string) string        { return ITALIC + s + ITALIC_RESET }
+func Underline(s string) string     { return UNDERLINE + s + UNDERLINE_RESET }
+func Blink(s string) string         { return BLINK + s + BLINK_RESET }
+func Reverse(s string) string       { return REVERSE + s + REVERSE_RESET }
+func Hidden(s string) string        { return HIDDEN + s + HIDDEN_RESET }
+func Strikethrough(s string) string { return STRIKETHROUGH + s + STRIKETHROUGH_RESET }
 
 func ClearScreen() { fmt.Print(ERASE_SCREEN + RESET_CURSOR) }

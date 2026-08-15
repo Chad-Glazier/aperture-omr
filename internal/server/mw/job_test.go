@@ -10,11 +10,6 @@ import (
 )
 
 //
-// Many of the following tests were written by an LLM and they should probably
-// be refactored/rewritten at some point.
-//
-
-//
 // Helpers
 //
 
