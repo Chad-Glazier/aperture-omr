@@ -30,11 +30,12 @@ var (
 
 var certCmd = &cobra.Command{
 	Use:   "generate-cert",
-	Short: "Generates TLS certificates for the OMR.",
+	Short: "Generates TLS certificates",
 	Long:  `Generate a self-signed X.509 certificate for the OMR's server 
 to use with TLS (that is, to serve over HTTPS). Outputs to 
-'`+certDir+`cert.pem' and '`+certDir+`key.pem' and will 
-overwrite existing files.`,
+'`+certDir+`cert.pem' and '`+certDir+`key.pem' and will overwrite 
+existing files.
+`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if rsaBits < 256 {
 			return errors.New("rsa-bits cannot be less than 256")
@@ -55,7 +56,7 @@ func init() {
 
 	certCmd.Flags().StringVar(&host, 
 		"host", 
-		"localhost", 
+		"localhost,127.0.0.1", 
 		"comma-separated hostnames and IPs to generate a certificate for",
 	)
 	certCmd.Flags().DurationVar(&validFor,
