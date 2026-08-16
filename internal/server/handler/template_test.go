@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"gotest.tools/v3/assert"
 )
 
@@ -23,7 +24,7 @@ var testData embed.FS
 // Posts a marking template to the server. This should always succeed and
 // return the ID of the new template. On an unexpected failure, the test will
 // be terminated.
-func postCanonicalMarkingTemplate(s ServerResources, t *testing.T) string {
+func postCanonicalMarkingTemplate(s res.ServerResources, t *testing.T) string {
 	t.Helper()
 
 	body, err := testData.Open("testdata/marking_templates/canonical.json")
@@ -51,7 +52,7 @@ func postCanonicalMarkingTemplate(s ServerResources, t *testing.T) string {
 // return the ID of the new template. On an unexpected failure, the test will
 // be terminated.
 func postCanonicalPreprocessingTemplate(
-	s ServerResources, t *testing.T,
+	s res.ServerResources, t *testing.T,
 ) string {
 	t.Helper()
 
@@ -103,7 +104,7 @@ func postCanonicalPreprocessingTemplate(
 
 func TestPostMarkingTemplate(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	tt := []struct {
@@ -144,7 +145,7 @@ func TestPostMarkingTemplate(t *testing.T) {
 
 func TestDeleteMarkingTemplate(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	id := postCanonicalMarkingTemplate(s, t)
@@ -196,7 +197,7 @@ func TestPostPreprocessingTemplate(t *testing.T) {
 	// canonical preprocessing template works.
 	//
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	t.Run("canonical", func(t *testing.T) {
@@ -206,7 +207,7 @@ func TestPostPreprocessingTemplate(t *testing.T) {
 
 func TestDeletePreprocessingTemplate(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	id := postCanonicalPreprocessingTemplate(s, t)

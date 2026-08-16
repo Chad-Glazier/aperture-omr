@@ -6,6 +6,7 @@ import (
 
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 
 	"gocv.io/x/gocv"
 )
@@ -19,7 +20,7 @@ const (
 // Marking templates
 //
 
-func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
+func PostMarkingTemplate(s res.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, ok := dto.ParseJsonBody[*dto.MarkingTemplate](
@@ -42,7 +43,7 @@ func PostMarkingTemplate(s ServerResources) http.HandlerFunc {
 	}
 }
 
-func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
+func DeleteMarkingTemplate(s res.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.IdQuery](w, r)
@@ -61,7 +62,7 @@ func DeleteMarkingTemplate(s ServerResources) http.HandlerFunc {
 // Preprocessing templates
 //
 
-func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
+func PostPreprocessingTemplate(s res.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessingTemplate](
@@ -153,7 +154,7 @@ func PostPreprocessingTemplate(s ServerResources) http.HandlerFunc {
 	}
 }
 
-func DeletePreprocessingTemplate(s ServerResources) http.HandlerFunc {
+func DeletePreprocessingTemplate(s res.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		id := r.URL.Query().Get("id")

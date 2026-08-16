@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"gotest.tools/v3/assert"
 )
 
@@ -20,7 +21,7 @@ import (
 // To get the correct preprocessing template ID for this function, see
 // [postCanonicalPreprocessingTemplate].
 func postCanonicalScan(
-	s ServerResources,
+	s res.ServerResources,
 	t *testing.T,
 	preprocessingTemplateId string,
 ) string {
@@ -56,7 +57,7 @@ func postCanonicalScan(
 
 func TestPostScanPdf(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	pTmplId := postCanonicalPreprocessingTemplate(s, t)
@@ -179,7 +180,7 @@ func TestPostScanPdf(t *testing.T) {
 
 func TestDeleteScans(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	pTemplId := postCanonicalPreprocessingTemplate(s, t)

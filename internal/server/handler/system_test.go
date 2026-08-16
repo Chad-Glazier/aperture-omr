@@ -7,30 +7,16 @@ import (
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"gotest.tools/v3/assert"
 )
-
-//
-// Helper functions
-//
-
-func newTestResources(t *testing.T) ServerResources {
-	t.Helper()
-
-	s, err := NewLocalResources(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return s
-}
 
 //
 // Tests
 //
 
 func TestGetResourceUtilization(t *testing.T) {
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (
@@ -50,7 +36,7 @@ func TestGetResourceUtilization(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (
@@ -63,7 +49,7 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetCpuInfo(t *testing.T) {
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (
@@ -76,7 +62,7 @@ func TestGetCpuInfo(t *testing.T) {
 }
 
 func TestGetMemoryInfo(t *testing.T) {
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (
@@ -89,7 +75,7 @@ func TestGetMemoryInfo(t *testing.T) {
 }
 
 func TestCheckAdminKey(t *testing.T) {
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	s.SetAdminKey("secret")

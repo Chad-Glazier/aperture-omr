@@ -13,6 +13,7 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 
 	"gocv.io/x/gocv"
 )
@@ -23,7 +24,7 @@ const (
 
 var inUse = sync.Mutex{}
 
-func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
+func PostScanPdf(s res.ServerResources) mw.JobHandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, j mw.JobResources) {
 
 		//
@@ -227,7 +228,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 	}
 }
 
-func DeleteScan(s ServerResources) http.HandlerFunc {
+func DeleteScan(s res.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.IdQuery](w, r)

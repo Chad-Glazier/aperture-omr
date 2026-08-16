@@ -9,6 +9,7 @@ import (
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"gotest.tools/v3/assert"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 )
 
 //
@@ -67,7 +68,7 @@ func assertIsCanonicalMarks(t *testing.T, w *httptest.ResponseRecorder) {
 
 func TestRequestMarks(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (

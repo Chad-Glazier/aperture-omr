@@ -8,6 +8,7 @@ import (
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/handler"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
@@ -19,7 +20,7 @@ func Start(hostname, port string) {
 
 	debug.SetMemoryLimit(256 << 20)
 
-	s, err := handler.NewLocalResources("data")
+	s, err := res.NewLocalResources("data")
 	if err != nil {
 		sys.Error("error getting server resources", "err", err)
 		os.Exit(1)

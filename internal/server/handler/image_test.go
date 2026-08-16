@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/fs"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"gotest.tools/v3/assert"
 )
 
 func TestGetImage(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (
@@ -91,7 +92,7 @@ func TestGetImage(t *testing.T) {
 
 func TestGetSnippet(t *testing.T) {
 
-	s := newTestResources(t)
+	s := res.TestingResources(t)
 	defer s.Close()
 
 	var (
