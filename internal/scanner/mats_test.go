@@ -222,19 +222,17 @@ func TestScanMatsBadInputs(t *testing.T) {
 	}()
 
 	if _, err := ScanMats(pages[:1], tmpl); err == nil {
-		t.Log(
+		t.Fatal(
 			"ScanMats should fail when the template expects two pages " +
 				"and only one is given",
 		)
-		t.Fail()
 	}
 
 	if _, err := ScanMats(pages[:3], tmpl); err == nil {
-		t.Log(
+		t.Fatal(
 			"ScanMats should fail when the number of pages given is not " +
 				"divisible by the number of pages in the template",
 		)
-		t.Fail()
 	}
 
 }

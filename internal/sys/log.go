@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -63,23 +64,23 @@ func log(level level, msg string, args ...any) {
 	}
 
 	str := s.String()
+	logCache.Add(str)
 
+	if testing.Testing() {
+		return
+	}
+	
 	switch level {
 	case levelMisc:
 		fmt.Println(FgBrightBlack(str))
-		logCache.Add(str)
 	case levelInfo:
 		fmt.Println(FgBrightCyan(str))
-		logCache.Add(str)
 	case levelDebug:
 		fmt.Println(FgBrightBlue(str))
-		logCache.Add(str)
 	case levelWarn:
 		fmt.Println(FgBrightYellow(str))
-		logCache.Add(str)
 	case levelError:
 		fmt.Println(FgBrightRed(str))
-		logCache.Add(str)
 	}
 }
 
