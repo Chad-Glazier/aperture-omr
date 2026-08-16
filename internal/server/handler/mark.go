@@ -84,7 +84,7 @@ func RequestMarks(s ServerResources) mw.JobHandlerFunc {
 						}
 					}
 
-					j.SetProgress(float64(scansMarked.Add(1))/float64(nScans))
+					j.SetProgress(float64(scansMarked.Add(1)) / float64(nScans))
 				}
 			})
 		}

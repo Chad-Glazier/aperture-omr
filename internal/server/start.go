@@ -48,7 +48,7 @@ func Start(hostname, port string) {
 
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(s))
 	mux.HandleFunc("DELETE /template/mark", handler.DeleteMarkingTemplate(s))
-	
+
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(s))
 	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
 

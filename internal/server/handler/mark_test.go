@@ -106,11 +106,14 @@ func TestRequestMarks(t *testing.T) {
 
 	//
 	// Next, we try a batch operation:
-	// 1) first, we upload the "5_funky_duplicate_exams.pdf" scan. This should
-	//    yield 5 scan IDs.
-	// 2) next, we request marks for all 5 at once.
-	// 3) finally, we check their marks. Since they are duplicates, their
-	//    markings should all be equivalent.
+	//
+	// 1) We upload the "5_funky_duplicate_exams.pdf" scan. This should yield 5
+	//    scan IDs.
+	//
+	// 2) Next, we request marks for all 5 scans.
+	//
+	// 3) Finally, we check their marks. Since they are duplicates, their
+	//    markings should all be equal to one another.
 	//
 
 	t.Run("funky bunch", func(t *testing.T) {

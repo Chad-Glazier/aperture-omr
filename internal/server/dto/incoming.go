@@ -1,10 +1,10 @@
 package dto
 
 import (
-	"slices"
 	"errors"
 	"fmt"
 	"image"
+	"slices"
 	"strings"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/marker"

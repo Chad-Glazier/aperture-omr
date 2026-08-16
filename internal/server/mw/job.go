@@ -578,10 +578,10 @@ func (j *JobRegistrar) SyncJob(handler JobHandlerFunc) http.HandlerFunc {
 	}
 }
 
-// This function uses the synchronous version of a job handler to handle a 
+// This function uses the synchronous version of a job handler to handle a
 // request by connecting it to a temporary registrar. Since there is no lasting
-// registrar, there is no way to check it's progress or use any of the other 
-// benefits of running it as a job. However, this method is still convenient 
+// registrar, there is no way to check it's progress or use any of the other
+// benefits of running it as a job. However, this method is still convenient
 // when, for example, you want to run a job as a regular handler during tests.
 func (j JobHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	NewJobRegistrar(time.Hour).SyncJob(j).ServeHTTP(w, r)
