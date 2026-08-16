@@ -43,35 +43,36 @@ func Start(hostname, port string) {
 	mux := http.NewServeMux()
 
 	//
-	// Developer Endpoints
-	//
-
-	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
-
-	//
 	// Core API
 	//
 
-	mux.HandleFunc("GET /ping", handler.Ping)
-
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(s))
 	mux.HandleFunc("DELETE /template/mark", handler.DeleteMarkingTemplate(s))
+	
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(s))
 	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
 
 	mux.HandleFunc("POST /scan/pdf", j.SyncJob(handler.PostScanPdf(s)))
+	mux.HandleFunc("POST /scan/pdf/async", j.AsyncJob(handler.PostScanPdf(s)))
+
 	mux.HandleFunc("DELETE /scan", handler.DeleteScan(s))
 
-	mux.HandleFunc("GET /job", j.Handler())
-	mux.HandleFunc("GET /jobs", j.ListHandler(s))
-	mux.HandleFunc("GET /job/result", j.ResultHandler())
-	mux.HandleFunc("POST /job/scan/pdf", j.AsyncJob(handler.PostScanPdf(s)))
-
-	mux.HandleFunc("POST /mark", handler.PostMarkingJob(s))
+	mux.HandleFunc("POST /mark", j.SyncJob(handler.RequestMarks(s)))
+	mux.HandleFunc("POST /mark/async", j.AsyncJob(handler.RequestMarks(s)))
 
 	mux.HandleFunc("GET /image/snippet", handler.GetSnippet(s))
 	mux.HandleFunc("GET /image", handler.GetImage(s))
 
+	mux.HandleFunc("GET /job", j.Handler())
+	mux.HandleFunc("GET /jobs", j.ListHandler(s))
+	mux.HandleFunc("GET /job/result", j.ResultHandler())
+
+	//
+	// System Administration Endpoints
+	//
+
+	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPISpec)
+	mux.HandleFunc("GET /ping", handler.Ping)
 	mux.HandleFunc("GET /system/utilization", handler.GetResourceUtilization(s))
 	mux.HandleFunc("GET /system/logs", handler.GetLogs(s))
 	mux.HandleFunc("GET /system/cpu", handler.GetCpuInfo(s))

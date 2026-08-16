@@ -120,7 +120,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 		}
 
 		j.SetNotes(
-			fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)),
+			fmt.Sprintf("preprocessing %d pages", nExams*uint(pagesPerExam)),
 		)
 
 		//
@@ -196,6 +196,10 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			})
 		}
 		wg.Wait()
+		j.SetProgress(1.0)
+		j.SetNotes(
+			fmt.Sprintf("preprocessed %d pages", nExams*uint(pagesPerExam)),
+		)
 
 		//
 		// Send the response.

@@ -80,7 +80,7 @@ type Mark struct {
 func NewMarkingResult(
 	templateId string,
 	pagesPerScan int,
-	scans []*Scan,
+	scans []Scan,
 	errs []*MarkingError,
 ) MarkingResult {
 	successfulScans := make([]Scan, 0, len(scans))
@@ -91,7 +91,7 @@ func NewMarkingResult(
 			errors = append(errors, *errs[i])
 			continue
 		}
-		successfulScans = append(successfulScans, *scans[i])
+		successfulScans = append(successfulScans, scans[i])
 	}
 
 	return MarkingResult{

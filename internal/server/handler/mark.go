@@ -9,13 +9,18 @@ import (
 
 	"github.com/Chad-Glazier/aperture-omr/internal/marker"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"gocv.io/x/gocv"
 )
 
-func PostMarkingJob(s ServerResources) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+const (
+	MaxSizeMarksRequest = 1 << 20 // 1 MB
+)
+
+func RequestMarks(s ServerResources) mw.JobHandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, j mw.JobResources) {
 
 		//
 		// Parse the request.
@@ -24,7 +29,9 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		defer sys.Tidy()
 		defer r.Body.Close()
 
-		body, ok := dto.ParseJsonBody[*dto.MarkingJobRequest](w, r, 1<<20)
+		body, ok := dto.ParseJsonBody[*dto.MarkingJobRequest](
+			w, r, MaxSizeMarksRequest,
+		)
 		if !ok {
 			return
 		}
@@ -47,10 +54,12 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		// We stream the scans and mark them in parallel.
 		//
 
+		scansMarked := atomic.Uint32{}
 		nextIdx := atomic.Uint32{}
 		nScans := len(body.ScanIds)
+		j.SetNotes(fmt.Sprintf("marking %d exams", nScans))
 
-		scans := make([]*dto.Scan, nScans)
+		scans := make([]dto.Scan, nScans)
 		errs := make([]*dto.MarkingError, nScans)
 
 		wg := sync.WaitGroup{}
@@ -68,16 +77,20 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 					}
 					scanId := body.ScanIds[idx]
 
-					err := markScan(s, template, scanId, scans[idx])
+					err := markScan(s, template, scanId, &scans[idx])
 					if err != nil {
 						errs[idx] = &dto.MarkingError{
 							ScanId: scanId, Debug: err.Error(),
 						}
 					}
+
+					j.SetProgress(float64(scansMarked.Add(1))/float64(nScans))
 				}
 			})
 		}
 		wg.Wait()
+		j.SetProgress(1.0)
+		j.SetNotes(fmt.Sprintf("marked %d exams", nScans))
 
 		result := dto.NewMarkingResult(
 			body.TemplateId,
@@ -90,7 +103,7 @@ func PostMarkingJob(s ServerResources) http.HandlerFunc {
 		case len(result.Scans) == 0:
 			// Every scan in the batch failed to mark.
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			dto.SendCompressedJson(w, r, result.Errors)
+			dto.SendCompressedJson(w, r, result)
 		default:
 			dto.SendCompressedJson(w, r, result)
 		}

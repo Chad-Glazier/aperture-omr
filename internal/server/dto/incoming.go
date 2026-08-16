@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"slices"
 	"errors"
 	"fmt"
 	"image"
@@ -42,6 +43,10 @@ func (m *MarkingJobRequest) Validate() error {
 		return errors.New("scans must be provided")
 	case len(m.ScanIds) == 0:
 		return errors.New("scans must not be empty")
+	}
+
+	if slices.Contains(m.ScanIds, "") {
+		return errors.New("scan IDs cannot be empty")
 	}
 
 	return nil

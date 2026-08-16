@@ -5,10 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
 	"gotest.tools/v3/assert"
 )
 
@@ -39,9 +37,7 @@ func postCanonicalScan(
 	r.URL.RawQuery += "&dpi=250"
 	r.Header.Set("Content-Type", "application/pdf")
 
-	mw.NewJobRegistrar(time.Hour).
-		SyncJob(PostScanPdf(s)).
-		ServeHTTP(w, r)
+	PostScanPdf(s).ServeHTTP(w, r)
 	assert.Assert(t, w.Result().StatusCode == http.StatusOK)
 
 	var result dto.ScanResult
@@ -167,9 +163,7 @@ func TestPostScanPdf(t *testing.T) {
 			}
 			r.Header.Set("Content-Type", "application/pdf")
 
-			mw.NewJobRegistrar(time.Hour).
-				SyncJob(PostScanPdf(s)).
-				ServeHTTP(w, r)
+			PostScanPdf(s).ServeHTTP(w, r)
 			assert.Assert(t, w.Result().StatusCode == test.expectStatus)
 			if test.expectStatus >= 300 || test.expectStatus < 200 {
 				return
