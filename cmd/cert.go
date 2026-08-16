@@ -31,8 +31,8 @@ var (
 var certCmd = &cobra.Command{
 	Use:   "generate-cert",
 	Short: "Generates TLS certificates for the OMR.",
-	Long:  `Generate a self-signed X.509 certificate for the OMR's server to
-use TLS server (that is, to serve over HTTPS). Outputs to 
+	Long:  `Generate a self-signed X.509 certificate for the OMR's server 
+to use with TLS (that is, to serve over HTTPS). Outputs to 
 '`+certDir+`cert.pem' and '`+certDir+`key.pem' and will 
 overwrite existing files.`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -191,7 +191,7 @@ func generateCerts() {
 	}
 	log.Print("wrote cert.pem\n")
 
-	keyOut, err := os.Create(certDir+"key.pem")
+	keyOut, err := os.OpenFile(certDir+"key.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Fatalf("Failed to open key.pem for writing: %v", err)
 	}
