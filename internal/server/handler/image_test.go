@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/fs"
+	"github.com/Chad-Glazier/aperture-omr/internal/fstore"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"gotest.tools/v3/assert"
 )
@@ -35,14 +35,14 @@ func TestGetImage(t *testing.T) {
 			scanId:            scanId,
 			pageIdx:           "0",
 			expectStatus:      http.StatusOK,
-			expectContentType: fs.ImgContentType,
+			expectContentType: fstore.ImgContentType,
 		},
 		{
 			name:              "canonical page 1",
 			scanId:            scanId,
 			pageIdx:           "1",
 			expectStatus:      http.StatusOK,
-			expectContentType: fs.ImgContentType,
+			expectContentType: fstore.ImgContentType,
 		},
 		{
 			name:         "incoherent page index",
@@ -115,7 +115,7 @@ func TestGetSnippet(t *testing.T) {
 			tmplId:            mTmplId,
 			question:          "Q1",
 			expectStatus:      http.StatusOK,
-			expectContentType: fs.ImgContentType,
+			expectContentType: fstore.ImgContentType,
 		},
 		{
 			name:              "canonical page 1 question",
@@ -123,7 +123,7 @@ func TestGetSnippet(t *testing.T) {
 			tmplId:            mTmplId,
 			question:          "I3",
 			expectStatus:      http.StatusOK,
-			expectContentType: fs.ImgContentType,
+			expectContentType: fstore.ImgContentType,
 		},
 		{
 			name:         "unknown question",

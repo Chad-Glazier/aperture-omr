@@ -12,13 +12,18 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
-func Start(hostname, port string) {
+const (
+	SoftMemoryLimit = 256 << 20
+	DefaultAdminKey = "admin"
+)
+
+func setup(port string) *http.Server {
 
 	//
 	// Setup/Configuration
 	//
 
-	debug.SetMemoryLimit(256 << 20)
+	debug.SetMemoryLimit(SoftMemoryLimit)
 
 	s, err := res.NewLocalResources("data")
 	if err != nil {
@@ -32,10 +37,10 @@ func Start(hostname, port string) {
 
 	adminKey := os.Getenv("OMR_ADMIN_KEY")
 	if adminKey == "" {
-		s.SetAdminKey("admin")
+		s.SetAdminKey(DefaultAdminKey)
 		sys.Warn(
 			"OMR_ADMIN_KEY not set in the current environment; using default",
-			"key", "admin",
+			"key", DefaultAdminKey,
 		)
 	} else {
 		s.SetAdminKey(adminKey)
@@ -95,19 +100,36 @@ func Start(hostname, port string) {
 	httpHandler = mw.Recovery(httpHandler)
 	httpHandler = mw.Logger(httpHandler)
 
-	//
-	// Serve!
-	//
-
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: httpHandler,
 	}
 
-	sys.Info("starting server at http://" + hostname + ":" + port)
-	sys.Info(
-		"monitor system usage at " +
-			"http://" + hostname + ":" + port + "/dashboard.html",
-	)
+	return server
+}
+
+func Start(hostname, port string) {
+
+	server := setup(port)
+
+	baseUrl := "http://" + hostname + ":" + port
+	sys.Log("failed to find TLS key files. consider running the generate-cert subcommand")
+	sys.Log("starting server at on port " + port)
+	sys.Info("view documentation at " + baseUrl)
+	sys.Info("monitor system usage at " + baseUrl + "/dashboard.html")
+
 	server.ListenAndServe()
+}
+
+func StartTls(hostname, port, certDir string) {
+
+	server := setup(port)
+
+	baseUrl := "https://" + hostname + ":" + port
+	sys.Log("failed to find TLS key files. consider running the generate-cert subcommand")
+	sys.Log("starting server at on port " + port)
+	sys.Info("view documentation at " + baseUrl)
+	sys.Info("monitor system usage at " + baseUrl + "/dashboard.html")
+
+	server.ListenAndServeTLS(certDir+"cert.pem", certDir+"key.pem")
 }

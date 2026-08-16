@@ -10,12 +10,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var portNum int
+var (
+	portNum int
+	tls bool
+)
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Starts the OMR's HTTP server.",
-	Long:  `Starts the OMR's HTTP server.`,
+	Long:  `Starts the OMR's HTTP server.
+	
+To use TLS, you'll need certificates. You can supply your own by
+setting them in `+certDir+` or by running the 'generate-cert'
+subcommand. The generated certificates will be secure for 
+practical purposes, but since they're not made by a recognized
+Certificate Authority, tools like browsers may give you 
+warnings.
+	`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if portNum < 1 || portNum > 65535 {
 			return fmt.Errorf(
@@ -36,7 +47,16 @@ var serveCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		server.Start("localhost", strconv.Itoa(portNum))
+		var (
+			hostname = "localhost"
+			port = strconv.Itoa(portNum)
+		)
+
+		if tls {
+			server.StartTls(hostname, port, certDir)
+		} else {
+			server.Start(hostname, port)
+		}
 	},
 }
 
@@ -49,5 +69,11 @@ func init() {
 		"p",
 		3000,
 		"port to listen on (1-65535)",
+	)
+	serveCmd.Flags().BoolVar(
+		&tls,
+		"tls",
+		false,
+		"set to true if you want to use TLS",
 	)
 }

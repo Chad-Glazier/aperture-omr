@@ -11,8 +11,7 @@ import (
 	"os"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/database"
-	"github.com/Chad-Glazier/aperture-omr/internal/database/sqlc"
-	"github.com/Chad-Glazier/aperture-omr/internal/fs"
+	"github.com/Chad-Glazier/aperture-omr/internal/fstore"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/google/uuid"
 	"gocv.io/x/gocv"
@@ -27,8 +26,8 @@ type localResources struct {
 	DBCnx  io.Closer
 	DB     database.Querier
 	DBPath string
-	Images fs.ImageStore
-	Mats   fs.MatStore
+	Images fstore.ImageStore
+	Mats   fstore.MatStore
 	key    [64]byte
 }
 
@@ -49,12 +48,12 @@ func NewLocalResources(rootDir string) (*localResources, error) {
 		return nil, err
 	}
 
-	images, err := fs.NewLocalImageStore(rootDir + "/images")
+	images, err := fstore.NewLocalImageStore(rootDir + "/images")
 	if err != nil {
 		return nil, err
 	}
 
-	mats, err := fs.NewLocalMatStore(rootDir + "/matrices")
+	mats, err := fstore.NewLocalMatStore(rootDir + "/matrices")
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +94,7 @@ func (s *localResources) SaveMarkingTemplate(
 
 	err = s.DB.CreateMarkingTemplate(
 		context.Background(),
-		sqlc.CreateMarkingTemplateParams{
+		database.CreateMarkingTemplateParams{
 			ID:   id.String(),
 			Json: buf,
 		},
@@ -147,7 +146,7 @@ func (s *localResources) SavePreprocessingTemplate(
 
 	err = s.DB.CreatePreprocessingTemplate(
 		context.Background(),
-		sqlc.CreatePreprocessingTemplateParams{
+		database.CreatePreprocessingTemplateParams{
 			ID:   id.String(),
 			Json: string(jsonStr),
 		},
@@ -205,7 +204,7 @@ func (s *localResources) SaveAnchor(
 
 	err := s.DB.CreateAnchor(
 		context.Background(),
-		sqlc.CreateAnchorParams{
+		database.CreateAnchorParams{
 			ID:          id,
 			TemplateID:  templateId,
 			PageIndex:   int64(pageIdx),
@@ -270,7 +269,7 @@ func (s *localResources) SaveScan(
 ) (string, error) {
 
 	scanId := uuid.New().String()
-	err := s.DB.CreateScan(context.Background(), sqlc.CreateScanParams{
+	err := s.DB.CreateScan(context.Background(), database.CreateScanParams{
 		ID:                      scanId,
 		PreprocessingTemplateID: templateId,
 	})
@@ -285,8 +284,8 @@ func (s *localResources) SaveScan(
 			return "", err
 		}
 
-		pictureId := uuid.New().String() + fs.ImgFileExt
-		pictureBuf, err := gocv.IMEncode(fs.OpenCVImgExt, pagePictures[i])
+		pictureId := uuid.New().String() + fstore.ImgFileExt
+		pictureBuf, err := gocv.IMEncode(fstore.OpenCVImgExt, pagePictures[i])
 		if err != nil {
 			return "", err
 		}
@@ -299,7 +298,7 @@ func (s *localResources) SaveScan(
 
 		err = s.DB.CreateScanPage(
 			context.Background(),
-			sqlc.CreateScanPageParams{
+			database.CreateScanPageParams{
 				ID:         pageId,
 				PictureKey: pictureId,
 				PageIndex:  int64(i),
@@ -352,7 +351,7 @@ func (s *localResources) LoadScanPicture(
 
 	page, err := s.DB.GetScanPage(
 		context.Background(),
-		sqlc.GetScanPageParams{
+		database.GetScanPageParams{
 			ScanID:    scanId,
 			PageIndex: int64(pageIdx),
 		},
@@ -376,7 +375,7 @@ func (s *localResources) OpenScanPicture(
 
 	page, err := s.DB.GetScanPage(
 		context.Background(),
-		sqlc.GetScanPageParams{
+		database.GetScanPageParams{
 			ScanID:    scanId,
 			PageIndex: int64(pageIdx),
 		},

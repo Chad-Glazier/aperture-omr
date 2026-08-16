@@ -7,7 +7,7 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/fs"
+	"github.com/Chad-Glazier/aperture-omr/internal/fstore"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 )
@@ -34,7 +34,7 @@ func GetImage(s res.ServerResources) http.HandlerFunc {
 		}
 		defer img.Close()
 
-		w.Header().Add("Content-Type", fs.ImgContentType)
+		w.Header().Add("Content-Type", fstore.ImgContentType)
 		if _, err := io.Copy(w, img); err != nil {
 			http.Error(w,
 				"error writing image to response",
@@ -147,8 +147,8 @@ func GetSnippet(s res.ServerResources) http.HandlerFunc {
 		// Send the snippet.
 		//
 
-		w.Header().Add("Content-Type", fs.ImgContentType)
-		if err := fs.EncodeImg(w, snippet); err != nil {
+		w.Header().Add("Content-Type", fstore.ImgContentType)
+		if err := fstore.EncodeImg(w, snippet); err != nil {
 			http.Error(w,
 				"error writing image to response",
 				http.StatusInternalServerError,

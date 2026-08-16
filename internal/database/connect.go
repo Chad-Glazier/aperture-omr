@@ -5,17 +5,13 @@ import (
 	"database/sql"
 	_ "embed"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/database/sqlc"
-
 	_ "modernc.org/sqlite" // sqlite3 driver
 )
 
-//go:embed sqlc/schema.sql
+//go:embed schema.sql
 var databaseInit string
 
 var initialized bool
-
-type Querier sqlc.Querier
 
 func initialize(db *sql.DB) error {
 	ctx := context.Background()
@@ -40,5 +36,5 @@ func Connect(databaseFilepath string) (Querier, *sql.DB, error) {
 		return nil, nil, err
 	}
 
-	return sqlc.New(db), db, nil
+	return New(db), db, nil
 }

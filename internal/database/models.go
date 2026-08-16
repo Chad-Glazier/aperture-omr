@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.31.1
 
-package sqlc
+package database
 
 type Anchor struct {
 	ID          string

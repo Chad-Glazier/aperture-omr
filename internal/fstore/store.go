@@ -2,18 +2,13 @@
 This package provides the means to store files ("fs" is short for "file
 storage").
 */
-package fs
+package fstore
 
 import (
-	"errors"
 	"image"
 	"io"
 
 	"gocv.io/x/gocv"
-)
-
-var (
-	ErrNotFound = errors.New("the requested resource was not found")
 )
 
 // Represents an image store, implementing a map-like interface to save and
@@ -26,7 +21,7 @@ type ImageStore interface {
 	Set(key string, img image.Image) error
 	// Works the same as Set, except it stores the raw bytes and assumes that
 	// they represent an image that is correctly encoded with the format
-	// specified by ImgContentType. It is strongly recommended that image
+	// specified by [ImgContentType]. It is strongly recommended that image
 	// encoding is verified in some way before calling this function.
 	SetBytes(key string, buf []byte) error
 	// Deletes an image from the store.
@@ -44,8 +39,7 @@ type MatStore interface {
 	// Saves an OpenCV matrix under the given key. If a matrix already exists
 	// with the given key, it will be overwritten.
 	Set(key string, mat gocv.Mat) error
-	// Loads an OpenCV matrix by the given key. If no matrix is associated with
-	// the key, then [ErrNotFound] is returned.
+	// Loads an OpenCV matrix by the given key.
 	Get(key string) (gocv.Mat, error)
 	// Deletes a stored matrix.
 	Delete(key string) error
