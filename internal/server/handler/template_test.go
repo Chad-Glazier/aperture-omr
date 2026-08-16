@@ -27,9 +27,7 @@ func postCanonicalMarkingTemplate(s ServerResources, t *testing.T) string {
 	t.Helper()
 
 	body, err := testData.Open("testdata/marking_templates/canonical.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	var (
 		r = httptest.NewRequest("POST", "/", body)

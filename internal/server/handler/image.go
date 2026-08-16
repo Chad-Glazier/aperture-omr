@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"image"
 	"image/draw"
 	"io"
@@ -27,7 +26,7 @@ func GetImage(s ServerResources) http.HandlerFunc {
 		img, err := s.OpenScanPicture(q.Scan, q.Page)
 		if err != nil {
 			http.Error(w,
-				"error retrieving scan image: "+err.Error(),
+				"scan page not found",
 				http.StatusNotFound,
 			)
 			return
@@ -37,7 +36,7 @@ func GetImage(s ServerResources) http.HandlerFunc {
 		w.Header().Add("Content-Type", fs.ImgContentType)
 		if _, err := io.Copy(w, img); err != nil {
 			http.Error(w,
-				"error writing image to response: "+err.Error(),
+				"error writing image to response",
 				http.StatusInternalServerError,
 			)
 			return
@@ -63,9 +62,8 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 
 		tmpl, err := s.LoadMarkingTemplate(q.Template)
 		if err != nil {
-			http.Error(
-				w,
-				"error loading: "+err.Error(),
+			http.Error(w,
+				"marking template not found",
 				http.StatusNotFound,
 			)
 			return
@@ -85,9 +83,8 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 			}
 		}
 		if targetQuestion == nil {
-			http.Error(
-				w,
-				fmt.Sprintf("question %s not found", q.Question),
+			http.Error(w,
+				"question not found",
 				http.StatusNotFound,
 			)
 			return
@@ -99,9 +96,8 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 
 		scan, err := s.LoadScanPicture(q.Scan, targetPageIdx)
 		if err != nil {
-			http.Error(
-				w,
-				"error retrieving scan image: "+err.Error(),
+			http.Error(w,
+				"error retrieving scan image",
 				http.StatusNotFound,
 			)
 			return
@@ -123,7 +119,6 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 			// Note: the X,Y coordinates of an option define the center of it's
 			// bubble. In order to get its bounds, we need to add/subtract half
 			// of the bubble's respective dimension size.
-
 			minX = min(minX, option.X-targetQuestion.BubbleWidth/2)
 			minY = min(minY, option.Y-targetQuestion.BubbleHeight/2)
 			maxX = max(maxX, option.X+targetQuestion.BubbleWidth/2)
@@ -153,9 +148,8 @@ func GetSnippet(s ServerResources) http.HandlerFunc {
 
 		w.Header().Add("Content-Type", fs.ImgContentType)
 		if err := fs.EncodeImg(w, snippet); err != nil {
-			http.Error(
-				w,
-				"error writing image to response: "+err.Error(),
+			http.Error(w,
+				"error writing image to response",
 				http.StatusInternalServerError,
 			)
 			return

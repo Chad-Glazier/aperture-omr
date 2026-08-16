@@ -14,6 +14,13 @@ const defaultLimit = 30
 // Public System Info
 //
 
+func OpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/x-yaml")
+	http.ServeFile(w, r, "./api/openapi.yaml")
+}
+
+func Ping(w http.ResponseWriter, r *http.Request) {}
+
 func GetResourceUtilization(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 

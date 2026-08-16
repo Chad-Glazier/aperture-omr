@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -14,6 +15,10 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 
 	"gocv.io/x/gocv"
+)
+
+const (
+	MaxSizeScan = 200 << 20 // 200 MB
 )
 
 var inUse = sync.Mutex{}
@@ -38,7 +43,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			return
 		}
 
-		body, ok := dto.ParseBodyFile(w, r, "application/pdf", 200<<20)
+		body, ok := dto.ParseBodyFile(w, r, "application/pdf", MaxSizeScan)
 		if !ok {
 			return
 		}
@@ -70,7 +75,12 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 
 		scannerTmpl, err := dto.AdaptScannerTemplate(pTempl, anchors)
 		if err != nil {
-			panic(err)
+			s.DeletePreprocessingTemplate(q.PreprocessingTemplate)
+			http.Error(w,
+				"template "+q.PreprocessingTemplate+" is corrupted",
+				http.StatusInternalServerError,
+			)
+			return
 		}
 
 		//
@@ -109,14 +119,9 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			return
 		}
 
-		j.SetNotes(fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)))
-
-		// Clean up the incoming file resources. These calls have already been
-		// deferred, but that won't lead to any panics (the standard library
-		// generally keeps close operations idempotent).
-		r.MultipartForm.RemoveAll()
-		body.Close()
-		r.Body.Close()
+		j.SetNotes(
+			fmt.Sprintf("rendering %d pages", nExams*uint(pagesPerExam)),
+		)
 
 		//
 		// Process the exam scans as they're rendered.
@@ -127,7 +132,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 
 		examsRendered := atomic.Uint32{}
 		examIdx := atomic.Int32{}
-		semaphore := make(chan struct{}, 4)
+		semaphore := make(chan int, max(1, min(runtime.GOMAXPROCS(0)-1, 4)))
 
 		wg := sync.WaitGroup{}
 		for exam := range exams {
@@ -144,7 +149,7 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 			}
 
 			wg.Go(func() {
-				semaphore <- struct{}{}
+				semaphore <- 0
 				defer exam.Close()
 				defer func() {
 					<-semaphore
@@ -202,8 +207,10 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 		case len(results.ScanIds) == 0:
 			// The PDF was well-formed, but none of the scanned exams passed
 			// preprocessing.
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			dto.SendJson(w, results.Errors)
+			http.Error(w,
+				"none of the scans passed preprocessing",
+				http.StatusUnprocessableEntity,
+			)
 			return
 		case len(results.Errors) == 0:
 			// All scans were successfully preprocessed.
@@ -216,19 +223,15 @@ func PostScanPdf(s ServerResources) mw.JobHandlerFunc {
 	}
 }
 
-func DeleteScans(s ServerResources) http.HandlerFunc {
+func DeleteScan(s ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		scanIds, ok := dto.ParseJsonBody[dto.ScanDeleteRequest](w, r, 1<<20)
+		q, ok := dto.ParseQuery[dto.IdQuery](w, r)
 		if !ok {
 			return
 		}
 
-		for _, scanId := range scanIds {
-			s.DeleteScan(scanId)
-		}
-
+		s.DeleteScan(q.Id)
 		w.WriteHeader(http.StatusOK)
-
 	}
 }

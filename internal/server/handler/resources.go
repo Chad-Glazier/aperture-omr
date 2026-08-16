@@ -74,8 +74,7 @@ type ServerResources interface {
 	DeleteScan(scanId string)
 
 	// Loads a picture from a scan. The "picture" of a scan is the version that
-	// is maintained for human viewers. (Preprocessing leaves the main scan
-	// a little ugly).
+	// is maintained for human viewers.
 	LoadScanPicture(scanId string, pageIdx uint) (image.Image, error)
 
 	// Opens a scan picture for reading.

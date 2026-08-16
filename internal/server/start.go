@@ -52,7 +52,7 @@ func Start(hostname, port string) {
 	// Core API
 	//
 
-	mux.HandleFunc("GET /health", handler.Health)
+	mux.HandleFunc("GET /ping", handler.Ping)
 
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(s))
 	mux.HandleFunc("DELETE /template/mark", handler.DeleteMarkingTemplate(s))
@@ -60,7 +60,7 @@ func Start(hostname, port string) {
 	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
 
 	mux.HandleFunc("POST /scan/pdf", j.SyncJob(handler.PostScanPdf(s)))
-	mux.HandleFunc("DELETE /scan", handler.DeleteScans(s))
+	mux.HandleFunc("DELETE /scan", handler.DeleteScan(s))
 
 	mux.HandleFunc("GET /job", j.Handler())
 	mux.HandleFunc("GET /jobs", j.ListHandler(s))

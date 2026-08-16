@@ -316,7 +316,7 @@ func ParseBodyBytes(
 
 	checkContentType := contentType != ""
 
-	if checkContentType && r.Header.Get("Content-Type") != "application/json" {
+	if checkContentType && r.Header.Get("Content-Type") != contentType {
 		http.Error(w,
 			"expected Content-Type header to "+contentType,
 			http.StatusUnsupportedMediaType,
@@ -435,9 +435,9 @@ func ParseBodyFile(
 
 	checkContentType := contentType != ""
 
-	if checkContentType && r.Header.Get("Content-Type") != "application/json" {
+	if checkContentType && r.Header.Get("Content-Type") != contentType {
 		http.Error(w,
-			"expected Content-Type header to "+contentType,
+			"expected Content-Type header to be "+contentType,
 			http.StatusUnsupportedMediaType,
 		)
 		r.Body.Close()
