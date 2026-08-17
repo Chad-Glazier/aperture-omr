@@ -106,6 +106,14 @@ DELETE FROM
 WHERE
     id = ?;
 
+-- name: GetScansFromBefore :many
+SELECT
+    *
+FROM
+    scans
+WHERE
+    created_at_unix_ms < ?;
+
 -- name: GetScanPage :one
 SELECT 
     *

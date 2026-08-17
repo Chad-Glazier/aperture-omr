@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"runtime"
 
-
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
@@ -23,7 +22,7 @@ func OpenAPISpec(w http.ResponseWriter, r *http.Request) {
 
 func Ping(w http.ResponseWriter, r *http.Request) {}
 
-func GetResourceUtilization(s res.ServerResources) http.HandlerFunc {
+func GetResourceUtilization(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
@@ -59,7 +58,7 @@ func GetResourceUtilization(s res.ServerResources) http.HandlerFunc {
 	}
 }
 
-func GetLogs(s res.ServerResources) http.HandlerFunc {
+func GetLogs(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
@@ -72,7 +71,7 @@ func GetLogs(s res.ServerResources) http.HandlerFunc {
 	}
 }
 
-func GetCpuInfo(s res.ServerResources) http.HandlerFunc {
+func GetCpuInfo(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
@@ -101,7 +100,7 @@ func GetCpuInfo(s res.ServerResources) http.HandlerFunc {
 	}
 }
 
-func GetMemoryInfo(s res.ServerResources) http.HandlerFunc {
+func GetMemoryInfo(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.LimitQuery](w, r)
@@ -122,7 +121,7 @@ func GetMemoryInfo(s res.ServerResources) http.HandlerFunc {
 // Admin Endpoints
 //
 
-func CheckAdminKey(s res.ServerResources) http.HandlerFunc {
+func CheckAdminKey(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authenticated := s.CheckAdminKey(r); !authenticated {
 			http.Error(w,

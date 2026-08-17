@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/handler"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
@@ -25,7 +25,7 @@ func setup(port string) *http.Server {
 
 	debug.SetMemoryLimit(SoftMemoryLimit)
 
-	s, err := res.NewLocalResources("data")
+	s, err := resources.NewLocal("data")
 	if err != nil {
 		sys.Error("error getting server resources", "err", err)
 		os.Exit(1)
@@ -113,8 +113,7 @@ func Start(hostname, port string) {
 	server := setup(port)
 
 	baseUrl := "http://" + hostname + ":" + port
-	sys.Log("failed to find TLS key files. consider running the generate-cert subcommand")
-	sys.Log("starting server at on port " + port)
+	sys.Log("starting server on port " + port)
 	sys.Info("view documentation at " + baseUrl)
 	sys.Info("monitor system usage at " + baseUrl + "/dashboard.html")
 
@@ -126,10 +125,12 @@ func StartTls(hostname, port, certDir string) {
 	server := setup(port)
 
 	baseUrl := "https://" + hostname + ":" + port
-	sys.Log("failed to find TLS key files. consider running the generate-cert subcommand")
-	sys.Log("starting server at on port " + port)
+	sys.Log("starting server on port " + port)
 	sys.Info("view documentation at " + baseUrl)
 	sys.Info("monitor system usage at " + baseUrl + "/dashboard.html")
 
-	server.ListenAndServeTLS(certDir+"cert.pem", certDir+"key.pem")
+	err := server.ListenAndServeTLS(certDir+"cert.pem", certDir+"key.pem")
+	if err != nil && err != http.ErrServerClosed {
+		sys.Error("failed to find valid TLS key files. consider running the generate-cert subcommand")
+	}
 }

@@ -12,8 +12,8 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 
 	"gocv.io/x/gocv"
 )
@@ -24,7 +24,7 @@ const (
 
 var inUse = sync.Mutex{}
 
-func PostScanPdf(s res.ServerResources) mw.JobHandlerFunc {
+func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, j mw.JobResources) {
 
 		//
@@ -54,21 +54,11 @@ func PostScanPdf(s res.ServerResources) mw.JobHandlerFunc {
 		// Load the resources.
 		//
 
-		pTempl, err := s.LoadPreprocessingTemplate(q.PreprocessingTemplate)
+		pTempl, anchors, err := s.LoadPreprocessingTemplate(q.PreprocessingTemplate)
 		if err != nil {
 			http.Error(w,
 				"no template with ID "+q.PreprocessingTemplate+" was found",
 				http.StatusNotFound,
-			)
-			return
-		}
-
-		anchors, err := s.LoadAnchors(q.PreprocessingTemplate)
-		if err != nil {
-			s.DeletePreprocessingTemplate(q.PreprocessingTemplate)
-			http.Error(w,
-				"template "+q.PreprocessingTemplate+" is corrupted",
-				http.StatusInternalServerError,
 			)
 			return
 		}
@@ -98,7 +88,6 @@ func PostScanPdf(s res.ServerResources) mw.JobHandlerFunc {
 		)
 		switch err {
 		case nil:
-			break
 		case pdf.ErrMalformedPdf:
 			http.Error(w,
 				"the given PDF is malformed",
@@ -228,7 +217,7 @@ func PostScanPdf(s res.ServerResources) mw.JobHandlerFunc {
 	}
 }
 
-func DeleteScan(s res.ServerResources) http.HandlerFunc {
+func DeleteScan(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.IdQuery](w, r)

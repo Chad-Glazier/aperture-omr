@@ -383,3 +383,35 @@ func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanP
 	)
 	return i, err
 }
+
+const getScansFromBefore = `-- name: GetScansFromBefore :many
+SELECT
+    id, preprocessing_template_id, created_at_unix_ms
+FROM
+    scans
+WHERE
+    created_at_unix_ms < ?
+`
+
+func (q *Queries) GetScansFromBefore(ctx context.Context, createdAtUnixMs int64) ([]Scan, error) {
+	rows, err := q.db.QueryContext(ctx, getScansFromBefore, createdAtUnixMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Scan
+	for rows.Next() {
+		var i Scan
+		if err := rows.Scan(&i.ID, &i.PreprocessingTemplateID, &i.CreatedAtUnixMs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

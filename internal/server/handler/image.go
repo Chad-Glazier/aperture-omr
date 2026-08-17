@@ -9,14 +9,14 @@ import (
 
 	"github.com/Chad-Glazier/aperture-omr/internal/fstore"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 )
 
 //
 // Send an scan's page image.
 //
 
-func GetImage(s res.ServerResources) http.HandlerFunc {
+func GetImage(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.GetImageQuery](w, r)
@@ -49,7 +49,7 @@ func GetImage(s res.ServerResources) http.HandlerFunc {
 // Send a scan's question snippet.
 //
 
-func GetSnippet(s res.ServerResources) http.HandlerFunc {
+func GetSnippet(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.GetSnippetQuery](w, r)

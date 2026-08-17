@@ -10,8 +10,8 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/marker"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
 
 	"gocv.io/x/gocv"
 )
@@ -20,7 +20,7 @@ const (
 	MaxSizeMarksRequest = 1 << 20 // 1 MB
 )
 
-func RequestMarks(s res.ServerResources) mw.JobHandlerFunc {
+func RequestMarks(s resources.ServerResources) mw.JobHandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, j mw.JobResources) {
 
 		//
@@ -130,7 +130,7 @@ func (s *scan) close() {
 }
 
 func markScan(
-	s res.ServerResources,
+	s resources.ServerResources,
 	template *marker.Template,
 	scanId string,
 	out *dto.Scan,

@@ -28,13 +28,13 @@ func NewLocalImageStore(rootDir string) (ImageStore, error) {
 func (s *localImageStore) Get(key string) (image.Image, error) {
 	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
-		return nil, err
+		return nil, ErrNotFound
 	}
 	defer f.Close()
 
 	img, err := DecodeImg(f)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecoding
 	}
 
 	return img, nil
@@ -43,28 +43,40 @@ func (s *localImageStore) Get(key string) (image.Image, error) {
 func (s *localImageStore) Set(key string, img image.Image) error {
 	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
-		return err
+		return ErrCreatingFile
 	}
 	defer w.Close()
 
-	err = EncodeImg(w, img)
-	return err
+	if err = EncodeImg(w, img); err != nil {
+		return ErrEncoding
+	}
+
+	return nil
 }
 
 func (s *localImageStore) SetBytes(key string, buf []byte) error {
-	return os.WriteFile(
+	err := os.WriteFile(
 		filepath.Join(s.root, key),
 		buf,
 		0755,
 	)
+	if err != nil {
+		return ErrCreatingFile
+	}
+
+	return nil
 }
 
-func (s *localImageStore) Delete(key string) error {
-	return os.Remove(filepath.Join(s.root, key))
+func (s *localImageStore) Delete(key string) {
+	os.Remove(filepath.Join(s.root, key))
 }
 
 func (s *localImageStore) Open(key string) (io.ReadCloser, error) {
-	return os.Open(filepath.Join(s.root, key))
+	r, err := os.Open(filepath.Join(s.root, key))
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	return r, nil
 }
 
 func (s *localImageStore) Count() (int, uint64) {
@@ -102,29 +114,36 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 }
 
 func (s *localMatStore) Set(key string, mat gocv.Mat) error {
-
 	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
-		return err
+		return ErrCreatingFile
 	}
 	defer w.Close()
 
-	return EncodeMat(w, mat)
+	if err := EncodeMat(w, mat); err != nil {
+		return ErrEncoding
+	}
+
+	return nil
 }
 
 func (s *localMatStore) Get(key string) (gocv.Mat, error) {
-
 	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
-		return gocv.Mat{}, err
+		return gocv.Mat{}, ErrNotFound
 	}
 	defer f.Close()
 
-	return DecodeMat(f)
+	mat, err := DecodeMat(f)
+	if err != nil {
+		return gocv.Mat{}, ErrDecoding
+	}
+
+	return mat, nil
 }
 
-func (s *localMatStore) Delete(key string) error {
-	return os.Remove(filepath.Join(s.root, key))
+func (s *localMatStore) Delete(key string) {
+	os.Remove(filepath.Join(s.root, key))
 }
 
 func (s *localMatStore) Count() (int, uint64) {

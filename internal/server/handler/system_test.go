@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"gotest.tools/v3/assert"
 )
 
@@ -16,7 +16,7 @@ import (
 //
 
 func TestGetResourceUtilization(t *testing.T) {
-	s := res.TestingResources(t)
+	s := resources.NewTesting(t)
 	defer s.Close()
 
 	var (
@@ -36,7 +36,7 @@ func TestGetResourceUtilization(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
-	s := res.TestingResources(t)
+	s := resources.NewTesting(t)
 	defer s.Close()
 
 	var (
@@ -49,7 +49,7 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetCpuInfo(t *testing.T) {
-	s := res.TestingResources(t)
+	s := resources.NewTesting(t)
 	defer s.Close()
 
 	var (
@@ -62,7 +62,7 @@ func TestGetCpuInfo(t *testing.T) {
 }
 
 func TestGetMemoryInfo(t *testing.T) {
-	s := res.TestingResources(t)
+	s := resources.NewTesting(t)
 	defer s.Close()
 
 	var (
@@ -75,7 +75,7 @@ func TestGetMemoryInfo(t *testing.T) {
 }
 
 func TestCheckAdminKey(t *testing.T) {
-	s := res.TestingResources(t)
+	s := resources.NewTesting(t)
 	defer s.Close()
 
 	s.SetAdminKey("secret")

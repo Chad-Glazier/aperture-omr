@@ -1,14 +1,10 @@
 package handler
 
 import (
-	"encoding/base64"
 	"net/http"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/res"
-
-	"gocv.io/x/gocv"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 )
 
 const (
@@ -20,7 +16,7 @@ const (
 // Marking templates
 //
 
-func PostMarkingTemplate(s res.ServerResources) http.HandlerFunc {
+func PostMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, ok := dto.ParseJsonBody[*dto.MarkingTemplate](
@@ -43,7 +39,7 @@ func PostMarkingTemplate(s res.ServerResources) http.HandlerFunc {
 	}
 }
 
-func DeleteMarkingTemplate(s res.ServerResources) http.HandlerFunc {
+func DeleteMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		q, ok := dto.ParseQuery[dto.IdQuery](w, r)
@@ -62,7 +58,7 @@ func DeleteMarkingTemplate(s res.ServerResources) http.HandlerFunc {
 // Preprocessing templates
 //
 
-func PostPreprocessingTemplate(s res.ServerResources) http.HandlerFunc {
+func PostPreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessingTemplate](
@@ -70,22 +66,6 @@ func PostPreprocessingTemplate(s res.ServerResources) http.HandlerFunc {
 		)
 		if !ok {
 			return
-		}
-
-		//
-		// The anchor images are base64-encoded in the JSON request body. We
-		// will decode them and convert them to preprocessed matrices before
-		// storing them. This means that we do not need to keep their base64
-		// versions inside of the JSON body when we store it.
-		//
-
-		anchorBase64 := make([][]string, len(tmpl.Pages))
-		for i := range anchorBase64 {
-			anchorBase64[i] = make([]string, len(tmpl.Pages[i].Anchors))
-			for j := range anchorBase64[i] {
-				anchorBase64[i][j] = tmpl.Pages[i].Anchors[j].Image
-				tmpl.Pages[i].Anchors[j].Image = ""
-			}
 		}
 
 		templateId, err := s.SavePreprocessingTemplate(tmpl)
@@ -97,64 +77,11 @@ func PostPreprocessingTemplate(s res.ServerResources) http.HandlerFunc {
 			return
 		}
 
-		binarizeConf := scanner.Config{
-			BlurSize:            tmpl.Config.BlurSize,
-			MorphCloseSize:      tmpl.Config.MorphCloseSize,
-			MinAnchorConfidence: float32(tmpl.Config.MinAnchorConfidence),
-			AdaptiveBlockSize:   tmpl.Config.AdaptiveBlockSize,
-			AdaptiveC:           float32(tmpl.Config.AdaptiveC),
-		}
-
-		for i := range tmpl.Pages {
-			for j := range tmpl.Pages[i].Anchors {
-
-				buf, err := base64.StdEncoding.DecodeString(anchorBase64[i][j])
-				if err != nil {
-					http.Error(w,
-						"error decoding base64 anchor image",
-						http.StatusBadRequest,
-					)
-					s.DeletePreprocessingTemplate(templateId)
-					return
-				}
-
-				mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
-				if err != nil {
-					http.Error(w,
-						"anchor image format not recognized",
-						http.StatusBadRequest,
-					)
-					s.DeletePreprocessingTemplate(templateId)
-					return
-				}
-				defer mat.Close()
-
-				err = scanner.Binarize(&mat, &mat, binarizeConf)
-				if err != nil {
-					http.Error(w,
-						"error preprocessing anchor",
-						http.StatusInternalServerError,
-					)
-					s.DeletePreprocessingTemplate(templateId)
-					return
-				}
-
-				if err := s.SaveAnchor(mat, templateId, i, j); err != nil {
-					http.Error(w,
-						"error storing anchor image",
-						http.StatusInternalServerError,
-					)
-					s.DeletePreprocessingTemplate(templateId)
-					return
-				}
-			}
-		}
-
 		dto.SendJson(w, dto.IdResponse{Id: templateId})
 	}
 }
 
-func DeletePreprocessingTemplate(s res.ServerResources) http.HandlerFunc {
+func DeletePreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		id := r.URL.Query().Get("id")

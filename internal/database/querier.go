@@ -27,6 +27,7 @@ type Querier interface {
 	GetPagesForScan(ctx context.Context, scanID string) ([]ScanPage, error)
 	GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error)
 	GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanPage, error)
+	GetScansFromBefore(ctx context.Context, createdAtUnixMs int64) ([]Scan, error)
 }
 
 var _ Querier = (*Queries)(nil)
