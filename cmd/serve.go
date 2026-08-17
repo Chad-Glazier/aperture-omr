@@ -13,13 +13,20 @@ import (
 var (
 	portNum int
 	tls     bool
+	apiKey  string
 )
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Starts the OMR's HTTP server",
 	Long: `Starts the OMR's HTTP server.
-	
+
+To set a global API key, use the '--key' flag. All requests will
+be checked for an 'OMR-API-Key' with a matching value. Any 
+requests that are missing the key will be rejected. Alternatively,
+you can define a global key by setting the OMR_GLOBAL_KEY variable
+in the environment.
+
 To use TLS, you'll need certificates. You can supply your own by
 setting them in ` + certDir + ` or by running the 'generate-cert'
 subcommand. In either case, the OMR will look for
@@ -56,9 +63,9 @@ tools like browsers may give you warnings.
 		)
 
 		if tls {
-			server.StartTls(hostname, port, certDir)
+			server.StartTls(hostname, port, apiKey, certDir)
 		} else {
-			server.Start(hostname, port)
+			server.Start(hostname, port, apiKey)
 		}
 	},
 }
@@ -78,5 +85,11 @@ func init() {
 		"tls",
 		false,
 		"set this if you want to use TLS",
+	)
+	serveCmd.Flags().StringVar(
+		&apiKey,
+		"key",
+		"",
+		"set a global API key",
 	)
 }

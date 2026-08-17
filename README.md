@@ -37,6 +37,19 @@ If you want the container to persist and maintain its stored data (volume), inst
 docker run -p 3000:3000 -v omr-data:/app/data --name omr omr_server
 ```
 
+## Environment Variables
+
+The following variables can be used to configure the OMR:
+
+```conf
+OMR_GLOBAL_KEY="some secret"
+OMR_ADMIN_KEY="some super secret"
+```
+
+The `OMR_GLOBAL_KEY` is a key that locks all endpoints for the API behind a single key. Upon receiving a request, the OMR will look for an `OMR-API-Key` header and check if it matches this variable. Leaving the variable un-set will mean that anyone with the IP address (and port number) can access the OMR.
+
+The `OMR_ADMIN_KEY` is used to restrict specific endpoints (e.g., the endpoint to delete all exams older than a certain date). The OMR looks for this key in the `OMR-Admin-Key` header of incoming requests. If you don't set this variable, it will fall back to a default (which will be logged upon server startup).
+
 ## Testing
 
 If you want to run tests from within a container, run

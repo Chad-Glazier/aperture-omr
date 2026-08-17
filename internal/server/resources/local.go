@@ -27,12 +27,14 @@ import (
 //
 
 type local struct {
-	DBCnx  io.Closer
-	DB     database.Querier
-	DBPath string
-	Images fstore.ImageStore
-	Mats   fstore.MatStore
-	key    [64]byte
+	DBCnx          io.Closer
+	DB             database.Querier
+	DBPath         string
+	Images         fstore.ImageStore
+	Mats           fstore.MatStore
+	adminKey       [64]byte
+	globalKey      [64]byte
+	globalKeyIsSet bool
 }
 
 var _ ServerResources = (*local)(nil)
@@ -548,7 +550,7 @@ func (s *local) DBSize() uint64 {
 //
 
 func (s *local) SetAdminKey(key string) {
-	s.key = sha512.Sum512([]byte(key))
+	s.adminKey = sha512.Sum512([]byte(key))
 }
 
 func (s *local) CheckAdminKey(r *http.Request) bool {
@@ -557,5 +559,24 @@ func (s *local) CheckAdminKey(r *http.Request) bool {
 		return false
 	}
 
-	return s.key == sha512.Sum512([]byte(k))
+	return s.adminKey == sha512.Sum512([]byte(k))
+}
+
+func (s *local) SetGlobalKey(key string) {
+	s.globalKey = sha512.Sum512([]byte(key))
+	s.globalKeyIsSet = true
+}
+
+func (s *local) CheckGlobalKey(r *http.Request) bool {
+	
+	if !s.globalKeyIsSet {
+		return true
+	}
+
+	k := r.Header.Get("OMR-API-Key")
+	if k == "" {
+		return false
+	}
+
+	return s.globalKey == sha512.Sum512([]byte(k))
 }
