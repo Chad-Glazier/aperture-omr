@@ -12,19 +12,19 @@ import (
 
 var (
 	portNum int
-	tls bool
+	tls     bool
 )
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Starts the OMR's HTTP server",
-	Long:  `Starts the OMR's HTTP server.
+	Long: `Starts the OMR's HTTP server.
 	
 To use TLS, you'll need certificates. You can supply your own by
-setting them in `+certDir+` or by running the 'generate-cert'
+setting them in ` + certDir + ` or by running the 'generate-cert'
 subcommand. In either case, the OMR will look for
-  - the public key in '`+certDir+`cert.pem', and
-  - the private key in '`+certDir+`key.pem'.
+  - the public key in '` + certDir + `cert.pem', and
+  - the private key in '` + certDir + `key.pem'.
 
 Generated certificates will be secure for practical purposes, 
 but since they're not made by a recognized Certificate Authority
@@ -52,7 +52,7 @@ tools like browsers may give you warnings.
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			hostname = "localhost"
-			port = strconv.Itoa(portNum)
+			port     = strconv.Itoa(portNum)
 		)
 
 		if tls {

@@ -37,13 +37,13 @@ type ServerResources interface {
 
 	// Saves a marking template and returns the new ID for it.
 	//
-	// If an error is returned, it will be [ErrDatabaseWrite] or 
+	// If an error is returned, it will be [ErrDatabaseWrite] or
 	// [ErrSeializing].
 	SaveMarkingTemplate(tmpl *dto.MarkingTemplate) (string, error)
 
 	// Loads a marking template and returns the new ID for it.
 	//
-	// If an error is returned, it will be [ErrNotFound], 
+	// If an error is returned, it will be [ErrNotFound],
 	// [ErrDatabaseRead], or [ErrDeserializing].
 	LoadMarkingTemplate(id string) (*dto.MarkingTemplate, error)
 
@@ -52,22 +52,22 @@ type ServerResources interface {
 
 	// Saves a preprocessing template and returns the new ID for it.
 	//
-	// If an error is returned, it will be [ErrDecodingImage], 
+	// If an error is returned, it will be [ErrDecodingImage],
 	// [ErrDatabaseWrite], or [ErrFileStorageWrite].
 	SavePreprocessingTemplate(tmpl *dto.PreprocessingTemplate) (string, error)
-	
-	// Loads a preprocessing template and returns the ID for it. In the 
+
+	// Loads a preprocessing template and returns the ID for it. In the
 	// returned set of matrices, the element [i][j] is the i-th oage's j-th
 	// anchor.
 	//
-	// If an error is returned, it will be [ErrNotFound], 
+	// If an error is returned, it will be [ErrNotFound],
 	// [ErrDatabaseRead], or [ErrDeserializing].
 	LoadPreprocessingTemplate(id string) (
-		*dto.PreprocessingTemplate, 
+		*dto.PreprocessingTemplate,
 		[][]gocv.Mat,
 		error,
 	)
-	
+
 	// Deletes a preprocessing template and its anchors. Redundant calls are
 	// safe.
 	DeletePreprocessingTemplate(id string)

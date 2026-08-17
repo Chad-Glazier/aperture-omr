@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/handler"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
+	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
@@ -54,21 +54,15 @@ func setup(port string) *http.Server {
 
 	mux.HandleFunc("POST /template/mark", handler.PostMarkingTemplate(s))
 	mux.HandleFunc("DELETE /template/mark", handler.DeleteMarkingTemplate(s))
-
 	mux.HandleFunc("POST /template/preprocess", handler.PostPreprocessingTemplate(s))
 	mux.HandleFunc("DELETE /template/preprocess", handler.DeletePreprocessingTemplate(s))
-
 	mux.HandleFunc("POST /scan/pdf", j.SyncJob(handler.PostScanPdf(s)))
 	mux.HandleFunc("POST /scan/pdf/async", j.AsyncJob(handler.PostScanPdf(s)))
-
 	mux.HandleFunc("DELETE /scan", handler.DeleteScan(s))
-
 	mux.HandleFunc("POST /mark", j.SyncJob(handler.RequestMarks(s)))
 	mux.HandleFunc("POST /mark/async", j.AsyncJob(handler.RequestMarks(s)))
-
 	mux.HandleFunc("GET /image/snippet", handler.GetSnippet(s))
 	mux.HandleFunc("GET /image", handler.GetImage(s))
-
 	mux.HandleFunc("GET /job", j.Handler())
 	mux.HandleFunc("GET /jobs", j.ListHandler(s))
 	mux.HandleFunc("GET /job/result", j.ResultHandler())
@@ -83,7 +77,6 @@ func setup(port string) *http.Server {
 	mux.HandleFunc("GET /system/logs", handler.GetLogs(s))
 	mux.HandleFunc("GET /system/cpu", handler.GetCpuInfo(s))
 	mux.HandleFunc("GET /system/memory", handler.GetMemoryInfo(s))
-
 	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(s))
 	mux.HandleFunc("DELETE /admin/scans", handler.DeleteScansOlderThan(s))
 

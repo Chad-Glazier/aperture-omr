@@ -69,7 +69,7 @@ func log(level level, msg string, args ...any) {
 	if testing.Testing() {
 		return
 	}
-	
+
 	switch level {
 	case levelMisc:
 		fmt.Println(FgBrightBlack(str))

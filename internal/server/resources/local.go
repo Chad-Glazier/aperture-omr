@@ -47,7 +47,7 @@ func NewLocal(rootDir string) (*local, error) {
 	}
 
 	var (
-		dbPath = filepath.Join(rootDir, "/database.sqlite3")
+		dbPath   = filepath.Join(rootDir, "/database.sqlite3")
 		imgsPath = filepath.Join(rootDir, "/images")
 		matsPath = filepath.Join(rootDir, "/matrices")
 	)
@@ -155,8 +155,8 @@ func (s *local) SavePreprocessingTemplate(
 	// The anchor images are base64-encoded in the template struct. We will
 	// decode them and convert them to preprocessed matrices before storing,
 	// since that makes future use of them more efficient. This also means that
-	// we do not need to keep their base64 versions inside of the JSON body 
-	// when we store it, so we zero those fields before writing to the 
+	// we do not need to keep their base64 versions inside of the JSON body
+	// when we store it, so we zero those fields before writing to the
 	// database.
 	//
 
@@ -220,7 +220,7 @@ func (s *local) SavePreprocessingTemplate(
 	//
 	// Below, we implement a function that cleans up all resources that have
 	// been saved thus far in the operation. That way if there is a failure
-	// partway through we won't leave behind any mess in the persistent 
+	// partway through we won't leave behind any mess in the persistent
 	// storage.
 	//
 
@@ -259,7 +259,7 @@ func (s *local) SavePreprocessingTemplate(
 			if err != nil {
 				cleanupFailure()
 				return "", ErrDatabaseWrite
-			}				
+			}
 		}
 	}
 
@@ -302,7 +302,6 @@ func (s *local) LoadPreprocessingTemplate(
 		return nil, nil, ErrNotFound
 	}
 
-
 	//
 	// The query will sort the anchors by ascending page index and then
 	// anchor index. That's the reason the following loop works as intended.
@@ -316,7 +315,7 @@ func (s *local) LoadPreprocessingTemplate(
 
 		anchor, err := s.Mats.Get(record.ID)
 		if err != nil {
-			// The template is corrupted. We'll delete it and then return 
+			// The template is corrupted. We'll delete it and then return
 			// [ErrNotFound].
 			s.DeletePreprocessingTemplate(id)
 			return nil, nil, ErrNotFound
@@ -366,7 +365,7 @@ func (s *local) SaveScan(
 	//
 	// Below, we implement a function that cleans up all resources that have
 	// been saved thus far in the operation. That way if there is a failure
-	// partway through we won't leave behind any mess in the persistent 
+	// partway through we won't leave behind any mess in the persistent
 	// storage.
 	//
 

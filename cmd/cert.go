@@ -22,18 +22,18 @@ const (
 )
 
 var (
-	host       string
-	validFor   time.Duration
-	isCA       bool
-	rsaBits    int
+	host     string
+	validFor time.Duration
+	isCA     bool
+	rsaBits  int
 )
 
 var certCmd = &cobra.Command{
 	Use:   "generate-cert",
 	Short: "Generates TLS certificates",
-	Long:  `Generate a self-signed X.509 certificate for the OMR's server 
+	Long: `Generate a self-signed X.509 certificate for the OMR's server 
 to use with TLS (that is, to serve over HTTPS). Outputs to 
-'`+certDir+`cert.pem' and '`+certDir+`key.pem' and will overwrite 
+'` + certDir + `cert.pem' and '` + certDir + `key.pem' and will overwrite 
 existing files.
 `,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -54,9 +54,9 @@ existing files.
 func init() {
 	rootCmd.AddCommand(certCmd)
 
-	certCmd.Flags().StringVar(&host, 
-		"host", 
-		"localhost,127.0.0.1", 
+	certCmd.Flags().StringVar(&host,
+		"host",
+		"localhost,127.0.0.1",
 		"comma-separated hostnames and IPs to generate a certificate for",
 	)
 	certCmd.Flags().DurationVar(&validFor,
@@ -79,7 +79,7 @@ func init() {
 func generateCerts() {
 
 	//
-	// The bulk of this function has been adapted from the Go standard 
+	// The bulk of this function has been adapted from the Go standard
 	// library's "crypto/tls/generate_cert.go" file. The authors included a
 	// copyright statement that I have reproduced below. I have also included
 	// the referenced "LICENSE" file as a comment, since it is fairly brief
@@ -131,15 +131,15 @@ func generateCerts() {
 	// ECDSA, ED25519, ML-DSA, and RSA subject keys should have the
 	// DigitalSignature KeyUsage bits set in the x509.Certificate template
 	keyUsage := x509.KeyUsageDigitalSignature
-	// RSA subject keys should have the KeyEncipherment KeyUsage bits set. In 
+	// RSA subject keys should have the KeyEncipherment KeyUsage bits set. In
 	// the context of TLS this KeyUsage is particular to RSA key exchange and
 	// authentication.
 	keyUsage |= x509.KeyUsageKeyEncipherment
 
 	var (
 		notBefore = time.Now()
-		notAfter = notBefore.Add(validFor)		
-	
+		notAfter  = notBefore.Add(validFor)
+
 		serialNumberLimit = new(big.Int).Lsh(big.NewInt(1), 128)
 	)
 
@@ -180,7 +180,7 @@ func generateCerts() {
 		log.Fatalf("Failed to create certificate: %v", err)
 	}
 
-	certOut, err := os.Create(certDir+"cert.pem")
+	certOut, err := os.Create(certDir + "cert.pem")
 	if err != nil {
 		log.Fatalf("Failed to open cert.pem for writing: %v", err)
 	}
@@ -208,4 +208,3 @@ func generateCerts() {
 	}
 	log.Print("wrote key.pem\n")
 }
-

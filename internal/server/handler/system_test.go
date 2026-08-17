@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"strconv"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -121,7 +121,7 @@ func TestDeleteOldScans(t *testing.T) {
 	for i := range scanIds {
 		scanIds[i] = postCanonicalScan(s, t, pTmplId)
 		creationTimes[i] = time.Now().UnixMilli()
-		time.Sleep(100*time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	//
@@ -134,19 +134,19 @@ func TestDeleteOldScans(t *testing.T) {
 			w = httptest.NewRecorder()
 		)
 		r.Header.Set("OMR-Admin-Key", "secret")
-		r.URL.RawQuery = "unixMilli="+strconv.FormatInt(creationTimes[i], 10) 
+		r.URL.RawQuery = "unixMilli=" + strconv.FormatInt(creationTimes[i], 10)
 
 		DeleteScansOlderThan(s).ServeHTTP(w, r)
 		assert.Assert(t, w.Result().StatusCode == http.StatusOK)
 
-		for j := range i+1 {
+		for j := range i + 1 {
 			f, err := s.OpenScanPicture(scanIds[j], 0)
 			if err == nil {
 				f.Close()
 			}
 			assert.Assert(t, err == resources.ErrNotFound)
 		}
-		for j := i+1; j < len(scanIds); j++ {
+		for j := i + 1; j < len(scanIds); j++ {
 			f, err := s.OpenScanPicture(scanIds[j], 0)
 			if err == nil {
 				f.Close()
@@ -154,4 +154,16 @@ func TestDeleteOldScans(t *testing.T) {
 			assert.Assert(t, err == nil)
 		}
 	}
+
+	t.Run("unauthorized", func(t *testing.T) {
+		var (
+			r = httptest.NewRequest("DELETE", "/", nil)
+			w = httptest.NewRecorder()
+		)
+		r.Header.Set("OMR-Admin-Key", "wrong!")
+		r.URL.RawQuery = "unixMilli=0"
+
+		DeleteScansOlderThan(s).ServeHTTP(w, r)
+		assert.Assert(t, w.Result().StatusCode == http.StatusUnauthorized)
+	})
 }

@@ -55,7 +55,7 @@ func RecoverAndRespond(w http.ResponseWriter, r *http.Request) {
 			logFile = f
 		}
 
-		const maxStackTraceLen = 4 << 20 // 4 KB
+		const maxStackTraceLen = 4 << 10 // 4 KB
 		buf := make([]byte, maxStackTraceLen)
 		nBytes := runtime.Stack(buf, false)
 
@@ -91,8 +91,7 @@ func RecoverAndRespond(w http.ResponseWriter, r *http.Request) {
 
 		// Only write a response if one hasn't already been written.
 		if w.Header().Get("Content-Type") == "" {
-			http.Error(
-				w,
+			http.Error(w,
 				"Unknown server error. Check the server logs.",
 				http.StatusInternalServerError,
 			)

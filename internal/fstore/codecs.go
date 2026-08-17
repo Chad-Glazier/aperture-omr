@@ -39,8 +39,8 @@ func DecodeImg(r io.Reader) (image.Image, error) {
 func EncodeMat(w io.Writer, mat gocv.Mat) error {
 
 	//
-	// Rather than storing OpenCV matrices as images, which requires 
-	// inefficient encoding/decoding, we can store them a bit more neatly by 
+	// Rather than storing OpenCV matrices as images, which requires
+	// inefficient encoding/decoding, we can store them a bit more neatly by
 	// just using the underlying byte buffer that OpenCV maintains. The file
 	// format we use is described below.
 	//

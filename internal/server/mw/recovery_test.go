@@ -24,5 +24,4 @@ func TestRecovery(t *testing.T) {
 	logFile.Close()
 	logFile = nil
 	os.Remove(logFilePath)
-
 }
