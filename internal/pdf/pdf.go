@@ -151,7 +151,7 @@ func blockPartitionPdf(
 			for j := range subDocs {
 				subDocs[j].close()
 			}
-			return nil, err
+			panic(err)
 		}
 
 		err = pageSpan(f, ctx, subset.from, subset.thru)
@@ -171,7 +171,7 @@ func blockPartitionPdf(
 			for j := range subDocs {
 				subDocs[j].close()
 			}
-			return nil, err
+			return nil, ErrMalformedPdf
 		}
 
 		subDocs = append(subDocs, blockedSubdoc{
@@ -304,15 +304,6 @@ func rgbaToGrayMat(img *image.RGBA) (gocv.Mat, error) {
 	}
 
 	return gocv.NewMatFromBytes(h, w, gocv.MatTypeCV8UC1, bytes)
-}
-
-// Closes all non-nil matrices in the given slice.
-func closeAll(mats []*gocv.Mat) {
-	for _, m := range mats {
-		if m != nil {
-			m.Close()
-		}
-	}
 }
 
 // Prepares a pdfcpu context for PDF splitting.

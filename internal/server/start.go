@@ -16,6 +16,7 @@ import (
 const (
 	SoftMemoryLimit = 256 << 20
 	DefaultAdminKey = "admin"
+	JobCacheLifetime = 10 * time.Minute
 )
 
 func setup(port string, globalKey string) *http.Server {
@@ -29,7 +30,7 @@ func setup(port string, globalKey string) *http.Server {
 	}
 	defer s.Close()
 
-	j := mw.NewJobRegistrar(time.Hour * 24)
+	j := mw.NewJobRegistrar(JobCacheLifetime)
 	defer j.Close()
 
 	//
@@ -126,6 +127,7 @@ func setup(port string, globalKey string) *http.Server {
 // Startup functions
 //
 
+// Starts the server.
 func Start(hostname, port, globalKey string) {
 
 	server := setup(port, globalKey)
@@ -138,6 +140,8 @@ func Start(hostname, port, globalKey string) {
 	server.ListenAndServe()
 }
 
+// Starts the server with TLS. The keys will be looked for in the named 
+// directory; they should be named "cert.pem" and "key.pem".
 func StartTls(hostname, port, globalKey, certDir string) {
 
 	server := setup(port, globalKey)
@@ -165,6 +169,7 @@ type routeGroup struct {
 	routes     route
 }
 
+// Creates a group of routes that share a common set of middleware.
 func newRouteGroup(middleware ...middleware) routeGroup {
 	return routeGroup{
 		middleware: middleware,

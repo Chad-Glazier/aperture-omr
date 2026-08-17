@@ -3,7 +3,6 @@ package mw
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
 
@@ -20,8 +19,4 @@ func TestRecovery(t *testing.T) {
 
 	Recovery(easilyStartled).ServeHTTP(rr, req)
 	Recovery(easilyStartled).ServeHTTP(rr, req)
-
-	logFile.Close()
-	logFile = nil
-	os.Remove(logFilePath)
 }

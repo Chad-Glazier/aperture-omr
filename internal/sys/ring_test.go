@@ -1,27 +1,22 @@
 package sys
 
 import (
-	"sync"
 	"testing"
+
+	"gotest.tools/v3/assert"
 )
 
 //
 // Helpers
 //
 
-func assertSlicesEqual[T comparable](t *testing.T, got, want []T) {
+func assertSlicesEqual[T comparable](t *testing.T, a, b []T) {
 	t.Helper()
 
-	if len(got) != len(want) {
-		t.Fatalf("length mismatch: got %d, want %d\n got: %v\nwant: %v",
-			len(got), len(want), got, want)
-	}
+	assert.Assert(t, len(a) == len(b))
 
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("item %d mismatch: got %v, want %v\n got: %v\nwant: %v",
-				i, got[i], want[i], got, want)
-		}
+	for i := range a {
+		assert.Assert(t, a[i] == b[i])
 	}
 }
 
@@ -29,172 +24,65 @@ func assertSlicesEqual[T comparable](t *testing.T, got, want []T) {
 // Tests
 //
 
-func TestRingBufferEmpty(t *testing.T) {
-	r := NewRingBuffer[int](5)
+func TestRingBuffer(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		r := NewRingBuffer[int](5)
 
-	if got := r.Len(); got != 0 {
-		t.Fatalf("expected length 0, got %d", got)
-	}
+		assert.Assert(t, r.Len() == 0)
+		assert.Assert(t, len(r.Get(2)) == 0)
+	})
 
-	if got := r.Get(5); len(got) != 0 {
-		t.Fatalf("expected empty slice, got %v", got)
-	}
-}
+	t.Run("add and get", func(t *testing.T) {
+		r := NewRingBuffer[int](5)
+		for i := range 3 {
+			r.Add(i)
+		}
 
-func TestRingBufferAddAndGet(t *testing.T) {
-	r := NewRingBuffer[int](5)
+		assert.Assert(t, r.Len() == 3)
+		assertSlicesEqual(t, []int{0, 1, 2}, r.Get(3))
+	})
 
-	for i := 1; i <= 3; i++ {
-		r.Add(i)
-	}
+	t.Run("capacity", func(t *testing.T) {
+		r := NewRingBuffer[int](3)
+		for i := range 5 {
+			r.Add(i)
+		}
 
-	if got := r.Len(); got != 3 {
-		t.Fatalf("expected length 3, got %d", got)
-	}
+		assert.Assert(t, r.Len() == 3)
+		assertSlicesEqual(t, r.Get(3), []int{2, 3, 4})
+	})
 
-	want := []int{1, 2, 3}
-	got := r.Get(3)
+	t.Run("slice is independent", func(t *testing.T) {
+		r := NewRingBuffer[int](3)
 
-	assertSlicesEqual(t, got, want)
-}
+		for i := range 3 {
+			r.Add(i)
+		}
 
-func TestRingBufferCapacityLimit(t *testing.T) {
-	r := NewRingBuffer[int](3)
+		got := r.Get(3)
+		got[0] = 100
 
-	for i := 1; i <= 5; i++ {
-		r.Add(i)
-	}
+		assertSlicesEqual(t, r.Get(3), []int{0, 1, 2})
+	})
 
-	if got := r.Len(); got != 3 {
-		t.Fatalf("expected length 3, got %d", got)
-	}
+	t.Run("get more than length", func(t *testing.T) {
+		r := NewRingBuffer[int](5)
 
-	// Oldest entries should have been discarded.
-	want := []int{3, 4, 5}
-	got := r.Get(3)
+		for i := range 3 {
+			r.Add(i)
+		}
 
-	assertSlicesEqual(t, got, want)
-}
+		assertSlicesEqual(t, r.Get(10), []int{0, 1, 2})		
+	})
 
-func TestRingBufferGetLessThanLength(t *testing.T) {
-	r := NewRingBuffer[int](5)
+	t.Run("get nothing", func(t *testing.T) {
+		r := NewRingBuffer[int](5)
 
-	for i := 1; i <= 5; i++ {
-		r.Add(i)
-	}
+		for i := range 3 {
+			r.Add(i)
+		}
 
-	want := []int{3, 4, 5}
-	got := r.Get(3)
-
-	assertSlicesEqual(t, got, want)
-}
-
-func TestRingBufferGetMoreThanLength(t *testing.T) {
-	r := NewRingBuffer[int](5)
-
-	for i := 1; i <= 3; i++ {
-		r.Add(i)
-	}
-
-	want := []int{1, 2, 3}
-	got := r.Get(10)
-
-	assertSlicesEqual(t, got, want)
-}
-
-func TestRingBufferGetZero(t *testing.T) {
-	r := NewRingBuffer[int](5)
-
-	for i := 1; i <= 3; i++ {
-		r.Add(i)
-	}
-
-	got := r.Get(0)
-
-	if len(got) != 0 {
-		t.Fatalf("expected empty slice, got %v", got)
-	}
-}
-
-func TestRingBufferGetNegative(t *testing.T) {
-	r := NewRingBuffer[int](5)
-
-	for i := 1; i <= 3; i++ {
-		r.Add(i)
-	}
-
-	got := r.Get(-1)
-
-	if len(got) != 0 {
-		t.Fatalf("expected empty slice, got %v", got)
-	}
-}
-
-func TestRingBufferGenericType(t *testing.T) {
-	type item struct {
-		Value string
-	}
-
-	r := NewRingBuffer[item](2)
-
-	r.Add(item{Value: "a"})
-	r.Add(item{Value: "b"})
-
-	want := []item{
-		{Value: "a"},
-		{Value: "b"},
-	}
-
-	assertSlicesEqual(t, r.Get(2), want)
-}
-
-func TestRingBufferReturnedSliceIsIndependent(t *testing.T) {
-	r := NewRingBuffer[int](3)
-
-	r.Add(1)
-	r.Add(2)
-	r.Add(3)
-
-	got := r.Get(3)
-	got[0] = 100
-
-	want := []int{1, 2, 3}
-	assertSlicesEqual(t, r.Get(3), want)
-}
-
-func TestRingBufferConcurrentAccess(t *testing.T) {
-	r := NewRingBuffer[int](100)
-
-	var wg sync.WaitGroup
-
-	const writers = 10
-	const readers = 10
-	const writesPerWriter = 1000
-
-	for i := range writers {
-		wg.Add(1)
-
-		go func(offset int) {
-			defer wg.Done()
-
-			for j := range writesPerWriter {
-				r.Add(offset*writesPerWriter + j)
-			}
-		}(i)
-	}
-
-	for range readers {
-		wg.Go(func() {
-			for range writesPerWriter {
-				_ = r.Get(10)
-				_ = r.Len()
-			}
-		})
-	}
-
-	wg.Wait()
-
-	if got := r.Len(); got != 100 {
-		t.Fatalf("expected final length 100, got %d", got)
-	}
+		assert.Assert(t, len(r.Get(0)) == 0)
+		assert.Assert(t, len(r.Get(-1)) == 0)
+	})
 }

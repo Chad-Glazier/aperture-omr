@@ -525,6 +525,8 @@ func (j *JobRegistrar) AsyncJob(handler JobHandlerFunc) http.HandlerFunc {
 	}
 }
 
+// Wraps the given job-ifiable handler function to automatically run it as a
+// synchronous job.
 func (j *JobRegistrar) SyncJob(handler JobHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 

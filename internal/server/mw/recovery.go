@@ -2,35 +2,22 @@ package mw
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
-
-	"os"
 )
-
-const logFilePath = "debug.log"
-
-var logFileMu sync.Mutex
-var logFile io.WriteCloser
 
 // Makes it so that handlers will gracefully recover from panics and send back
 // an error message.
 func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		defer RecoverAndRespond(w, r)
 		next.ServeHTTP(w, r)
 	})
-}
-
-func formatDate(t time.Time) string {
-	return t.Format("2006-01-02 15:04:05.000")
 }
 
 // Invokes [recover] and, if there was a panic recovered, sends back a 500
@@ -40,54 +27,42 @@ func RecoverAndRespond(w http.ResponseWriter, r *http.Request) {
 		sys.Error(
 			"panic recovered",
 			"endpoint", r.Method+" "+r.URL.Path,
-			"log file", logFilePath,
 			"err", err,
 		)
 
-		logFileMu.Lock()
-		defer logFileMu.Unlock()
 
-		if logFile == nil {
-			f, err := os.Create(logFilePath)
-			if err != nil {
-				panic("failed to create debug.log file")
-			}
-			logFile = f
-		}
+		out := strings.Builder{}
 
-		const maxStackTraceLen = 4 << 10 // 4 KB
-		buf := make([]byte, maxStackTraceLen)
-		nBytes := runtime.Stack(buf, false)
-
-		trace := string(buf[:nBytes])
-		trace = strings.Join(strings.Split(trace, "\n"), "\n│  ")
-		trace = "│  " + trace
-		buf = []byte(trace)
-
-		fmt.Fprint(
-			logFile,
+		fmt.Fprint(&out,
 			"\n┌── Panic Log ────────────────────────────────────────────────────────────────────────────────────────────────\n│\n",
 		)
 
-		fmt.Fprintf(
-			logFile,
+		fmt.Fprintf(&out,
 			"│   endpoint..... %s\n"+
 				"│   time......... %s\n"+
 				"│   recovered.... %v\n│\n",
 			r.Method+" "+r.URL.Path,
-			formatDate(time.Now()),
+			time.Now().Format("2006-01-02 15:04:05.000"),
 			err,
 		)
 
-		logFile.Write(buf)
-		if nBytes == maxStackTraceLen {
-			fmt.Fprint(logFile, "\n│  [...]\n│")
+		buf := make([]byte, 4 << 10)
+		n := runtime.Stack(buf, false)
+		trace := string(buf[:n])
+		trace = strings.Join(strings.Split(trace, "\n"), "\n│  ")
+		trace = "│  " + trace
+
+		out.WriteString(trace)
+
+		if n == len(buf) {
+			fmt.Fprint(&out, "\n│  [...]\n│")
 		}
 
-		fmt.Fprint(
-			logFile,
-			"\n└─────────────────────────────────────────────────────────────────────────────────────────────────────────────\n",
+		fmt.Fprint(&out,
+			"\n└─────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\n",
 		)
+
+		fmt.Fprint(os.Stderr, out.String())
 
 		// Only write a response if one hasn't already been written.
 		if w.Header().Get("Content-Type") == "" {
