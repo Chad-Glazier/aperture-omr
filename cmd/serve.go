@@ -29,9 +29,9 @@ variable in the environment.
 
 To use TLS, you'll need certificates. You can supply your own by
 setting them in '` + certDir + `' or by running the 'certify' sub-
-command. In either case, the OMR will look for
-  - the public key in '` + certDir + `cert.pem', and
-  - the private key in '` + certDir + `key.pem'.
+command. In either case, the OMR will look for the public key in 
+'` + certDir + `cert.pem', and the private key in 
+'` + certDir + `key.pem'.
 
 Generated certificates will be secure for practical purposes, 
 but since they're not made by a recognized Certificate Authority

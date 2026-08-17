@@ -16,7 +16,6 @@ import (
 
 	"github.com/spf13/cobra"
 )
-
 const (
 	certDir = "data/cert/"
 )
@@ -33,8 +32,8 @@ var certCmd = &cobra.Command{
 	Short: "Generates TLS certificates",
 	Long: `Generate a self-signed X.509 certificate for the OMR's server 
 to use with TLS (that is, to serve over HTTPS). Outputs to 
-'` + certDir + `cert.pem' and '` + certDir + `key.pem' and will overwrite 
-existing files.
+'` + certDir + `cert.pem' and '` + certDir + `key.pem' and will over-
+write existing files.
 `,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if rsaBits < 256 {
