@@ -6,7 +6,7 @@
 <br />
 <br />
 
-Aperture OMR is a high-performance [Optical Mark Recognition](https://en.wikipedia.org/wiki/Optical_mark_recognition) system which receives scanned bubble sheet exams and analyzes them to produce marks. Aperture OMR exposes its functionality through a REST API served over HTTP and is meant to be integrated with other apps.
+Aperture OMR is a high-performance [Optical Mark Recognition](https://en.wikipedia.org/wiki/Optical_mark_recognition) system which analyzes scanned bubble sheet exams to produce marks. Aperture exposes its functionality through a REST API served over HTTP and is meant to be integrated with other apps.
 
 ## Benchmarks
 
@@ -46,7 +46,7 @@ OMR_GLOBAL_KEY="some secret"
 OMR_ADMIN_KEY="some super secret"
 ```
 
-The `OMR_GLOBAL_KEY` is a key that locks all endpoints for the API behind a single key. Upon receiving a request, the OMR will look for an `OMR-API-Key` header and check if it matches this variable. Leaving the variable un-set will mean that anyone with the IP address (and port number) can access the OMR.
+The `OMR_GLOBAL_KEY` is a key that locks all endpoints for the API. Upon receiving a request, the OMR will look for an `OMR-API-Key` header and check if it matches this variable. Leaving the variable un-set will mean that anyone with the IP address (and port number) can access the OMR.
 
 The `OMR_ADMIN_KEY` is used to restrict specific endpoints (e.g., the endpoint to delete all exams older than a certain date). The OMR looks for this key in the `OMR-Admin-Key` header of incoming requests. If you don't set this variable, it will fall back to a default (which will be logged upon server startup).
 
@@ -77,27 +77,6 @@ go run .
 This should print a help message that describes the subcommands for the program. 
 
 If you get an error that mentions missing C/C++ objects, it's likely that GoCV isn't seeing your OpenCV installation. Refer to [their documentation](https://gocv.io/getting-started/) to correct this.
-
-## Dependencies
-
-The following is a list of dependencies. You can also refer to the [go.mod](./go.mod) file.
-
-C dependencies:
-- [OpenCV](https://opencv.org/) is used for computer vision stuff.
-
-Go packages (excluding the standard library):
-- [GoCV](gocv.io/x/gocv) provides Go bindings for OpenCV.
-- [SQLite3](modernc.org/sqlite) is included as our local database.
-- [rs/cors](https://pkg.go.dev/github.com/rs/cors) is used to configure CORS. It's thinly wrapped in [cors.go](./internal/server/middleware/cors.go). 
-- [Cobra](https://cobra.dev/) is used to set up the command-line interface. It's only used in the [cmd](./cmd) package.
-- [lz4](https://github.com/pierrec/lz4/v4) is used to compress OpenCV matrices when we save them to persistent storage.
-- [pdfcpu](https://github.com/pdfcpu/pdfcpu) is used to preprocess PDFs.
-- [fitz](https://github.com/gen2brain/go-fitz) is used to render PDFs.
-- [gopsutil](https://github.com/shirou/gopsutil/v4) is used to make OS-agnostic syscalls for monitoring resource usage.
-- [Google's UUID package](https://github.com/google/uuid) is used for generating UUIDs.
-
-Developer dependencies (not required for runtime):
-- [sqlc](https://sqlc.dev/) is used to generate Go functions from SQL queries (read more [here](./internal/database/sqlc/README.md)).
 
 ## Acknowledgements
 
