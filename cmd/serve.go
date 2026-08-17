@@ -22,14 +22,14 @@ var serveCmd = &cobra.Command{
 	Long: `Starts the OMR's HTTP server.
 
 To set a global API key, use the '--key' flag. All requests will
-be checked for an 'OMR-API-Key' with a matching value. Any 
+be checked for an 'OMR-API-Key' header with a matching value. Any 
 requests that are missing the key will be rejected. Alternatively,
-you can define a global key by setting the OMR_GLOBAL_KEY variable
-in the environment.
+you can define a global key by setting the 'OMR_GLOBAL_KEY' 
+variable in the environment.
 
 To use TLS, you'll need certificates. You can supply your own by
-setting them in ` + certDir + ` or by running the 'generate-cert'
-subcommand. In either case, the OMR will look for
+setting them in '` + certDir + `' or by running the 'certify' sub-
+command. In either case, the OMR will look for
   - the public key in '` + certDir + `cert.pem', and
   - the private key in '` + certDir + `key.pem'.
 

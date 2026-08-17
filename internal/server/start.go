@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	SoftMemoryLimit = 256 << 20
-	DefaultAdminKey = "admin"
+	SoftMemoryLimit  = 256 << 20
+	DefaultAdminKey  = "admin"
 	JobCacheLifetime = 10 * time.Minute
 )
 
@@ -93,7 +93,7 @@ func setup(port string, globalKey string) *http.Server {
 	noLog.routes["GET /system/utilization"] = handler.GetResourceUtilization(s)
 	noLog.routes["GET /system/logs"] = handler.GetLogs(s)
 	noLog.routes["GET /system/cpu"] = handler.GetCpuInfo(s)
-	noLog.routes["GET /system/memory"] = handler.GetMemoryInfo(s)	
+	noLog.routes["GET /system/memory"] = handler.GetMemoryInfo(s)
 
 	admin := newRouteGroup(
 		mw.Cors,
@@ -140,7 +140,7 @@ func Start(hostname, port, globalKey string) {
 	server.ListenAndServe()
 }
 
-// Starts the server with TLS. The keys will be looked for in the named 
+// Starts the server with TLS. The keys will be looked for in the named
 // directory; they should be named "cert.pem" and "key.pem".
 func StartTls(hostname, port, globalKey, certDir string) {
 
@@ -152,11 +152,11 @@ func StartTls(hostname, port, globalKey, certDir string) {
 	sys.Info("monitor system usage at " + baseUrl + "/dashboard.html")
 
 	err := server.ListenAndServeTLS(
-		filepath.Join(certDir, "cert.pem"), 
+		filepath.Join(certDir, "cert.pem"),
 		filepath.Join(certDir, "key.pem"),
 	)
 	if err != nil && err != http.ErrServerClosed {
-		sys.Error("failed to find valid TLS key files. consider running the generate-cert subcommand")
+		sys.Error("failed to find valid TLS key files. consider running the certify subcommand")
 	}
 }
 
@@ -173,7 +173,7 @@ type routeGroup struct {
 func newRouteGroup(middleware ...middleware) routeGroup {
 	return routeGroup{
 		middleware: middleware,
-		routes: make(route),
+		routes:     make(route),
 	}
 }
 
