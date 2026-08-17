@@ -8,7 +8,6 @@ import (
 	"errors"
 	"image"
 	"io"
-	"net/http"
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
@@ -118,18 +117,4 @@ type ServerResources interface {
 	CountMats() (int, uint64)
 	// Returns the number of bytes used by the database.
 	DBSize() uint64
-
-	// Returns true if and only if the request's headers include the proper
-	// administrator key.
-	CheckAdminKey(r *http.Request) bool
-
-	// Sets the admin key.
-	SetAdminKey(key string)
-
-	// Returns true if and only if the request's headers include the proper
-	// global key.
-	CheckGlobalKey(r *http.Request) bool
-
-	// Sets the global API key.
-	SetGlobalKey(key string)
 }

@@ -2,13 +2,11 @@ package resources
 
 import (
 	"context"
-	"crypto/sha512"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"image"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -543,40 +541,4 @@ func (s *local) DBSize() uint64 {
 	}
 
 	return uint64(info.Size())
-}
-
-//
-// Admin Keys
-//
-
-func (s *local) SetAdminKey(key string) {
-	s.adminKey = sha512.Sum512([]byte(key))
-}
-
-func (s *local) CheckAdminKey(r *http.Request) bool {
-	k := r.Header.Get("OMR-Admin-Key")
-	if k == "" {
-		return false
-	}
-
-	return s.adminKey == sha512.Sum512([]byte(k))
-}
-
-func (s *local) SetGlobalKey(key string) {
-	s.globalKey = sha512.Sum512([]byte(key))
-	s.globalKeyIsSet = true
-}
-
-func (s *local) CheckGlobalKey(r *http.Request) bool {
-	
-	if !s.globalKeyIsSet {
-		return true
-	}
-
-	k := r.Header.Get("OMR-API-Key")
-	if k == "" {
-		return false
-	}
-
-	return s.globalKey == sha512.Sum512([]byte(k))
 }

@@ -123,24 +123,11 @@ func GetMemoryInfo(s resources.ServerResources) http.HandlerFunc {
 //
 
 func CheckAdminKey(s resources.ServerResources) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if authenticated := s.CheckAdminKey(r); !authenticated {
-			http.Error(w,
-				"incorrect admin key",
-				http.StatusUnauthorized,
-			)
-		}
-	}
+	return func(w http.ResponseWriter, r *http.Request) {}
 }
 
 func DeleteScansOlderThan(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if authenticated := s.CheckAdminKey(r); !authenticated {
-			http.Error(w,
-				"not authenticated",
-				http.StatusUnauthorized,
-			)
-		}
 
 		q, ok := dto.ParseQuery[dto.UnixMilliQuery](w, r)
 		if !ok {

@@ -76,38 +76,9 @@ func TestGetMemoryInfo(t *testing.T) {
 	assert.Assert(t, w.Result().StatusCode == http.StatusOK)
 }
 
-func TestCheckAdminKey(t *testing.T) {
-	s := resources.NewTesting(t)
-	defer s.Close()
-
-	s.SetAdminKey("secret")
-
-	t.Run("valid", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set("OMR-Admin-Key", "secret")
-
-		w := httptest.NewRecorder()
-
-		CheckAdminKey(s).ServeHTTP(w, r)
-		assert.Assert(t, w.Result().StatusCode == http.StatusOK)
-	})
-
-	t.Run("invalid", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set("OMR-Admin-Key", "hehehe")
-
-		w := httptest.NewRecorder()
-
-		CheckAdminKey(s).ServeHTTP(w, r)
-		assert.Assert(t, w.Result().StatusCode == http.StatusUnauthorized)
-	})
-}
-
 func TestDeleteOldScans(t *testing.T) {
 	s := resources.NewTesting(t)
 	defer s.Close()
-
-	s.SetAdminKey("secret")
 
 	pTmplId := postCanonicalPreprocessingTemplate(s, t)
 
@@ -133,7 +104,6 @@ func TestDeleteOldScans(t *testing.T) {
 			r = httptest.NewRequest("DELETE", "/", nil)
 			w = httptest.NewRecorder()
 		)
-		r.Header.Set("OMR-Admin-Key", "secret")
 		r.URL.RawQuery = "unixMilli=" + strconv.FormatInt(creationTimes[i], 10)
 
 		DeleteScansOlderThan(s).ServeHTTP(w, r)
@@ -154,16 +124,4 @@ func TestDeleteOldScans(t *testing.T) {
 			assert.Assert(t, err == nil)
 		}
 	}
-
-	t.Run("unauthorized", func(t *testing.T) {
-		var (
-			r = httptest.NewRequest("DELETE", "/", nil)
-			w = httptest.NewRecorder()
-		)
-		r.Header.Set("OMR-Admin-Key", "wrong!")
-		r.URL.RawQuery = "unixMilli=0"
-
-		DeleteScansOlderThan(s).ServeHTTP(w, r)
-		assert.Assert(t, w.Result().StatusCode == http.StatusUnauthorized)
-	})
 }

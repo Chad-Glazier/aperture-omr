@@ -2,29 +2,15 @@ package mw
 
 import (
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
-// We don't log the commonly-polled endpoints.
-var omittedEndpoints = []string{
-	"GET /system/utilization",
-	"GET /system/logs",
-	"GET /jobs",
-	"GET /job",
-}
-
 // Creates middleware that logs each request and response.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		if slices.Contains(omittedEndpoints, r.Method+" "+r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
 
 		// We also skip any simple file endpoints (i.e., from the static pages
 		// files). We check these by just looking for a file extension.

@@ -357,20 +357,10 @@ func (j JobStatusList) Swap(a, b int) {
 	j[a], j[b] = j[b], j[a]
 }
 
-// Returns an HTTP handler that responds to requests by checking for the admin
-// key on the request and then, if authorized, sending back a list of all jobs
-// sorted from oldest to newest.
-func (j *JobRegistrar) ListHandler(s AdminKeyChecker) http.HandlerFunc {
+// Returns an HTTP handler that responds to requests by sending back a list of
+// all jobs sorted from oldest to newest.
+func (j *JobRegistrar) ListHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		if authorized := s.CheckAdminKey(r); !authorized {
-			http.Error(
-				w,
-				"only admins can retrieve all jobs",
-				http.StatusUnauthorized,
-			)
-			return
-		}
 
 		j.mu.RLock()
 		defer j.mu.RUnlock()
@@ -408,12 +398,6 @@ func (j *JobRegistrar) ListHandler(s AdminKeyChecker) http.HandlerFunc {
 
 		dto.SendCompressedJson(w, r, jobs)
 	}
-}
-
-type AdminKeyChecker interface {
-	// This should return true if and only if the given request has a valid
-	// admin key.
-	CheckAdminKey(r *http.Request) bool
 }
 
 // Returns an HTTP handler that responds to requests by sending back the cached

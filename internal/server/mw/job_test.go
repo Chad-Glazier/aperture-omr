@@ -31,18 +31,6 @@ func testJobResult() *JobResult {
 	return result
 }
 
-type adminKeyChecker struct {
-	key string
-}
-
-func newAdminKeyChecker(key string) AdminKeyChecker {
-	return adminKeyChecker{key: key}
-}
-
-func (a adminKeyChecker) CheckAdminKey(r *http.Request) bool {
-	return r.Header.Get("OMR-Admin-Key") == a.key
-}
-
 //
 // Tests
 //
@@ -332,18 +320,8 @@ func TestJobRegistrarListHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	a := newAdminKeyChecker("admin")
-
-	j.ListHandler(a).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnauthorized)
-	}
-
-	req.Header.Set("OMR-Admin-Key", "admin")
-
 	rr = httptest.NewRecorder()
-	j.ListHandler(a).ServeHTTP(rr, req)
+	j.ListHandler().ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
