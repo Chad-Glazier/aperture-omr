@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"runtime"
+	"time"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
@@ -129,5 +130,23 @@ func CheckAdminKey(s resources.ServerResources) http.HandlerFunc {
 				http.StatusUnauthorized,
 			)
 		}
+	}
+}
+
+func DeleteScansOlderThan(s resources.ServerResources) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticated := s.CheckAdminKey(r); !authenticated {
+			http.Error(w,
+				"not authenticated",
+				http.StatusUnauthorized,
+			)
+		}
+
+		q, ok := dto.ParseQuery[dto.UnixMilliQuery](w, r)
+		if !ok {
+			return
+		}
+
+		s.DeleteAllScansFromBefore(time.UnixMilli(q.UnixMilli))
 	}
 }

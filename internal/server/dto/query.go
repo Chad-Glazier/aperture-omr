@@ -34,6 +34,14 @@ func (l LimitQuery) Validate() error {
 	return nil
 }
 
+type UnixMilliQuery struct {
+	UnixMilli int64
+}
+
+func (u UnixMilliQuery) Validate() error {
+	return nil
+}
+
 //
 // Endpoint-Specific Types
 //

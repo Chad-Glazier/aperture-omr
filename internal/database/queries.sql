@@ -84,9 +84,9 @@ WHERE
 
 -- name: CreateScan :exec
 INSERT INTO
-    scans (id, preprocessing_template_id)
+    scans (id, preprocessing_template_id, created_at_unix_ms)
 VALUES
-    (?, ?);
+    (?, ?, ?);
 
 -- name: CreateScanPage :exec
 INSERT INTO

@@ -357,6 +357,7 @@ func (s *local) SaveScan(
 	err := s.DB.CreateScan(context.Background(), database.CreateScanParams{
 		ID:                      scanId,
 		PreprocessingTemplateID: templateId,
+		CreatedAtUnixMs:         time.Now().UnixMilli(),
 	})
 	if err != nil {
 		return "", ErrDatabaseWrite

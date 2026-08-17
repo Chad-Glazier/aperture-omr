@@ -85,6 +85,7 @@ func setup(port string) *http.Server {
 	mux.HandleFunc("GET /system/memory", handler.GetMemoryInfo(s))
 
 	mux.HandleFunc("GET /admin/authenticated", handler.CheckAdminKey(s))
+	mux.HandleFunc("DELETE /admin/scans", handler.DeleteScansOlderThan(s))
 
 	//
 	// Static Pages

@@ -102,18 +102,19 @@ func (q *Queries) CreatePreprocessingTemplate(ctx context.Context, arg CreatePre
 
 const createScan = `-- name: CreateScan :exec
 INSERT INTO
-    scans (id, preprocessing_template_id)
+    scans (id, preprocessing_template_id, created_at_unix_ms)
 VALUES
-    (?, ?)
+    (?, ?, ?)
 `
 
 type CreateScanParams struct {
 	ID                      string
 	PreprocessingTemplateID string
+	CreatedAtUnixMs         int64
 }
 
 func (q *Queries) CreateScan(ctx context.Context, arg CreateScanParams) error {
-	_, err := q.db.ExecContext(ctx, createScan, arg.ID, arg.PreprocessingTemplateID)
+	_, err := q.db.ExecContext(ctx, createScan, arg.ID, arg.PreprocessingTemplateID, arg.CreatedAtUnixMs)
 	return err
 }
 
