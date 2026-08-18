@@ -103,15 +103,24 @@ func setup(port string, globalKey string) *http.Server {
 		mw.Recovery,
 	)
 
-	admin.routes["GET /jobs"] = j.ListHandler()
 	admin.routes["GET /admin/authenticated"] = handler.CheckAdminKey(s)
 	admin.routes["DELETE /admin/scans"] = handler.DeleteScansOlderThan(s)
+
+	adminNoLog := newRouteGroup(
+		mw.Cors,
+		mw.GlobalKey(k),
+		mw.AdminKey(k),
+		mw.Recovery,
+	)
+
+	adminNoLog.routes["GET /jobs"] = j.ListHandler()
 
 	mux := http.NewServeMux()
 
 	core.register(mux)
 	admin.register(mux)
 	noLog.register(mux)
+	adminNoLog.register(mux)
 
 	mux.Handle("GET /", http.FileServer(http.Dir("./pages")))
 

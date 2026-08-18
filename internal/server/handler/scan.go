@@ -7,7 +7,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/Chad-Glazier/aperture-omr/internal/pdf"
 	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
@@ -62,7 +61,11 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 			)
 			return
 		}
-		defer omr.CloseAll2(anchors)
+		for i := range anchors {
+			for j := range anchors[i] {
+				defer anchors[i][j].Close()
+			}
+		}
 
 		scannerTmpl, err := dto.AdaptScannerTemplate(pTempl, anchors)
 		if err != nil {

@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/gen2brain/go-fitz"
 	"gocv.io/x/gocv"
 )
@@ -367,7 +366,9 @@ func TestRenderPages(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mats, err := renderPages(doc, 74, tt.startIdx, tt.count)
 			if err == nil {
-				defer omr.CloseAll(mats)
+				for i := range mats {
+					mats[i].Close()
+				}
 			}
 			if err != tt.err {
 				t.Errorf("err: got %v, want %v", err, tt.err)

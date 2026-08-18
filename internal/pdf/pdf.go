@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"sync/atomic"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/gen2brain/go-fitz"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
@@ -265,12 +264,16 @@ func renderPages(
 
 		img, err := doc.ImageDPI(int(i), float64(dpi))
 		if err != nil {
-			omr.CloseAll(mats)
+			for i := range mats {
+				mats[i].Close()
+			}
 			return nil, err
 		}
 		mat, err := rgbaToGrayMat(img)
 		if err != nil {
-			omr.CloseAll(mats)
+			for i := range mats {
+				mats[i].Close()
+			}
 			return nil, err
 		}
 
