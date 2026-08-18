@@ -64,9 +64,8 @@ func DecodeImageToMat(r io.Reader) (Mat, error) {
 }
 
 // Writes a matrix to the given output as an image. The encoding will match the
-// given content type. The content type should be formatted as a MIME type. At
-// the time of writing, the only supported content types are "image/jpeg" and
-// "image/png".
+// given content type, which should be formatted as a MIME type. At the time of 
+// writing, the only supported content types are "image/jpeg" and "image/png".
 //
 // If an error is returned, it will be [ErrUnsupportedEncoding] or
 // [ErrEncoding].

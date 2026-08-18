@@ -14,8 +14,10 @@ import (
 type Anchor struct {
 	// The anchor. Must be binary.
 	Mat Mat
-	// The area that the anchor should occupy on the target scan.
-	Area image.Rectangle
+	// The x-coordinate of the anchor's top-left corner on the target scan.
+	X uint 
+	// The y-coordinate of the anchor's top-left corner on the target scan.
+	Y uint
 }
 
 // Closes the matrix used for this anchor.
@@ -35,7 +37,8 @@ type PreprocessingTemplate struct {
 	Anchors [][]Anchor
 
 	// A confidence score (0.0 to 1.0) that defines how closely a suspected
-	// anchor on the scan must match the actual anchor.
+	// anchor on the scan must match the actual anchor to be considered a 
+	// match.
 	MinAnchorConfidence float64
 
 	// The configuration used for binarizing scans. It's important that the
@@ -58,22 +61,17 @@ func (p PreprocessingTemplate) Close() {
 }
 
 // Returns an anchor that has its dimensions is scaled by the given factors.
-// The scaling is done such that the center point is preserved.
-//
-// The returned anchor has a different underlying matrix than the given 
-// anchor, and it must therefore be closed separately.
+// The coordinates of the anchor will be shifted to preserve its center.
 //
 // If an error is returned, it will be [ErrOpenCV].
 func ScaleAnchor(a Anchor, scaleX, scaleY float64) (Anchor, error) {
-	// First, we scale the area.
+	// First, we adjust the position.
 	var (
-		widthChange  = (scaleX - 1) * float64(a.Area.Dx())
-		heightChange = (scaleY - 1) * float64(a.Area.Dy())
+		widthChange  = (scaleX - 1) * float64(a.Mat.Width())
+		heightChange = (scaleY - 1) * float64(a.Mat.Height())
 	)
-	a.Area.Min.X -= int(widthChange / 2)
-	a.Area.Min.Y -= int(heightChange / 2)
-	a.Area.Max.X += int(widthChange / 2)
-	a.Area.Max.Y += int(widthChange / 2)
+	a.X = uint(max(0, float64(a.X) - widthChange / 2))
+	a.Y = uint(max(0, float64(a.Y) - heightChange / 2))
 
 	// Next, we scale the matrix.
 	var method gocv.InterpolationFlags

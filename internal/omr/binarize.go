@@ -14,7 +14,6 @@ var (
 )
 
 type BinarizeConfig struct {
-
 	// The Gaussian kernel size, used for blurring. Must be positive and odd.
 	//
 	// Defaults to [DefaultBlurSize].

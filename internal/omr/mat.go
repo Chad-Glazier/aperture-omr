@@ -108,3 +108,16 @@ func (m Mat) Width() uint {
 func (m Mat) MinDim() uint {
 	return min(m.Width(), m.Height()) 
 }
+
+// Returns an identical deep copy of the given matrix.
+func Clone(m Mat) Mat {
+	var (
+		closed = *m.closed
+		t      = *m.t
+	)
+	return Mat{
+		m:      m.m.Clone(),
+		closed: &closed,
+		t:      &t,
+	}
+}
