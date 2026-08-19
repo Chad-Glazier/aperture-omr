@@ -1,7 +1,20 @@
 package omr
 
 import (
+	"errors"
+	"image"
+
 	"gocv.io/x/gocv"
+)
+
+var (
+	ErrEncoding            = errors.New("error while encoding a matrix")
+	ErrDecoding            = errors.New("error decoding input")
+	ErrUnsupportedEncoding = errors.New("attempted to encode a matrix to an unsupported image format")
+	ErrWrongMatType        = errors.New("a matrix operand was not of the correct type")
+	ErrEmptyMat            = errors.New("a matrix operand was empty when it was not allowed to be")
+	ErrOpenCV              = errors.New("opencv returned an unexpected error")
+	ErrIndexOutOfBounds    = errors.New("index out of bounds")
 )
 
 type MatType int
@@ -9,8 +22,8 @@ type MatType int
 const (
 	MatTypeUnknown MatType = iota
 
-	// The same as [MatGray], except it has been binarized. I.e., each of the
-	// bytes are either 255 or 0. OpenCV does not treat "binarized" as a
+	// The same as [MatTypeGray], except it has been binarized. I.e., each of
+	// the bytes are either 255 or 0. OpenCV does not treat "binarized" as a
 	// distinct type, so this is still represented by 8-bit unsigned integers
 	// on a single channel.
 	//
@@ -50,8 +63,14 @@ func newMatFromGoCV(mat gocv.Mat) Mat {
 	}
 }
 
-// Closes a matrix. Redundant calls are safe.
+// Closes a matrix. This is always safe to call, even if the matrix hasn't been
+// properly initialized.
 func (m Mat) Close() {
+	if m.closed == nil {
+		// The matrix is uninitialized.
+		return
+	}
+
 	if *m.closed {
 		return
 	}
@@ -102,13 +121,6 @@ func (m Mat) Width() uint {
 	return uint(m.m.Cols())
 }
 
-// Returns the size of the smaller dimension of this matrix. E.g., if this
-// matrix has more rows than columns, this function will return the number of
-// columns.
-func (m Mat) MinDim() uint {
-	return min(m.Width(), m.Height()) 
-}
-
 // Returns an identical deep copy of the given matrix.
 func Clone(m Mat) Mat {
 	var (
@@ -120,4 +132,38 @@ func Clone(m Mat) Mat {
 		closed: &closed,
 		t:      &t,
 	}
+}
+
+// Returns a clone of the given matrix, scaled by the given factors.
+//
+// Due to the interpolation used for scaling matrices, the returned matrix will
+// never by binary. If the input matrix is [MatTypeBinary], the output will be
+// [MatTypeGray].
+//
+// If an error is returned, it will be [ErrOpenCV].
+func Scale(src Mat, scaleX, scaleY float64) (Mat, error) {
+
+	var method gocv.InterpolationFlags
+	if min(scaleX, scaleY) < 1 {
+		// Best quality images when upsampling.
+		method = gocv.InterpolationArea
+	} else {
+		// Visually best when upsampling. However, [gocv.InterpolationLinear]
+		// is faster and we could use that instead to maximize the speed of
+		// this function.
+		method = gocv.InterpolationCubic
+	}
+
+	resized := gocv.NewMat()
+	err := gocv.Resize(
+		src.m, &resized,
+		image.Point{},
+		scaleX, scaleY,
+		method,
+	)
+	if err != nil {
+		return Mat{}, ErrOpenCV
+	}
+
+	return newMatFromGoCV(resized), nil
 }

@@ -2,9 +2,13 @@ package omr
 
 import (
 	"image"
-
-	"gocv.io/x/gocv"
+	"image/draw"
 )
+
+// x- and y-coordinates that are each in the range of 0 to 1.
+type NormalCoordinate struct {
+	X, Y float64
+}
 
 // Anchors represent specific parts of an image that we search for on a scanned
 // sheet. The preprocessing template informs us of where each anchor *should*
@@ -15,9 +19,7 @@ type Anchor struct {
 	// The anchor. Must be binary.
 	Mat Mat
 	// The x-coordinate of the anchor's top-left corner on the target scan.
-	X uint 
-	// The y-coordinate of the anchor's top-left corner on the target scan.
-	Y uint
+	Pos NormalCoordinate
 }
 
 // Closes the matrix used for this anchor.
@@ -44,11 +46,6 @@ type PreprocessingTemplate struct {
 	// The configuration used for binarizing scans. It's important that the
 	// binarization configuration is shared between the anchors and the scans.
 	BinarizeConfig BinarizeConfig
-
-	// The size of the minimum dimension used when calibrating the values in
-	// this template. With this, we can scale the sizes of certain pixel
-	// distances to neatly work with various resolutions.
-	CalibrationSize uint
 }
 
 // Closes all matrices used by this template.
@@ -60,37 +57,131 @@ func (p PreprocessingTemplate) Close() {
 	}
 }
 
-// Returns an anchor that has its dimensions is scaled by the given factors.
-// The coordinates of the anchor will be shifted to preserve its center.
+// Visualizes a preprocessing template as an image.
+//
+// If an error is returned, it will be [ErrEncoding] or [ErrIndexOutOfBounds].
+func (p *PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
+	r := image.Rect(0, 0, int(p.Width), int(p.Height))
+	img := image.NewGray(r)
+	
+	for _, a := range p.Anchors[pageIdx] {
+
+		ancImg, err := MatToImage(a.Mat)
+		if err != nil {
+			return nil, ErrEncoding
+		}
+		ancRect := image.Rect(
+			int(a.Pos.X * float64(p.Width)), 
+			int(a.Pos.Y * float64(p.Height)), 
+			int(a.Pos.X * float64(p.Width)) + int(a.Mat.Width()),
+			int(a.Pos.Y * float64(p.Height)) + int(a.Mat.Height()),
+		)
+		draw.Draw(img, ancRect, ancImg, image.Point{}, draw.Over)
+	}
+
+	return img, nil
+}
+
+// Describes a method for fitting one rectangle within another. The options are
+// named in the same way as the CSS "object-fit" property.
+//
+// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/object-fit>
+type FitMethod uint
+
+const (
+	// The template will be scaled so that it completely covers the target 
+	// dimensions while preserving its aspect ratio. This may cause the 
+	// template to overflow.
+	FitMethodCover FitMethod = iota
+	// The template will be scaled so that it fits completely inside the target
+	// dimensions while preserving its aspect ratio. This may cause the 
+	// template to overflow.
+	FitMethodContain
+	// The template will be scaled to match the target dimensions exactly. This
+	// may not preserve the aspect ratio.
+	FitMethodFill
+)
+
+// Returns a copy of the given template, scaled to match the specified 
+// dimensions.
 //
 // If an error is returned, it will be [ErrOpenCV].
-func ScaleAnchor(a Anchor, scaleX, scaleY float64) (Anchor, error) {
-	// First, we adjust the position.
+func ScalePreprocessingTemplate(
+	method FitMethod,
+	src *PreprocessingTemplate, 
+	targetWidth, targetHeight uint,
+) (*PreprocessingTemplate, error) {
+
 	var (
-		widthChange  = (scaleX - 1) * float64(a.Mat.Width())
-		heightChange = (scaleY - 1) * float64(a.Mat.Height())
+		scaleX = float64(targetWidth)/float64(src.Width)
+		scaleY = float64(targetHeight)/float64(src.Height)
 	)
-	a.X = uint(max(0, float64(a.X) - widthChange / 2))
-	a.Y = uint(max(0, float64(a.Y) - heightChange / 2))
-
-	// Next, we scale the matrix.
-	var method gocv.InterpolationFlags
-	if min(scaleX, scaleY) < 1 {
-		method = gocv.InterpolationArea // Better when downsampling.
-	} else {
-		method = gocv.InterpolationLinear // Better when upsampling.
+	switch method {
+	case FitMethodCover:
+		if scaleY > scaleX {
+			targetWidth = uint(scaleY * float64(src.Width))
+		} else {
+			targetHeight = uint(scaleX * float64(src.Height))
+		}		
+	case FitMethodContain:
+		if scaleY < scaleX {
+			targetWidth = uint(scaleY * float64(src.Width))
+		} else {
+			targetHeight = uint(scaleX * float64(src.Height))
+		}
 	}
-	resized := gocv.NewMat()
-	err := gocv.Resize(
-		a.Mat.m, &resized,
-		image.Point{},
-		scaleX, scaleY,
-		method,
-	)
+
+	scaled, err := scalePreprocessingTemplateTo(src, targetWidth, targetHeight)
 	if err != nil {
-		return Anchor{}, ErrOpenCV
+		return nil, ErrOpenCV
 	}
 
-	a.Mat = newMatFromGoCV(resized)
-	return a, nil
+	return scaled, nil
+}
+
+// Returns a deep copy of the given template with all relevant values scaled to
+// fit the given dimensions. Note that the output anchors will not be binary, 
+// even if the input anchors are. See [Scale].
+//
+// If an error is returned, it will be [ErrOpenCV].
+func scalePreprocessingTemplateTo(
+	src *PreprocessingTemplate,
+	width, height uint,	
+) (
+	*PreprocessingTemplate, 
+	error,
+) {
+	var (
+		scaleX = float64(width)/float64(src.Width)
+		scaleY = float64(height)/float64(src.Height)
+	)
+
+	scaled := PreprocessingTemplate{
+		Width:  width,
+		Height: height,
+		MinAnchorConfidence: src.MinAnchorConfidence,
+	}
+	scaled.BinarizeConfig = scaleBinarizationConfig(
+		src.BinarizeConfig, 
+		scaleX, scaleY,
+	)
+	
+	scaled.Anchors = make([][]Anchor, len(src.Anchors))
+	for i := range src.Anchors {
+		scaled.Anchors[i] = make([]Anchor, len(src.Anchors[i]))
+		for j := range src.Anchors[i] {
+
+			scaledAnchor := src.Anchors[i][j]
+			m, err := Scale(src.Anchors[i][j].Mat, scaleX, scaleY)
+			if err != nil {
+				scaled.Close()
+				return nil, ErrOpenCV
+			}
+			scaledAnchor.Mat = m
+
+			scaled.Anchors[i][j] = scaledAnchor
+		}
+	}
+
+	return &scaled, nil
 }

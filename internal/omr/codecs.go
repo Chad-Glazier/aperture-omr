@@ -1,17 +1,10 @@
 package omr
 
 import (
-	"errors"
 	"image"
 	"io"
 
 	"gocv.io/x/gocv"
-)
-
-var (
-	ErrEncoding            = errors.New("error while encoding a matrix")
-	ErrDecoding            = errors.New("error decoding input")
-	ErrUnsupportedEncoding = errors.New("attempted to encode a matrix to an unsupported image format")
 )
 
 // Returns a new grayscale matrix from an RGBA image.
@@ -22,17 +15,31 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 	h := img.Bounds().Dy()
 
 	bytes := make([]byte, w*h)
+	stride := img.Stride
 
 	for x := range w {
 		for y := range h {
 
 			//
-			// This luminosity formula is copied from the Go standard library.
+			// The luminosity formula is copied from the Go standard library:
+			// 
 			// <https://cs.opensource.google/go/go/+/master:src/image/color/color.go;l=244>
+			// <https://cs.opensource.google/go/go/+/master:src/image/color/color.go;l=30>
+			//
+			// Notably, we are leaving out one small computation; the rgba
+			// values in the standard library are calculated as "(x << 8) | x"
+			// while we are only doing "x << 8". One can prove exhaustively
+			// that this will only ever change the luminosity by 1, so I'm
+			// alright with forgoing it.
 			//
 
-			pixel := img.At(x, y)
-			r, g, b, _ := pixel.RGBA()
+			var (
+				i = y*stride + x*4
+				r = uint32(img.Pix[i])<<8
+				g = uint32(img.Pix[i+1])<<8
+				b = uint32(img.Pix[i+2])<<8
+			)
+			
 			lum := (19595*r + 38470*g + 7471*b + 1<<15) >> 24
 			bytes[x+y*w] = byte(lum)
 		}
@@ -44,6 +51,17 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 	}
 
 	return newMatFromGoCV(m), nil
+}
+
+// Converts a matrix to an image. 
+//
+// If an error is returned, it will be [ErrEncoding].
+func MatToImage(mat Mat) (image.Image, error) {
+	img, err := mat.m.ToImage()
+	if err != nil {
+		return nil, ErrEncoding
+	}
+	return img, nil
 }
 
 // Reads the given input as an image and converts it to a grayscale matrix.

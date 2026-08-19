@@ -1,16 +1,9 @@
 package omr
 
 import (
-	"errors"
 	"image"
 
 	"gocv.io/x/gocv"
-)
-
-var (
-	ErrWrongMatType = errors.New("a matrix operand was not of the correct type")
-	ErrEmptyMat     = errors.New("a matrix operand was empty when it was not allowed to be")
-	ErrOpenCV       = errors.New("opencv returned an unexpected error")
 )
 
 type BinarizeConfig struct {
@@ -36,11 +29,7 @@ type BinarizeConfig struct {
 	// <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3?>
 	BlockSize uint
 
-	// A constant that is subtracted from each pixel's threshold value. Making
-	// this positive will cause the thresholding to ignore lighter values,
-	// while making it negative will make them more sensitive to them. Since
-	// pencil marks can be very light, it's recommended that you keep it
-	// negative.
+	// A constant that is subtracted from each pixel's threshold value.
 	//
 	// Defaults to [DefaultAdaptiveC].
 	//
@@ -49,10 +38,10 @@ type BinarizeConfig struct {
 }
 
 const (
-	DefaultBlurSize       = 3
-	DefaultMorphCloseSize = 3
-	DefaultBlockSize      = 91
-	DefaultAdaptiveC      = -5
+	DefaultBlurSize       uint    = 3
+	DefaultMorphCloseSize uint    = 3
+	DefaultBlockSize      uint    = 51
+	DefaultAdaptiveC      float32 = 10
 )
 
 // Binarizes a grayscale matrix.
@@ -143,7 +132,7 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 		dst.m, &dst.m,
 		255,
 		gocv.AdaptiveThresholdMean,
-		gocv.ThresholdBinaryInv,
+		gocv.ThresholdBinary,
 		int(c.BlockSize),
 		c.AdaptiveC,
 	)
@@ -168,10 +157,22 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 // This is useful if, for example, you've configured the values for scans at
 // one specific resolution but you want it to behave properly with other
 // resolutions as well.
-func ScaleConfig(c BinarizeConfig, multiplier float64) BinarizeConfig {
-	c.BlurSize = uint(multiplier * float64(c.BlurSize))
-	c.MorphCloseSize = uint(multiplier * float64(c.MorphCloseSize))
-	c.BlockSize = uint(multiplier * float64(c.BlockSize))
+func scaleBinarizationConfig(
+	c BinarizeConfig,
+	scaleX, scaleY float64,
+) BinarizeConfig {
+
+	// The factor to use for scaling linear values. At the time of writing,
+	// all of the binarization configuration values are linear.
+	//
+	// We could also use something like "min(scaleX, scaleY)",
+	// "max(scaleX, scaleY)", or a more thoughtful function. Simply taking the
+	// average seems fine for our use case though.
+	linearScaling := (scaleX + scaleY) / 2
+
+	c.BlurSize = uint(linearScaling * float64(c.BlurSize))
+	c.MorphCloseSize = uint(linearScaling * float64(c.MorphCloseSize))
+	c.BlockSize = uint(linearScaling * float64(c.BlockSize))
 
 	// Make sure the values that have to be odd are, in fact, odd.
 	if c.BlurSize%2 == 0 {
