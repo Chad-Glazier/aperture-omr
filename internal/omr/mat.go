@@ -3,6 +3,7 @@ package omr
 import (
 	"errors"
 	"image"
+	"math"
 
 	"gocv.io/x/gocv"
 )
@@ -15,6 +16,8 @@ var (
 	ErrEmptyMat            = errors.New("a matrix operand was empty when it was not allowed to be")
 	ErrOpenCV              = errors.New("opencv returned an unexpected error")
 	ErrIndexOutOfBounds    = errors.New("index out of bounds")
+	ErrCannotContain       = errors.New("attempted to fit a larger object inside of a smaller container")
+	ErrCannotMatchAnchor   = errors.New("could not locate the anchor on the given matrix")
 )
 
 type MatType int
@@ -47,20 +50,25 @@ type Mat struct {
 	t      *MatType
 }
 
-// Creates a new matrix from a gocv matrix.
-func newMatFromGoCV(mat gocv.Mat) Mat {
+func NewMat() Mat {
 	var (
 		closed = false
 		t      MatType
 	)
-	if mat.Type() == gocv.MatTypeCV8UC1 {
-		t = MatTypeGray
-	}
 	return Mat{
-		m:      mat,
+		m:      gocv.NewMat(),
 		closed: &closed,
 		t:      &t,
 	}
+}
+
+// Creates a new matrix from a gocv matrix.
+func newMatFromGoCV(mat gocv.Mat) Mat {
+	m := NewMat()
+	if mat.Type() == gocv.MatTypeCV8UC1 {
+		*m.t = MatTypeGray
+	}
+	return m
 }
 
 // Closes a matrix. This is always safe to call, even if the matrix hasn't been
@@ -166,4 +174,42 @@ func Scale(src Mat, scaleX, scaleY float64) (Mat, error) {
 	}
 
 	return newMatFromGoCV(resized), nil
+}
+
+func (m Mat) Region() image.Rectangle {
+	return image.Rect(
+		0, 0,
+		int(m.Width()),
+		int(m.Height()),
+	)
+}
+
+// Rotates a matrix by the given angle in radians.
+//
+// If an error is returned, it will be [ErrOpenCV].
+func Rotate(dst Mat, src Mat, angle float64) error {
+	var (
+		w = int(src.Width())
+		h = int(src.Height())
+	)
+
+	rotation := gocv.GetRotationMatrix2D(
+		image.Pt((w/2), int(h/2)),
+		angle/math.Pi*180,
+		1.0,
+	)
+	defer rotation.Close()
+
+	err := gocv.WarpAffine(
+		src.m, &dst.m,
+		rotation,
+		image.Pt(w, h),
+	)
+	if err != nil {
+		return ErrOpenCV
+	}
+
+	*dst.t = *src.t
+
+	return nil
 }

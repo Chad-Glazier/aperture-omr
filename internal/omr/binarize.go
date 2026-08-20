@@ -57,10 +57,10 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 		return ErrEmptyMat
 	}
 
-	// We copy the configuration value so that we can silently adjust it as
-	// needed, without risking race conditions. The only reason we're taking a
-	// pointer instead of the value is so that the caller can neatly pass [nil]
-	// if they want to use the default configuration.
+	//
+	// Set the default configuration values.
+	//
+	
 	var c BinarizeConfig
 	if conf == nil {
 		c = BinarizeConfig{}
@@ -68,7 +68,6 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 		c = *conf
 	}
 
-	// Set default configuration values.
 	if c.BlurSize == 0 {
 		c.BlurSize = DefaultBlurSize
 	}

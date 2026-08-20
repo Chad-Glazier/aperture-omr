@@ -6,7 +6,7 @@ import (
 )
 
 // x- and y-coordinates that are each in the range of 0 to 1.
-type NormalCoordinate struct {
+type NormalPoint struct {
 	X, Y float64
 }
 
@@ -19,12 +19,26 @@ type Anchor struct {
 	// The anchor. Must be binary.
 	Mat Mat
 	// The x-coordinate of the anchor's top-left corner on the target scan.
-	Pos NormalCoordinate
+	Pos NormalPoint
 }
 
 // Closes the matrix used for this anchor.
 func (a Anchor) Close() {
 	a.Mat.Close()
+}
+
+// Returns the anchor's region, in absolute terms, when positioned in the given
+// matrix.
+func (a Anchor) Region(container Mat) image.Rectangle {
+	var (
+		localX = int(a.Pos.X * float64(container.Width()))
+		localY = int(a.Pos.Y * float64(container.Height()))
+	)
+	return image.Rect(
+		localX, localY,
+		localX + int(a.Mat.Width()),
+		localY + int(a.Mat.Height()),
+	)
 }
 
 // A template used to inform the preprocessing steps. This template describes
@@ -60,7 +74,7 @@ func (p PreprocessingTemplate) Close() {
 // Visualizes a preprocessing template as an image.
 //
 // If an error is returned, it will be [ErrEncoding] or [ErrIndexOutOfBounds].
-func (p *PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
+func (p PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
 	r := image.Rect(0, 0, int(p.Width), int(p.Height))
 	img := image.NewGray(r)
 	
@@ -108,9 +122,9 @@ const (
 // If an error is returned, it will be [ErrOpenCV].
 func ScalePreprocessingTemplate(
 	method FitMethod,
-	src *PreprocessingTemplate, 
+	src PreprocessingTemplate, 
 	targetWidth, targetHeight uint,
-) (*PreprocessingTemplate, error) {
+) (PreprocessingTemplate, error) {
 
 	var (
 		scaleX = float64(targetWidth)/float64(src.Width)
@@ -133,7 +147,7 @@ func ScalePreprocessingTemplate(
 
 	scaled, err := scalePreprocessingTemplateTo(src, targetWidth, targetHeight)
 	if err != nil {
-		return nil, ErrOpenCV
+		return PreprocessingTemplate{}, ErrOpenCV
 	}
 
 	return scaled, nil
@@ -145,10 +159,10 @@ func ScalePreprocessingTemplate(
 //
 // If an error is returned, it will be [ErrOpenCV].
 func scalePreprocessingTemplateTo(
-	src *PreprocessingTemplate,
+	src PreprocessingTemplate,
 	width, height uint,	
 ) (
-	*PreprocessingTemplate, 
+	PreprocessingTemplate, 
 	error,
 ) {
 	var (
@@ -175,7 +189,7 @@ func scalePreprocessingTemplateTo(
 			m, err := Scale(src.Anchors[i][j].Mat, scaleX, scaleY)
 			if err != nil {
 				scaled.Close()
-				return nil, ErrOpenCV
+				return PreprocessingTemplate{}, ErrOpenCV
 			}
 			scaledAnchor.Mat = m
 
@@ -183,5 +197,6 @@ func scalePreprocessingTemplateTo(
 		}
 	}
 
-	return &scaled, nil
+	return scaled, nil
 }
+

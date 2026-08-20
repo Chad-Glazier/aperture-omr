@@ -12,7 +12,7 @@ import (
 // Helpers
 //
 
-func getSampleTemplate(t *testing.T) *PreprocessingTemplate {
+func getSampleTemplate(t *testing.T) PreprocessingTemplate {
 	t.Helper()
 
 	tmpl := PreprocessingTemplate{}
@@ -39,48 +39,48 @@ func getSampleTemplate(t *testing.T) *PreprocessingTemplate {
 	tmpl.Anchors[1] = make([]Anchor, 3)
 	tmpl.Anchors[0][0] = Anchor{
 		Mat: ancMat,
-		Pos: NormalCoordinate{
+		Pos: NormalPoint{
 			X:   float64(24)/float64(tmpl.Width),
 			Y:   float64(24)/float64(tmpl.Height),			
 		},
 	}
 	tmpl.Anchors[0][1] = Anchor{
 		Mat: Clone(ancMat),
-		Pos: NormalCoordinate{
+		Pos: NormalPoint{
 			X:   float64(1152)/float64(tmpl.Width),
 			Y:   float64(24)/float64(tmpl.Height),	
 		},
 	}
 	tmpl.Anchors[0][2] = Anchor{
 		Mat: Clone(ancMat),
-		Pos: NormalCoordinate{
+		Pos: NormalPoint{
 			X:   float64(24)/float64(tmpl.Width),
 			Y:   float64(1652)/float64(tmpl.Height),	
 		},
 	}
 	tmpl.Anchors[1][0] = Anchor{
 		Mat: ancMat,
-		Pos: NormalCoordinate{
+		Pos: NormalPoint{
 			X:   float64(24)/float64(tmpl.Width),
 			Y:   float64(24)/float64(tmpl.Height),	
 		},
 	}
 	tmpl.Anchors[1][1] = Anchor{
 		Mat: Clone(ancMat),
-		Pos: NormalCoordinate{
+		Pos: NormalPoint{
 			X:   float64(1152)/float64(tmpl.Width),
 			Y:   float64(24)/float64(tmpl.Height),	
 		},
 	}
 	tmpl.Anchors[1][2] = Anchor{
 		Mat: Clone(ancMat),
-		Pos: NormalCoordinate{
+		Pos: NormalPoint{
 			X:   float64(1152)/float64(tmpl.Width),
 			Y:   float64(1652)/float64(tmpl.Height),	
 		},
 	}
 
-	return &tmpl
+	return tmpl
 }
 
 //
