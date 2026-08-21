@@ -188,6 +188,7 @@ func searchRegion(
 	anchor Anchor,
 	padding float64,
 ) Mat {
+	padding = max(0, padding)
 	var (
 		w = float64(mat.Width())
 		h = float64(mat.Height())
@@ -195,7 +196,7 @@ func searchRegion(
 		x0 = int(w * (anchor.Pos.X - padding))
 		y0 = int(h * (anchor.Pos.Y - padding))
 		x1 = int(w*(anchor.Pos.X+padding) + float64(anchor.Mat.Width()))
-		y1 = int(w*(anchor.Pos.Y+padding) + float64(anchor.Mat.Height()))
+		y1 = int(h*(anchor.Pos.Y+padding) + float64(anchor.Mat.Height()))
 	)
 
 	x0 = max(x0, 0)

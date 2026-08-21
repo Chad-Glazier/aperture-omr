@@ -20,6 +20,7 @@ var (
 	ErrCannotContain       = errors.New("attempted to fit a larger object inside of a smaller container")
 	ErrCannotMatchAnchor   = errors.New("could not locate the anchor on the given matrix")
 	ErrMaxIterations       = errors.New("a maximum iterations bound was met")
+	ErrNoncontinuousMat    = errors.New("attempted to use a non-continuous matrix for an operation that requires a continuous one")
 )
 
 type MatType int

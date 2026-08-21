@@ -98,6 +98,78 @@ func getTestAnchorMat(t *testing.T) Mat {
 // Tests
 //
 
+func TestSearchRegion(t *testing.T) {
+
+	var mat = getTestMat(t)
+
+	t.Run("zero region", func(t *testing.T) {
+		var (
+			anchor = Anchor{ Mat: NewMat() }
+			region = searchRegion(mat, anchor, 0)			
+		)
+		assert.Assert(t, region.Width() == 0)
+		assert.Assert(t, region.Height() == 0)
+	})
+
+	t.Run("zero padding region", func(t *testing.T) {
+		var (
+			anchor = Anchor{ Mat: getTestAnchorMat(t) }
+			region = searchRegion(mat, anchor, 0)			
+		)
+		assert.Assert(t, region.Width() == anchor.Mat.Width())
+		assert.Assert(t, region.Height() == anchor.Mat.Height())
+	})
+
+	t.Run("safe region with padding", func(t *testing.T) {
+		var (
+			anchor = Anchor{ 
+				Mat: getTestAnchorMat(t),
+				Pos: NormalPoint{ 0.45, 0.45 },
+			}
+			region = searchRegion(mat, anchor, 0.10)			
+		)
+		assert.Assert(t, region.Width() > anchor.Mat.Width())
+		assert.Assert(t, region.Height() > anchor.Mat.Height())
+		assert.Assert(t, region.Width() < mat.Width())
+		assert.Assert(t, region.Height() < mat.Height())
+	})
+
+	t.Run("respects boundaries", func(t *testing.T) {
+		var (
+			anchor = Anchor{ 
+				Mat: NewMat(),
+				Pos: NormalPoint{ 0, 0 },
+			}
+			region = searchRegion(mat, anchor, 0.50)			
+		)
+		// We're putting the anchor in the top-left corner and asking for 50%
+		// padding. We should expect that this makes it so the padded region
+		// horizontally and vertically overflows on its left- and top-most 
+		// sides. Since this area should be omitted from the region, we should
+		// hope that the region ends up with half the width and half the height
+		// of the source.
+		roughlyEqual := func(a, b uint) bool { 
+			if a > b { return a - b <= 3 }
+			if b > a { return b - a <= 3 }
+			return true
+		}
+		assert.Assert(t, roughlyEqual(region.Width(), mat.Width()/2))
+		assert.Assert(t, roughlyEqual(region.Height(), mat.Height()/2))
+
+		anchor.Pos.X = 1.00
+		anchor.Pos.Y = 1.0
+		region.Close()
+		region = searchRegion(mat, anchor, 0.50)			
+		assert.Assert(t, roughlyEqual(region.Width(), mat.Width()/2))
+		assert.Assert(t, roughlyEqual(region.Height(), mat.Height()/2))
+
+		region.Close()
+		region = searchRegion(mat, anchor, 1.50)			
+		assert.Assert(t, roughlyEqual(region.Width(), mat.Width()))
+		assert.Assert(t, roughlyEqual(region.Height(), mat.Height()))
+	})
+}
+
 func TestRotateAnchor(t *testing.T) {
 	var tName = t.Name()
 
@@ -112,7 +184,6 @@ func TestRotateAnchor(t *testing.T) {
 
 		drawInputOutput(t, ancMat, rotated.Mat, outputName)
 	})
-
 }
 
 func TestRefiningSearch(t *testing.T) {

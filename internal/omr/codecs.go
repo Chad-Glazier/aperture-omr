@@ -55,7 +55,7 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 
 // Converts a matrix to an image. 
 //
-// If an error is returned, it will be [ErrEncoding].
+// If an error is returned, it will be [ErrEncoding] or [ErrNoncontinuousMat].
 func MatToImage(mat Mat) (image.Image, error) {
 	img, err := mat.m.ToImage()
 	if err != nil {
