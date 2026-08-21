@@ -3,6 +3,7 @@ package omr
 import (
 	"errors"
 	"image"
+	"image/color"
 	"math"
 
 	"gocv.io/x/gocv"
@@ -18,6 +19,7 @@ var (
 	ErrIndexOutOfBounds    = errors.New("index out of bounds")
 	ErrCannotContain       = errors.New("attempted to fit a larger object inside of a smaller container")
 	ErrCannotMatchAnchor   = errors.New("could not locate the anchor on the given matrix")
+	ErrMaxIterations       = errors.New("a maximum iterations bound was met")
 )
 
 type MatType int
@@ -64,7 +66,11 @@ func NewMat() Mat {
 
 // Creates a new matrix from a gocv matrix.
 func newMatFromGoCV(mat gocv.Mat) Mat {
-	m := NewMat()
+	var (
+		closed = false
+		t      MatType
+		m      = Mat{m: mat, closed: &closed, t: &t}
+	)
 	if mat.Type() == gocv.MatTypeCV8UC1 {
 		*m.t = MatTypeGray
 	}
@@ -149,7 +155,7 @@ func Clone(m Mat) Mat {
 // [MatTypeGray].
 //
 // If an error is returned, it will be [ErrOpenCV].
-func Scale(src Mat, scaleX, scaleY float64) (Mat, error) {
+func Scale(dst, src Mat, scaleX, scaleY float64) error {
 
 	var method gocv.InterpolationFlags
 	if min(scaleX, scaleY) < 1 {
@@ -162,18 +168,23 @@ func Scale(src Mat, scaleX, scaleY float64) (Mat, error) {
 		method = gocv.InterpolationCubic
 	}
 
-	resized := gocv.NewMat()
 	err := gocv.Resize(
-		src.m, &resized,
+		src.m, &dst.m,
 		image.Point{},
 		scaleX, scaleY,
 		method,
 	)
 	if err != nil {
-		return Mat{}, ErrOpenCV
+		return ErrOpenCV
 	}
 
-	return newMatFromGoCV(resized), nil
+	if *src.t == MatTypeBinary {
+		*dst.t = MatTypeGray
+	} else {
+		*dst.t = *src.t
+	}
+
+	return nil
 }
 
 func (m Mat) Region() image.Rectangle {
@@ -191,25 +202,44 @@ func Rotate(dst Mat, src Mat, angle float64) error {
 	var (
 		w = int(src.Width())
 		h = int(src.Height())
+
+		newW = float64(h)*math.Abs(math.Sin(angle)) +
+			float64(w)*math.Abs(math.Cos(angle))
+		newH = float64(h)*math.Abs(math.Cos(angle)) +
+			float64(w)*math.Abs(math.Sin(angle))
 	)
 
 	rotation := gocv.GetRotationMatrix2D(
-		image.Pt((w/2), int(h/2)),
+		image.Pt(int(w/2), int(h/2)),
 		angle/math.Pi*180,
 		1.0,
 	)
 	defer rotation.Close()
 
-	err := gocv.WarpAffine(
+	rotation.SetDoubleAt(0, 2,
+		rotation.GetDoubleAt(0, 2)+(newW-float64(w))/2,
+	)
+	rotation.SetDoubleAt(1, 2,
+		rotation.GetDoubleAt(1, 2)+(newH-float64(h))/2,
+	)
+
+	err := gocv.WarpAffineWithParams(
 		src.m, &dst.m,
 		rotation,
-		image.Pt(w, h),
+		image.Pt(int(newW), int(newH)),
+		gocv.InterpolationArea,
+		gocv.BorderConstant,
+		color.RGBA{ 255, 255, 255, 255 },
 	)
 	if err != nil {
 		return ErrOpenCV
 	}
 
-	*dst.t = *src.t
+	if *src.t == MatTypeBinary {
+		*dst.t = MatTypeGray
+	} else {
+		*dst.t = *src.t
+	}
 
 	return nil
 }

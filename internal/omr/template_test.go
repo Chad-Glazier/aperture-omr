@@ -28,11 +28,7 @@ func getSampleTemplate(t *testing.T) PreprocessingTemplate {
 	tmpl.Width = 1200
 	tmpl.Height = 1700
 
-	r, err := os.Open("testdata/input/anchor.jpeg")
-	assert.NilError(t, err)
-
-	ancMat, err := DecodeImageToMat(r)
-	assert.NilError(t, err)
+	ancMat := getTestAnchorMat(t)
 
 	tmpl.Anchors = make([][]Anchor, 2)
 	tmpl.Anchors[0] = make([]Anchor, 3)

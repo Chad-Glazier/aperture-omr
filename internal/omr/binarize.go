@@ -51,10 +51,10 @@ const (
 // corrupted values from a partial operation and should be closed.
 func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 	switch { // Handle bad inputs.
-	case *src.t != MatTypeGray:
-		return ErrWrongMatType
 	case src.Empty():
 		return ErrEmptyMat
+	case *src.t != MatTypeGray:
+		return ErrWrongMatType
 	}
 
 	//

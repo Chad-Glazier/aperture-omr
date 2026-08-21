@@ -7,12 +7,39 @@ import (
 	"gocv.io/x/gocv"
 )
 
-type FindAnchorResult struct {
-	Position    image.Point
-	Orientation float64
-	Confidence  float64
+// x- and y-coordinates that are each in the range of 0 to 1.
+type NormalPoint struct {
+	X, Y float64
 }
- 
+
+// Anchors represent specific parts of an image that we search for on a scanned
+// sheet. The preprocessing template informs us of where each anchor *should*
+// be on the page. Thus, if we are given an imperfect scan, we can locate its
+// anchors and compare their expected position/size/orientation to the actual
+// values. With that information we can figure out how to correct the scan.
+type Anchor struct {
+	// The anchor. Must be binary.
+	Mat Mat
+	// The position of the anchor relative to the template.
+	Pos NormalPoint
+}
+
+// Closes the matrix used for this anchor.
+func (a Anchor) Close() {
+	a.Mat.Close()
+}
+
+type FindAnchorResult struct {
+	// The position in the source matrix where the anchor's best match was
+	// found.
+	Position image.Point
+	// The orientation (i.e., rotation in radians) of the anchor that yielded
+	// the best match.
+	Orientation float64
+	// The quality (0 to 1) of the best match.
+	Confidence float64
+}
+
 type FindAnchorConfig struct {
 	// The initial orientation of the anchor.
 	//
@@ -47,13 +74,14 @@ const (
 // Attempts to locate an anchor on the given matrix. The return value describes
 // the best match that was found.
 //
-// If an error is returned, it will be [ErrWrongMatType], [ErrEmptyMat], or 
+// If an error is returned, it will be [ErrWrongMatType], [ErrEmptyMat], or
 // [ErrOpenCV].
 func FindAnchor(
 	mat Mat,
 	anchor Anchor,
 	minConfidence float64,
 	conf *FindAnchorConfig,
+	bConf *BinarizeConfig,
 ) (FindAnchorResult, error) {
 	switch { // Handle bad inputs.
 	case *mat.t != MatTypeBinary, *anchor.Mat.t != MatTypeBinary:
@@ -87,82 +115,41 @@ func FindAnchor(
 	}
 
 	//
-	// We run an iterative refining search here:
-	//
-	// 1) We start by picking a specific middle point and a breadth.
-	//
-	// 2) We select a few equidistant points in that search area and
-	//    iterate over all of them.
-	//
-	// 3) We take note of the one with the highest value and restart the search
-	//    with it as the new middle point, except that breadth has been shrunk
-	//    by some factor (the "refining factor").
-	//
-	// We could use a more sophisticated convex optimization method, but since
-	// we can't really guarantee the convexity of the objective function I
-	// doubt that the risk of falling into a local maximum is worth the
-	// marginal performance boost.
+	// Search for the anchor.
 	//
 
-	const (
-		refiningIterations   = 3
-		refiningFactor       = 2.0
-		anglesPerIteration   = 4
-	)
-
-	var (
-		bestConfidence float64
-		bestLocation   image.Point
-
-		searchArea = searchRegion(mat, anchor, 0.10)
-		middle     = initialMiddle
-		breadth    = initialBreadth
-		angles     = [anglesPerIteration]float64{}
-	)
+	searchArea := searchRegion(mat, anchor, c.SearchAreaPadding)
 	defer searchArea.Close()
 
-	for range refiningIterations {
-
-		delta := breadth / float64(anglesPerIteration-1)
-		lo := middle - breadth/2
-		for i := range angles {
-			angles[i] = lo + float64(i)*delta
-		}
-		bestAngle := middle
-
-		for _, angle := range angles {
-
+	best, err := refiningSearch(
+		c.InitialAngle-c.AngleSearchBreadth/2,
+		c.InitialAngle+c.AngleSearchBreadth/2,
+		0.025,
+		func(angle float64) (image.Point, float64, error) {
 			rotated, err := RotateAnchor(anchor, angle)
 			if err != nil {
-				return image.Point{}, ErrOpenCV
+				return image.Point{}, 0, ErrOpenCV
 			}
 			defer rotated.Close()
 
-			location, confidence, err := matchAnchor(searchArea, rotated)
-			if err != nil {
-				return image.Point{}, ErrOpenCV
-			}
+			Binarize(rotated.Mat, rotated.Mat, bConf)
 
-			if confidence > bestConfidence {
-				bestConfidence = confidence
-				bestLocation = location
-				bestAngle = angle
-
-				if confidence > earlyBreakConfidence {
-					break
-				}
-			}
-		}
-
-		middle = bestAngle
-		breadth /= refiningFactor
+			return matchAnchor(searchArea, rotated)
+		},
+	)
+	if err != nil {
+		return FindAnchorResult{}, err
 	}
 
-	return bestLocation, nil
+	return FindAnchorResult{
+		Position:    best.result,
+		Confidence:  best.quality,
+		Orientation: best.candidate,
+	}, nil
 }
 
 // Matches an anchor against a larger region, returning the position where the
-// 
+// best match was found and the quality of that match (0 to 1).
 //
 // If an error is returned, it will be [ErrOpenCV].
 func matchAnchor(
@@ -220,7 +207,7 @@ func searchRegion(
 	return newMatFromGoCV(region)
 }
 
-// Rotates an anchor by the given angle in radians and returns the result.
+// Rotates an anchor by the given angle (in radians) and returns the result.
 //
 // If an error is returned, it will be [ErrOpenCV].
 func RotateAnchor(src Anchor, angle float64) (Anchor, error) {
@@ -233,4 +220,93 @@ func RotateAnchor(src Anchor, angle float64) (Anchor, error) {
 
 	src.Mat = rotated
 	return src, nil
+}
+
+// Conducts a search on the set of values in between a and b (inclusive).
+// The objective function should return three values: the first is some result,
+// the second is the evaluated quality of that result, and the last is an
+// error. The "quality" value is the one used to guide the search. If an error
+// is ever returned from the objective function, the search will terminate
+// early and return it.
+//
+// The search is done by sampling 5 equidistant points in the current search
+// area, keeping note of the one with the highest quality. Then the search area
+// is halved, centering on the highest quality candidate from the previous
+// iteration, and re-sampled. This process repeats until the quality stops
+// improving (or until the improvement is less than epsilon). This search is
+// *not* meant to be a proper convex optimization function; it is specifically
+// meant to find a rough estimate for objective functions that are expensive to
+// compute.
+//
+// If an error is returned, it will be [ErrMaxIterations].
+func refiningSearch[T any](
+	a, b float64,
+	epsilon float64,
+	objective func(float64) (T, float64, error),
+) (refiningSearchResult[T], error) {
+
+	lo, hi := min(a, b), max(a, b)
+	if lo == hi {
+		r, q, err := objective(lo)
+		return refiningSearchResult[T]{
+			result:    r,
+			quality:   q,
+			candidate: lo,
+		}, err
+	}
+
+	var (
+		bestResult    T
+		bestQuality   float64
+		bestCandidate float64
+		candidates    = [5]float64{}
+		tried         = make(map[float64]bool, 0)
+	)
+
+	for range 1 << 20 {
+
+		delta := (hi - lo) / float64(len(candidates)-1)
+		for i := range candidates {
+			candidates[i] = lo + float64(i)*delta
+		}
+		previousBestQuality := bestQuality
+
+		for _, candidate := range candidates {
+			if _, hasBeenTried := tried[candidate]; hasBeenTried {
+				continue
+			}
+
+			r, q, err := objective(candidate)
+			if err != nil {
+				return refiningSearchResult[T]{}, err
+			}
+
+			if q > bestQuality {
+				bestQuality = q
+				bestResult = r
+				bestCandidate = candidate
+			}
+		}
+
+		if bestQuality-previousBestQuality <= epsilon {
+			return refiningSearchResult[T]{
+				result:    bestResult,
+				quality:   bestQuality,
+				candidate: bestCandidate,
+			}, nil
+		}
+
+		breadth := (hi - lo) / 2
+		center := bestCandidate
+		lo = center - breadth/2
+		hi = center + breadth/2
+	}
+
+	return refiningSearchResult[T]{}, ErrMaxIterations
+}
+
+type refiningSearchResult[T any] struct {
+	result    T       // The best result found in the search.
+	candidate float64 // The candidate (i.e., input) that yielded this result.
+	quality   float64 // The quality of the result.
 }

@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"gocv.io/x/gocv"
 	"gotest.tools/v3/assert"
 )
 
@@ -20,7 +19,7 @@ func getTestMat(t *testing.T) Mat {
 	defer r.Close()
 
 	mat, err := DecodeImageToMat(r)
-	assert.NilError(t, err)	
+	assert.NilError(t, err)
 
 	return mat
 }
@@ -30,24 +29,24 @@ func getTestMat(t *testing.T) Mat {
 //
 
 func TestBinarize(t *testing.T) {
-	var (
-		outputName = "testdata/output/"+t.Name()+"_out.png"
-	)
+
+	var tName = t.Name()
 
 	t.Run("write to output", func(t *testing.T) {
+		var outputName = "testdata/output/"+tName+"_out.png"
 
-		mat := getTestMat(t)
-		Binarize(mat, mat, nil)
+		src := getTestMat(t)
+		defer src.Close()
+		dst := NewMat()
+		defer dst.Close()
+		err := Binarize(dst, src, nil)
+		assert.Assert(t, err == nil)
 
-		w, err := os.Create(outputName)
-		assert.NilError(t, err)
-		defer w.Close()
-
-		EncodeMatToImage(w, "image/png", mat)
+		drawInputOutput(t, src, dst, outputName)
 	})
 
 	t.Run("bad inputs", func(t *testing.T) {
-		empty := newMatFromGoCV(gocv.NewMat())
+		empty := NewMat()
 		err := Binarize(empty, empty, nil)
 		assert.Assert(t, err == ErrEmptyMat)
 

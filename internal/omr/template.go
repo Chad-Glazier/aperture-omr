@@ -5,42 +5,6 @@ import (
 	"image/draw"
 )
 
-// x- and y-coordinates that are each in the range of 0 to 1.
-type NormalPoint struct {
-	X, Y float64
-}
-
-// Anchors represent specific parts of an image that we search for on a scanned
-// sheet. The preprocessing template informs us of where each anchor *should*
-// be on the page. Thus, if we are given an imperfect scan, we can locate its
-// anchors and compare their expected position/size/orientation to the actual
-// values. With that information we can figure out how to correct the scan.
-type Anchor struct {
-	// The anchor. Must be binary.
-	Mat Mat
-	// The x-coordinate of the anchor's top-left corner on the target scan.
-	Pos NormalPoint
-}
-
-// Closes the matrix used for this anchor.
-func (a Anchor) Close() {
-	a.Mat.Close()
-}
-
-// Returns the anchor's region, in absolute terms, when positioned in the given
-// matrix.
-func (a Anchor) Region(container Mat) image.Rectangle {
-	var (
-		localX = int(a.Pos.X * float64(container.Width()))
-		localY = int(a.Pos.Y * float64(container.Height()))
-	)
-	return image.Rect(
-		localX, localY,
-		localX + int(a.Mat.Width()),
-		localY + int(a.Mat.Height()),
-	)
-}
-
 // A template used to inform the preprocessing steps. This template describes
 // the "target" scan; i.e., the shape and size of the desired scan. The
 // coordinates used for anchors are relative to the target scan.
@@ -186,12 +150,14 @@ func scalePreprocessingTemplateTo(
 		for j := range src.Anchors[i] {
 
 			scaledAnchor := src.Anchors[i][j]
-			m, err := Scale(src.Anchors[i][j].Mat, scaleX, scaleY)
+			scaledAnchor.Mat = NewMat()
+			err := Scale(
+				scaledAnchor.Mat, 
+				src.Anchors[i][j].Mat, scaleX, scaleY)
 			if err != nil {
 				scaled.Close()
 				return PreprocessingTemplate{}, ErrOpenCV
 			}
-			scaledAnchor.Mat = m
 
 			scaled.Anchors[i][j] = scaledAnchor
 		}
