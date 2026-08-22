@@ -57,12 +57,19 @@ type FindAnchorConfig struct {
 	//
 	// Defaults to [DefaultSearchAreaPadding].
 	SearchAreaPadding float64
+
+	// How many samples to take per search iteration. Higher values are slower
+	// to compute, but yield more accurate results.
+	//
+	// Defaults to [DefaultGranularity]. 
+	Granularity uint
 }
 
 const (
 	DefaultInitialAngle       float64 = 0.00
 	DefaultAngleSearchBreadth float64 = 20.0 / 180.0 * math.Pi
 	DefaultSearchAreaPadding  float64 = 0.125
+	DefaultGranularity        uint    = 5
 )
 
 // Attempts to locate an anchor on the given matrix. The return value describes
@@ -102,6 +109,9 @@ func FindAnchor(
 	if c.SearchAreaPadding == 0 {
 		c.SearchAreaPadding = DefaultSearchAreaPadding
 	}
+	if c.Granularity == 0 {
+		c.Granularity = DefaultGranularity
+	}
 
 	//
 	// Search for the anchor.
@@ -113,7 +123,8 @@ func FindAnchor(
 	best, err := refiningSearch(
 		c.InitialAngle-c.AngleSearchBreadth/2,
 		c.InitialAngle+c.AngleSearchBreadth/2,
-		0.025,
+		0.0025,
+		c.Granularity,
 		func(angle float64) (image.Point, float64, error) {
 
 			rotated, err := RotateAnchor(anchor, angle)
@@ -237,19 +248,20 @@ func RotateAnchor(src Anchor, angle float64) (Anchor, error) {
 // is ever returned from the objective function, the search will terminate
 // early and return it.
 //
-// The search is done by sampling 5 equidistant points in the current search
-// area, keeping note of the one with the highest quality. Then the search area
-// is halved, centering on the highest quality candidate from the previous
-// iteration, and re-sampled. This process repeats until the quality stops
-// improving (or until the improvement is less than epsilon). This search is
-// *not* meant to be a proper convex optimization function; it is specifically
-// meant to find a rough estimate for objective functions that are expensive to
-// compute.
+// The search is done by sampling a number of equidistant points (the number is
+// set by the "granularity") in the current search area, keeping note of the 
+// one with the highest quality. Then the search area is halved, centering on
+// the highest quality candidate from the previous iteration, and re-sampled.
+// This process repeats until the quality stops improving (or until the 
+// improvement is less than epsilon). This search is *not* meant to be a proper 
+// convex optimization function; it is specifically meant to find a rough 
+// estimate for objective functions that are expensive to compute.
 //
 // If an error is returned, it will be [ErrMaxIterations].
 func refiningSearch[T any](
 	a, b float64,
 	epsilon float64,
+	granularity uint,
 	objective func(float64) (T, float64, error),
 ) (refiningSearchResult[T], error) {
 
@@ -267,7 +279,7 @@ func refiningSearch[T any](
 		bestResult    T
 		bestQuality   float64
 		bestCandidate float64
-		candidates    = [5]float64{}
+		candidates    = make([]float64, granularity)
 		tried         = make(map[float64]bool, 0)
 	)
 
@@ -304,7 +316,7 @@ func refiningSearch[T any](
 			}, nil
 		}
 
-		breadth := (hi - lo) / 2
+		breadth := (hi - lo) / (float64(granularity)/2)
 		center := bestCandidate
 		lo = center - breadth/2
 		hi = center + breadth/2

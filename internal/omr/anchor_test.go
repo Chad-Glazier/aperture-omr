@@ -1,7 +1,6 @@
 package omr
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
@@ -149,9 +148,14 @@ func pointsAreClose(a, b image.Point, margin int) bool {
 }
 
 // Copies the input matrix and draws a cross over it. The copy is returned.
-func overlayCross(mat Mat, center image.Point, w, h uint, angle float64) Mat {
+func overlayCross(
+	mat Mat, 
+	center image.Point, 
+	w, h uint, 
+	orientation float64,
+) Mat {
 	copy := Clone(mat)
-	angle *= -1
+	angle := orientation * -1	
 
 	sin, cos := math.Sin(angle), math.Cos(angle)
 
@@ -186,6 +190,10 @@ func radians(degrees float64) float64 {
 	return degrees / 180.0 * math.Pi
 }
 
+func degrees(radians float64) float64 {
+	return radians / math.Pi * 180.0
+}
+
 //
 // Tests
 //
@@ -207,7 +215,7 @@ func TestFindAnchor(t *testing.T) {
 		)
 		assert.Assert(t, err == nil)
 		assert.Assert(t, result.Confidence >= 0.95)
-		assert.Assert(t, result.Orientation <= 0.05 && result.Orientation >= -0.05)
+		assert.Assert(t, math.Abs(result.Orientation) <= radians(1))
 		
 		output := overlayCross(page, result.Position, 500, 500, result.Orientation)
 		defer output.Close() 
@@ -215,11 +223,8 @@ func TestFindAnchor(t *testing.T) {
 		drawInputOutput(t, page, output, outputName)
 	})
 
-	angles := []float64{
-		radians(-5), radians(+5),
-		radians(-10), radians(+10),
-	}
-	for _, angle := range angles {
+	maxOffBy := 0.0
+	for angle := radians(-10.0); angle <= radians(10.0); angle += radians(2) {
 
 		rotatedPage := NewMat()
 		Rotate(rotatedPage, page, angle)
@@ -231,23 +236,36 @@ func TestFindAnchor(t *testing.T) {
 				InitialAngle: 0,
 				AngleSearchBreadth: radians(20),
 				SearchAreaPadding: 0.125,
+				Granularity: 7,
 			},
 		)
-		degrees := fmt.Sprintf("%.0f", angle * 180 / math.Pi)
-		drawInputOutput(t, 
-			rotatedPage, 
-			overlayCross(
-				rotatedPage, 
-				result.Position, 
-				500, 500, 
-				result.Orientation,
-			),
-			"testdata/output/"+tName+"angle_"+degrees+"_deg.png",
+		// drawInputOutput(t, 
+		// 	rotatedPage, 
+		// 	overlayCross(
+		// 		rotatedPage, 
+		// 		result.Position, 
+		// 		500, 500, 
+		// 		result.Orientation,
+		// 	),
+		// 	fmt.Sprintf(
+		// 		"testdata/output/%s_angle_%.0f_degrees.png",
+		// 		tName, degrees(angle),
+		// 	),
+		// )
+		offBy := degrees(math.Abs(result.Orientation-angle))
+		t.Logf(
+			"true angle: %.2f\u00b0"+
+				"\tdetected angle: %.2f\u00b0"+
+				"\terror: %.5f\u00b0",
+			degrees(angle),
+			degrees(result.Orientation), 
+			offBy,
 		)
-		t.Log("angle:", angle, "\t", "result:", result.Orientation)
 		assert.Assert(t, err == nil)
-		assert.Assert(t, math.Abs(result.Orientation-angle) <= math.Pi/36)
+		assert.Assert(t, offBy <= 1)
+		maxOffBy = max(maxOffBy, offBy)
 	}
+	t.Logf("maximum error: %.2f\u00b0", maxOffBy)
 }
 
 func TestMatchAnchor(t *testing.T) {
@@ -444,6 +462,7 @@ func TestRefiningSearch(t *testing.T) {
 		best, err := refiningSearch(
 			1, 2,
 			0,
+			11,
 			isSqrtOfTwo,
 		)
 		assert.Assert(t, err == nil)
@@ -454,6 +473,7 @@ func TestRefiningSearch(t *testing.T) {
 		_, err := refiningSearch(
 			0, 100,
 			0,
+			5,
 			makeDivergentFunc(),
 		)
 		assert.Assert(t, err == ErrMaxIterations)
