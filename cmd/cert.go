@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
 const (
 	certDir = "data/cert/"
 )

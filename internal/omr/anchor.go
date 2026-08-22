@@ -1,6 +1,7 @@
 package omr
 
 import (
+	"errors"
 	"image"
 	"math"
 
@@ -61,8 +62,15 @@ type FindAnchorConfig struct {
 	// How many samples to take per search iteration. Higher values are slower
 	// to compute, but yield more accurate results.
 	//
-	// Defaults to [DefaultGranularity]. 
+	// Defaults to [DefaultGranularity].
 	Granularity uint
+
+	// The maximum quality of an anchor match. If this value is met or
+	// exceeded, the search will be terminated early (which can dramatically
+	// improve performance).
+	//
+	// Defaults to [DefaultMaxQuality].
+	MaxQuality float64
 }
 
 const (
@@ -70,6 +78,7 @@ const (
 	DefaultAngleSearchBreadth float64 = 20.0 / 180.0 * math.Pi
 	DefaultSearchAreaPadding  float64 = 0.125
 	DefaultGranularity        uint    = 5
+	DefaultMaxQuality         float64 = 0.99
 )
 
 // Attempts to locate an anchor on the given matrix. The return value describes
@@ -112,6 +121,9 @@ func FindAnchor(
 	if c.Granularity == 0 {
 		c.Granularity = DefaultGranularity
 	}
+	if c.MaxQuality == 0 {
+		c.MaxQuality = DefaultMaxQuality
+	}
 
 	//
 	// Search for the anchor.
@@ -120,13 +132,15 @@ func FindAnchor(
 	searchArea, offset := searchRegion(mat, anchor, c.SearchAreaPadding)
 	defer searchArea.Close()
 
+	var ErrMaxQuality = errors.New("max quality was met")
+
 	best, err := refiningSearch(
 		c.InitialAngle-c.AngleSearchBreadth/2,
 		c.InitialAngle+c.AngleSearchBreadth/2,
 		0.0025,
 		c.Granularity,
+		c.MaxQuality,
 		func(angle float64) (image.Point, float64, error) {
-
 			rotated, err := RotateAnchor(anchor, angle)
 			if err != nil {
 				return image.Point{}, 0, ErrOpenCV
@@ -136,14 +150,14 @@ func FindAnchor(
 			return matchAnchor(searchArea, rotated)
 		},
 	)
-	if err != nil {
+	if err != nil && err != ErrMaxQuality {
 		return FindAnchorResult{}, err
 	}
 
 	return FindAnchorResult{
-		Position:    image.Pt(
-			best.result.X + offset.X,
-			best.result.Y + offset.Y,
+		Position: image.Pt(
+			best.result.X+offset.X,
+			best.result.Y+offset.Y,
 		),
 		Confidence:  best.quality,
 		Orientation: best.candidate,
@@ -151,10 +165,10 @@ func FindAnchor(
 }
 
 // Matches an anchor against a larger region, returning the position where the
-// best match was found and the quality of that match (0 to 1). Importantly, 
+// best match was found and the quality of that match (0 to 1). Importantly,
 // the returned position represents the *center* of the match.
 //
-// If an error is returned, it will be [ErrOpenCV], [ErrEmptyMat], or 
+// If an error is returned, it will be [ErrOpenCV], [ErrEmptyMat], or
 // [ErrMatTypeMismatch].
 func matchAnchor(
 	searchArea Mat,
@@ -186,8 +200,8 @@ func matchAnchor(
 	}
 
 	_, confidence, _, position := gocv.MinMaxLoc(result)
-	position.X += int(anchor.Mat.Width()/2)
-	position.Y += int(anchor.Mat.Height()/2)
+	position.X += int(anchor.Mat.Width() / 2)
+	position.Y += int(anchor.Mat.Height() / 2)
 	return position, float64(confidence), nil
 }
 
@@ -195,7 +209,7 @@ func matchAnchor(
 // given anchor and will be at least as large as it. Padding will be added to
 // the region as a percentage (0 to 1) of the source matrix's respective
 // dimension. The returned region will be restricted so that it never goes
-// beyond the source matrix's bounds. 
+// beyond the source matrix's bounds.
 //
 // The second return value is the top-left corner of the region in terms of the
 // source's coordinates.
@@ -246,15 +260,17 @@ func RotateAnchor(src Anchor, angle float64) (Anchor, error) {
 // the second is the evaluated quality of that result, and the last is an
 // error. The "quality" value is the one used to guide the search. If an error
 // is ever returned from the objective function, the search will terminate
-// early and return it.
+// early and return it (along with the best values found up until that point).
+// The function may also terminate early if the maximum quality is met or
+// exceeded.
 //
 // The search is done by sampling a number of equidistant points (the number is
-// set by the "granularity") in the current search area, keeping note of the 
-// one with the highest quality. Then the search area is halved, centering on
+// set by the "granularity") in the current search area, keeping note of the
+// one with the highest quality. Then the search area is reduced, centering on
 // the highest quality candidate from the previous iteration, and re-sampled.
-// This process repeats until the quality stops improving (or until the 
-// improvement is less than epsilon). This search is *not* meant to be a proper 
-// convex optimization function; it is specifically meant to find a rough 
+// This process repeats until the quality stops improving (or until the
+// improvement is less than epsilon). This search is not meant to be a proper
+// convex optimization function; it is specifically meant to find a rough
 // estimate for objective functions that are expensive to compute.
 //
 // If an error is returned, it will be [ErrMaxIterations].
@@ -262,6 +278,7 @@ func refiningSearch[T any](
 	a, b float64,
 	epsilon float64,
 	granularity uint,
+	maxQuality float64,
 	objective func(float64) (T, float64, error),
 ) (refiningSearchResult[T], error) {
 
@@ -287,7 +304,15 @@ func refiningSearch[T any](
 
 		delta := (hi - lo) / float64(len(candidates)-1)
 		for i := range candidates {
-			candidates[i] = lo + float64(i)*delta
+			var offset int
+			if i == 0 {
+				offset = len(candidates) / 2
+			} else if i%2 == 1 {
+				offset = len(candidates)/2 + (i+1)/2
+			} else {
+				offset = len(candidates)/2 - i/2
+			}
+			candidates[i] = lo + float64(offset)*delta
 		}
 		previousBestQuality := bestQuality
 
@@ -295,6 +320,7 @@ func refiningSearch[T any](
 			if _, hasBeenTried := tried[candidate]; hasBeenTried {
 				continue
 			}
+			tried[candidate] = true
 
 			r, q, err := objective(candidate)
 			if err != nil {
@@ -305,6 +331,14 @@ func refiningSearch[T any](
 				bestQuality = q
 				bestResult = r
 				bestCandidate = candidate
+
+				if q > maxQuality {
+					return refiningSearchResult[T]{
+						result:    bestResult,
+						quality:   bestQuality,
+						candidate: bestCandidate,
+					}, nil
+				}
 			}
 		}
 
@@ -316,7 +350,7 @@ func refiningSearch[T any](
 			}, nil
 		}
 
-		breadth := (hi - lo) / (float64(granularity)/2)
+		breadth := (hi - lo) / (float64(granularity) / 2)
 		center := bestCandidate
 		lo = center - breadth/2
 		hi = center + breadth/2

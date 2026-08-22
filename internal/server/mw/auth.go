@@ -21,7 +21,7 @@ type KeyHolder interface {
 func GlobalKey(s KeyHolder) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			
+
 			if authorized := s.CheckGlobalKey(r); !authorized {
 				http.Error(w,
 					"incorrect OMR-API-Key header",
@@ -38,7 +38,7 @@ func GlobalKey(s KeyHolder) func(next http.Handler) http.Handler {
 func AdminKey(s KeyHolder) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			
+
 			if authorized := s.CheckAdminKey(r); !authorized {
 				http.Error(w,
 					"incorrect OMR-Admin-Key header",

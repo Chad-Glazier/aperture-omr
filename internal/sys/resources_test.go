@@ -11,7 +11,7 @@ func TestUptime(t *testing.T) {
 	uptimeA := Uptime()
 	assert.Assert(t, uptimeA > 0)
 
-	time.Sleep(50*time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	uptimeB := Uptime()
 	assert.Assert(t, uptimeB > uptimeA)
 }

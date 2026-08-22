@@ -158,7 +158,7 @@ func TestJobRegistrar(t *testing.T) {
 func TestJobRegistrarEviction(t *testing.T) {
 	j := NewJobRegistrar(time.Hour)
 	defer j.Close()
-	
+
 	j.jobs["old"] = &JobDetails{
 		Id:      "old",
 		Started: time.Now().Add(-24 * time.Hour),
@@ -178,8 +178,8 @@ func TestJobRegistrarListHandler(t *testing.T) {
 	defer j.Close()
 
 	var (
-		r   = httptest.NewRequest("GET", "/", nil)
-		w   = httptest.NewRecorder()
+		r = httptest.NewRequest("GET", "/", nil)
+		w = httptest.NewRecorder()
 	)
 
 	for _, jobId := range []string{"a", "b", "c"} {
@@ -187,9 +187,9 @@ func TestJobRegistrarListHandler(t *testing.T) {
 		assert.NilError(t, err)
 	}
 
-	j.jobs["a"].Started = time.Now().Add(-2*time.Hour)
+	j.jobs["a"].Started = time.Now().Add(-2 * time.Hour)
 	j.jobs["b"].Started = time.Now()
-	j.jobs["c"].Started = time.Now().Add(-1*time.Hour)
+	j.jobs["c"].Started = time.Now().Add(-1 * time.Hour)
 
 	j.ListHandler().ServeHTTP(w, r)
 	assert.Assert(t, w.Result().StatusCode == http.StatusOK)
@@ -241,10 +241,9 @@ func TestJobRegistrarResultHandlerIncomplete(t *testing.T) {
 	err := j.Register(jobId, httptest.NewRequest("GET", "/", nil))
 	assert.NilError(t, err)
 
-
 	var (
 		r = httptest.NewRequest("GET", "/result?id="+jobId, nil)
-		w = httptest.NewRecorder()		
+		w = httptest.NewRecorder()
 	)
 	j.ResultHandler().ServeHTTP(w, r)
 
@@ -296,7 +295,7 @@ func TestJobRegistrarJob(t *testing.T) {
 	id := response["id"]
 	assert.Assert(t, id != "")
 
-	time.Sleep(100*time.Millisecond) // wait for the job to finish
+	time.Sleep(100 * time.Millisecond) // wait for the job to finish
 	job, err := j.Get(id)
 	assert.NilError(t, err)
 	assert.Assert(t, job.Success)

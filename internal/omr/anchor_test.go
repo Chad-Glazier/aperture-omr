@@ -149,13 +149,13 @@ func pointsAreClose(a, b image.Point, margin int) bool {
 
 // Copies the input matrix and draws a cross over it. The copy is returned.
 func overlayCross(
-	mat Mat, 
-	center image.Point, 
-	w, h uint, 
+	mat Mat,
+	center image.Point,
+	w, h uint,
 	orientation float64,
 ) Mat {
 	copy := Clone(mat)
-	angle := orientation * -1	
+	angle := orientation * -1
 
 	sin, cos := math.Sin(angle), math.Cos(angle)
 
@@ -186,11 +186,11 @@ func overlayCross(
 	return copy
 }
 
-func radians(degrees float64) float64 {
+func rad(degrees float64) float64 {
 	return degrees / 180.0 * math.Pi
 }
 
-func degrees(radians float64) float64 {
+func deg(radians float64) float64 {
 	return radians / math.Pi * 180.0
 }
 
@@ -204,68 +204,119 @@ func TestFindAnchor(t *testing.T) {
 	assert.Assert(t, err == nil)
 	page, err := getSamplePageMat()
 	assert.Assert(t, err == nil)
+	noisyPage, err := getNoisyPageMat()
+	assert.Assert(t, err == nil)
 
 	t.Run("unrotated", func(t *testing.T) {
-		outputName := "testdata/output/"+tName+"_unrotated.png"
+		outputName := "testdata/output/" + tName + "_unrotated.png"
 
 		result, err := FindAnchor(
-			page, 
-			tmpl.Anchors[0][0], 
-			nil, 
+			page,
+			tmpl.Anchors[0][0],
+			&FindAnchorConfig{
+				MaxQuality: 0.99,
+			},
 		)
 		assert.Assert(t, err == nil)
-		assert.Assert(t, result.Confidence >= 0.95)
-		assert.Assert(t, math.Abs(result.Orientation) <= radians(1))
-		
-		output := overlayCross(page, result.Position, 500, 500, result.Orientation)
-		defer output.Close() 
+		assert.Assert(t, result.Confidence >= 0.99)
+		assert.Assert(t, math.Abs(result.Orientation) <= rad(1))
+
+		output := overlayCross(
+			page,
+			result.Position,
+			500, 500,
+			result.Orientation,
+		)
+		defer output.Close()
 
 		drawInputOutput(t, page, output, outputName)
 	})
 
-	maxOffBy := 0.0
-	for angle := radians(-10.0); angle <= radians(10.0); angle += radians(2) {
-
-		rotatedPage := NewMat()
-		Rotate(rotatedPage, page, angle)
+	t.Run("unrotated with noise", func(t *testing.T) {
+		outputName := "testdata/output/" + tName + "_unrotated_noisy.png"
 
 		result, err := FindAnchor(
-			rotatedPage, 
+			page,
 			tmpl.Anchors[0][0],
 			&FindAnchorConfig{
-				InitialAngle: 0,
-				AngleSearchBreadth: radians(20),
-				SearchAreaPadding: 0.125,
-				Granularity: 7,
+				MaxQuality: 0.95,
 			},
 		)
-		// drawInputOutput(t, 
-		// 	rotatedPage, 
-		// 	overlayCross(
-		// 		rotatedPage, 
-		// 		result.Position, 
-		// 		500, 500, 
-		// 		result.Orientation,
-		// 	),
-		// 	fmt.Sprintf(
-		// 		"testdata/output/%s_angle_%.0f_degrees.png",
-		// 		tName, degrees(angle),
-		// 	),
-		// )
-		offBy := degrees(math.Abs(result.Orientation-angle))
-		t.Logf(
-			"true angle: %.2f\u00b0"+
-				"\tdetected angle: %.2f\u00b0"+
-				"\terror: %.5f\u00b0",
-			degrees(angle),
-			degrees(result.Orientation), 
-			offBy,
+		assert.Assert(t, err == nil)
+		assert.Assert(t, result.Confidence >= 0.95)
+
+		output := overlayCross(
+			noisyPage,
+			result.Position,
+			500, 500,
+			result.Orientation,
+		)
+		defer output.Close()
+
+		drawInputOutput(t, noisyPage, output, outputName)
+	})
+
+	t.Run("near-max rotation with noise", func(t *testing.T) {
+		outputName := "testdata/output/" + tName + "_maxrotation_noisy.png"
+
+		rotatedPage := Clone(noisyPage)
+		Rotate(rotatedPage, rotatedPage, rad(-9.2))
+
+		result, err := FindAnchor(
+			rotatedPage,
+			tmpl.Anchors[0][0],
+			&FindAnchorConfig{
+				MaxQuality: 0.95,
+			},
 		)
 		assert.Assert(t, err == nil)
-		assert.Assert(t, offBy <= 1)
-		maxOffBy = max(maxOffBy, offBy)
-	}
-	t.Logf("maximum error: %.2f\u00b0", maxOffBy)
+		assert.Assert(t, result.Confidence >= 0.95)
+
+		output := overlayCross(
+			rotatedPage,
+			result.Position,
+			500, 500,
+			result.Orientation,
+		)
+		defer output.Close()
+
+		drawInputOutput(t, rotatedPage, output, outputName)
+	})
+
+	t.Run("various angles", func(t *testing.T) {
+		maxOffBy := 0.0
+		for angle := rad(-10.0); angle <= rad(10.0); angle += rad(3) {
+
+			rotatedPage := NewMat()
+			Rotate(rotatedPage, page, angle)
+
+			result, err := FindAnchor(
+				rotatedPage,
+				tmpl.Anchors[0][0],
+				&FindAnchorConfig{
+					InitialAngle:       0,
+					AngleSearchBreadth: rad(20),
+					SearchAreaPadding:  0.125,
+					Granularity:        7,
+					MaxQuality:         0.99,
+				},
+			)
+			offBy := deg(math.Abs(result.Orientation - angle))
+			t.Logf(
+				"true angle: %.2f\u00b0"+
+					"\tdetected angle: %.2f\u00b0"+
+					"\terror: %.5f\u00b0",
+				deg(angle),
+				deg(result.Orientation),
+				offBy,
+			)
+			assert.Assert(t, err == nil)
+			assert.Assert(t, result.Confidence >= 0.99)
+			maxOffBy = max(maxOffBy, offBy)
+		}
+		t.Logf("maximum angle error: %.2f\u00b0", maxOffBy)
+	})
+
 }
 
 func TestMatchAnchor(t *testing.T) {
@@ -297,8 +348,8 @@ func TestMatchAnchor(t *testing.T) {
 
 		anc := tmpl.Anchors[0][0]
 		expectedCenter := image.Pt(
-			int(float64(tmpl.Width)*anc.Pos.X) + int(anc.Mat.Width()/2),
-			int(float64(tmpl.Height)*anc.Pos.Y) + int(anc.Mat.Height()/2),
+			int(float64(tmpl.Width)*anc.Pos.X)+int(anc.Mat.Width()/2),
+			int(float64(tmpl.Height)*anc.Pos.Y)+int(anc.Mat.Height()/2),
 		)
 
 		// This is a practically ideal sample, so we should expect the match to
@@ -319,9 +370,9 @@ func TestMatchAnchor(t *testing.T) {
 
 		anc := tmpl.Anchors[0][0]
 
-		// We deliberately cut the region to omit the anchor. We expect the 
+		// We deliberately cut the region to omit the anchor. We expect the
 		// match quality to be low.
-		anc.Pos = NormalPoint{ 0, 0 }
+		anc.Pos = NormalPoint{0, 0}
 		searchArea, _ := searchRegion(page, anc, 0.10)
 		_, quality, err := matchAnchor(searchArea, anc)
 		assert.Assert(t, err == nil)
@@ -341,7 +392,7 @@ func TestSearchRegion(t *testing.T) {
 		defer ancMat.Close()
 
 		var (
-			anchor = Anchor{Mat: NewMat()}
+			anchor    = Anchor{Mat: NewMat()}
 			region, _ = searchRegion(mat, anchor, 0)
 		)
 		assert.Assert(t, region.Width() == 0)
@@ -354,7 +405,7 @@ func TestSearchRegion(t *testing.T) {
 		defer ancMat.Close()
 
 		var (
-			anchor = Anchor{Mat: ancMat}
+			anchor    = Anchor{Mat: ancMat}
 			region, _ = searchRegion(mat, anchor, 0)
 		)
 		assert.Assert(t, region.Width() == anchor.Mat.Width())
@@ -431,7 +482,7 @@ func TestRotateAnchor(t *testing.T) {
 		ancMat, err := getTestAnchor0Mat()
 		assert.Assert(t, err == nil)
 		defer ancMat.Close()
-		
+
 		anc := Anchor{Mat: ancMat, Pos: NormalPoint{}}
 
 		rotated, err := RotateAnchor(anc, 15.0/180.0*math.Pi)
@@ -463,6 +514,7 @@ func TestRefiningSearch(t *testing.T) {
 			1, 2,
 			0,
 			11,
+			math.Inf(+1),
 			isSqrtOfTwo,
 		)
 		assert.Assert(t, err == nil)
@@ -473,30 +525,57 @@ func TestRefiningSearch(t *testing.T) {
 		_, err := refiningSearch(
 			0, 100,
 			0,
-			5,
+			3,
+			math.Inf(+1),
 			makeDivergentFunc(),
 		)
 		assert.Assert(t, err == ErrMaxIterations)
 	})
-
 }
-
 
 //
 // Benchmarks
 //
 
 func BenchmarkFindAnchorUnrotated(b *testing.B) {
+
 	tmpl, err := getSampleTemplate()
 	assert.Assert(b, err == nil)
 	page, err := getSamplePageMat()
 	assert.Assert(b, err == nil)
+	rotated := Clone(page)
+	err = Rotate(rotated, rotated, rad(-1.23))
+	assert.Assert(b, err == nil)
 
-	for b.Loop() {
-		FindAnchor(
-			page, 
-			tmpl.Anchors[0][0], 
-			nil, 
-		)
+	// This configuration is wide enough to support +/- 10 degree rotations.
+	// In practice, most scanning machines will have a much better skews which
+	// will allow for tighter searches (which are much, much faster). We're
+	// just benchmarking the worst case.
+	conf := FindAnchorConfig{
+		InitialAngle:       0,
+		AngleSearchBreadth: rad(20),
+		SearchAreaPadding:  0.125,
+		Granularity:        7,
+		MaxQuality:         0.99,
 	}
+
+	b.Run("unrotated with good initial guess", func(b *testing.B) {
+		for b.Loop() {
+			FindAnchor(page, tmpl.Anchors[0][0], &conf)
+		}
+	})
+
+	b.Run("rotated with bad initial guess", func(b *testing.B) {
+		for b.Loop() {
+			FindAnchor(rotated, tmpl.Anchors[0][0], &conf)
+		}
+	})
+
+	b.Run("rotated with good initial guess", func(b *testing.B) {
+		conf := conf
+		conf.InitialAngle = rad(-1.23)
+		for b.Loop() {
+			FindAnchor(rotated, tmpl.Anchors[0][0], &conf)
+		}
+	})
 }

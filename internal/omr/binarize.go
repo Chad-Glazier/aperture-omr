@@ -60,7 +60,7 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 	//
 	// Set the default configuration values.
 	//
-	
+
 	var c BinarizeConfig
 	if conf == nil {
 		c = BinarizeConfig{}

@@ -12,8 +12,22 @@ import (
 //
 
 func getSamplePageMat() (Mat, error) {
-
 	r, err := os.Open("testdata/input/sample_page.png")
+	if err != nil {
+		return Mat{}, err
+	}
+	defer r.Close()
+
+	mat, err := DecodeImageToMat(r)
+	if err != nil {
+		return Mat{}, err
+	}
+
+	return mat, nil
+}
+
+func getNoisyPageMat() (Mat, error) {
+	r, err := os.Open("testdata/input/sample_page_noisy.png")
 	if err != nil {
 		return Mat{}, err
 	}
@@ -36,9 +50,23 @@ func TestBinarize(t *testing.T) {
 	var tName = t.Name()
 
 	t.Run("write to output", func(t *testing.T) {
-		var outputName = "testdata/output/"+tName+"_out.png"
+		var outputName = "testdata/output/" + tName + ".png"
 
 		src, err := getSamplePageMat()
+		assert.Assert(t, err == nil)
+		defer src.Close()
+		dst := NewMat()
+		defer dst.Close()
+		err = Binarize(dst, src, nil)
+		assert.Assert(t, err == nil)
+
+		drawInputOutput(t, src, dst, outputName)
+	})
+
+	t.Run("write noisy to output", func(t *testing.T) {
+		var outputName = "testdata/output/" + tName + "_noisy.png"
+
+		src, err := getNoisyPageMat()
 		assert.Assert(t, err == nil)
 		defer src.Close()
 		dst := NewMat()
@@ -72,8 +100,8 @@ func BenchmarkBinarize(b *testing.B) {
 	defer r.Close()
 
 	mat, err := DecodeImageToMat(r)
-	assert.NilError(b, err)	
-	
+	assert.NilError(b, err)
+
 	for b.Loop() {
 		Binarize(mat, mat, nil)
 	}

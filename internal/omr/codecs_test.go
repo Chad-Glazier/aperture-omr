@@ -17,14 +17,14 @@ import (
 //
 
 func imageToRgba(src image.Image) *image.RGBA {
-    if dst, ok := src.(*image.RGBA); ok {
-        return dst
-    }
-	
-    b := src.Bounds()
-    dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
-    draw.Draw(dst, dst.Bounds(), src, b.Min, draw.Src)
-    return dst
+	if dst, ok := src.(*image.RGBA); ok {
+		return dst
+	}
+
+	b := src.Bounds()
+	dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(dst, dst.Bounds(), src, b.Min, draw.Src)
+	return dst
 }
 
 //
@@ -33,8 +33,8 @@ func imageToRgba(src image.Image) *image.RGBA {
 
 func TestRgbaToMat(t *testing.T) {
 	var (
-		inputName = "testdata/input/sample_image.png"
-		outputName = "testdata/output/"+t.Name()+"_out.png"
+		inputName  = "testdata/input/sample_image.png"
+		outputName = "testdata/output/" + t.Name() + "_out.png"
 	)
 
 	f, err := os.Open(inputName)
@@ -56,8 +56,8 @@ func TestRgbaToMat(t *testing.T) {
 
 func TestImageCodec(t *testing.T) {
 	var (
-		inputName = "testdata/input/sample_image.png"
-		outputName = "testdata/output/"+t.Name()+"_out.png"
+		inputName  = "testdata/input/sample_image.png"
+		outputName = "testdata/output/" + t.Name() + "_out.png"
 	)
 
 	t.Run("decode from input", func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestImageCodec(t *testing.T) {
 
 		mat, err := DecodeImageToMat(f)
 		assert.NilError(t, err)
-		assert.Assert(t, *mat.t == MatTypeGray)	
+		assert.Assert(t, *mat.t == MatTypeGray)
 	})
 
 	t.Run("encode to output", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestImageCodec(t *testing.T) {
 
 		mat, err := DecodeImageToMat(r)
 		assert.NilError(t, err)
-		assert.Assert(t, *mat.t == MatTypeGray)	
+		assert.Assert(t, *mat.t == MatTypeGray)
 
 		w, err := os.Create(outputName)
 		assert.NilError(t, err)
@@ -85,7 +85,7 @@ func TestImageCodec(t *testing.T) {
 		_, err = EncodeMatToImage(w, "image/png", mat)
 		assert.NilError(t, err)
 
-		t.Logf("Output written to %s", outputName)		
+		t.Logf("Output written to %s", outputName)
 	})
 
 	t.Run("allowed encodings", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestImageCodec(t *testing.T) {
 
 		mat, err := DecodeImageToMat(f)
 		assert.NilError(t, err)
-		assert.Assert(t, *mat.t == MatTypeGray)	
+		assert.Assert(t, *mat.t == MatTypeGray)
 
 		supported := []string{
 			"image/png", "image/jpeg",
@@ -106,7 +106,7 @@ func TestImageCodec(t *testing.T) {
 
 		for _, ct := range supported {
 			_, err = EncodeMatToImage(&bytes.Buffer{}, ct, mat)
-			assert.Assert(t, err == nil)			
+			assert.Assert(t, err == nil)
 		}
 
 		for _, ct := range unsupported {

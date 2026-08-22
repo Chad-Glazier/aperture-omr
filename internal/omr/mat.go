@@ -231,7 +231,7 @@ func Rotate(dst Mat, src Mat, angle float64) error {
 		image.Pt(int(newW), int(newH)),
 		gocv.InterpolationArea,
 		gocv.BorderConstant,
-		color.RGBA{ 255, 255, 255, 255 },
+		color.RGBA{255, 255, 255, 255},
 	)
 	if err != nil {
 		return ErrOpenCV

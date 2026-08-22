@@ -172,8 +172,8 @@ func (p PreprocessingTemplate) BinarizeAllAnchors() {
 	for i := range p.Anchors {
 		for j := range p.Anchors[i] {
 			Binarize(
-				p.Anchors[i][j].Mat, 
-				p.Anchors[i][j].Mat, 
+				p.Anchors[i][j].Mat,
+				p.Anchors[i][j].Mat,
 				&p.BinarizeConfig,
 			)
 		}

@@ -30,7 +30,6 @@ func RecoverAndRespond(w http.ResponseWriter, r *http.Request) {
 			"err", err,
 		)
 
-
 		out := strings.Builder{}
 
 		fmt.Fprint(&out,
@@ -46,7 +45,7 @@ func RecoverAndRespond(w http.ResponseWriter, r *http.Request) {
 			err,
 		)
 
-		buf := make([]byte, 4 << 10)
+		buf := make([]byte, 4<<10)
 		n := runtime.Stack(buf, false)
 		trace := string(buf[:n])
 		trace = strings.Join(strings.Split(trace, "\n"), "\n│  ")

@@ -22,7 +22,7 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 
 			//
 			// The luminosity formula is copied from the Go standard library:
-			// 
+			//
 			// <https://cs.opensource.google/go/go/+/master:src/image/color/color.go;l=244>
 			// <https://cs.opensource.google/go/go/+/master:src/image/color/color.go;l=30>
 			//
@@ -35,11 +35,11 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 
 			var (
 				i = y*stride + x*4
-				r = uint32(img.Pix[i])<<8
-				g = uint32(img.Pix[i+1])<<8
-				b = uint32(img.Pix[i+2])<<8
+				r = uint32(img.Pix[i]) << 8
+				g = uint32(img.Pix[i+1]) << 8
+				b = uint32(img.Pix[i+2]) << 8
 			)
-			
+
 			lum := (19595*r + 38470*g + 7471*b + 1<<15) >> 24
 			bytes[x+y*w] = byte(lum)
 		}
@@ -53,7 +53,7 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 	return newMatFromGoCV(m), nil
 }
 
-// Converts a matrix to an image. 
+// Converts a matrix to an image.
 //
 // If an error is returned, it will be [ErrEncoding] or [ErrNoncontinuousMat].
 func MatToImage(mat Mat) (image.Image, error) {
@@ -82,7 +82,7 @@ func DecodeImageToMat(r io.Reader) (Mat, error) {
 }
 
 // Writes a matrix to the given output as an image. The encoding will match the
-// given content type, which should be formatted as a MIME type. At the time of 
+// given content type, which should be formatted as a MIME type. At the time of
 // writing, the only supported content types are "image/jpeg" and "image/png".
 //
 // If an error is returned, it will be [ErrUnsupportedEncoding] or

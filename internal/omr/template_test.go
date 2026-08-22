@@ -45,22 +45,22 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 	tmpl.Anchors[0][0] = Anchor{
 		Mat: ancMat0,
 		Pos: NormalPoint{
-			X:   float64(1680)/float64(tmpl.Width),
-			Y:   float64(1710)/float64(tmpl.Height),			
+			X: float64(1680) / float64(tmpl.Width),
+			Y: float64(1710) / float64(tmpl.Height),
 		},
 	}
 	tmpl.Anchors[0][1] = Anchor{
 		Mat: ancMat1,
 		Pos: NormalPoint{
-			X:   float64(164)/float64(tmpl.Width),
-			Y:   float64(144)/float64(tmpl.Height),	
+			X: float64(164) / float64(tmpl.Width),
+			Y: float64(144) / float64(tmpl.Height),
 		},
 	}
 	tmpl.Anchors[0][2] = Anchor{
 		Mat: ancMat2,
 		Pos: NormalPoint{
-			X:   float64(164)/float64(tmpl.Width),
-			Y:   float64(2260)/float64(tmpl.Height),	
+			X: float64(164) / float64(tmpl.Width),
+			Y: float64(2260) / float64(tmpl.Height),
 		},
 	}
 
@@ -76,7 +76,7 @@ func TestPreprocessingTemplate(t *testing.T) {
 	tmpl, err := getSampleTemplate()
 	assert.Assert(t, err == nil)
 	defer tmpl.Close()
-	
+
 	tName := t.Name()
 
 	t.Run("draw sample template", func(t *testing.T) {
@@ -103,16 +103,16 @@ func TestPreprocessingTemplate(t *testing.T) {
 		defer w.Close()
 
 		scaledUp, err := ScalePreprocessingTemplate(
-			FitMethodCover,	
-			tmpl, 
+			FitMethodCover,
+			tmpl,
 			3000, 3000,
 		)
 		assert.NilError(t, err)
 		defer scaledUp.Close()
 
-		// Since we're using "cover" and targetting 2000x2000, we expect that 
-		// the larger dimension is greater than or equal to 2000 and the 
-		// smaller is exactly equal to 2000. 
+		// Since we're using "cover" and targetting 2000x2000, we expect that
+		// the larger dimension is greater than or equal to 2000 and the
+		// smaller is exactly equal to 2000.
 		assert.Assert(t, min(scaledUp.Width, scaledUp.Height) == 3000)
 		assert.Assert(t, max(scaledUp.Width, scaledUp.Height) >= 3000)
 
@@ -133,16 +133,16 @@ func TestPreprocessingTemplate(t *testing.T) {
 		defer w.Close()
 
 		scaledDown, err := ScalePreprocessingTemplate(
-			FitMethodContain,	
-			tmpl, 
+			FitMethodContain,
+			tmpl,
 			1000, 1000,
 		)
 		assert.NilError(t, err)
 		defer scaledDown.Close()
- 
-		// Since we're using "contain" and targetting 1000x1000, we expect that 
+
+		// Since we're using "contain" and targetting 1000x1000, we expect that
 		// the larger dimension is exactly 1000 and the smaller is less than or
-		// equal to 1000. 
+		// equal to 1000.
 		assert.Assert(t, max(scaledDown.Width, scaledDown.Height) == 1000)
 		assert.Assert(t, min(scaledDown.Width, scaledDown.Height) <= 1000)
 
@@ -163,13 +163,13 @@ func TestPreprocessingTemplate(t *testing.T) {
 		defer w.Close()
 
 		scaledDown, err := ScalePreprocessingTemplate(
-			FitMethodFill,	
-			tmpl, 
+			FitMethodFill,
+			tmpl,
 			800, 800,
 		)
 		assert.NilError(t, err)
 		defer scaledDown.Close()
- 
+
 		// Since we're using "fill" and targetting 800x800, we expect that both
 		// dimensions are exactly 800.
 		assert.Assert(t, scaledDown.Height == 800)

@@ -72,7 +72,7 @@ func TestRingBuffer(t *testing.T) {
 			r.Add(i)
 		}
 
-		assertSlicesEqual(t, r.Get(10), []int{0, 1, 2})		
+		assertSlicesEqual(t, r.Get(10), []int{0, 1, 2})
 	})
 
 	t.Run("get nothing", func(t *testing.T) {

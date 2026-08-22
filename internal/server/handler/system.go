@@ -21,7 +21,7 @@ var OpenAPISpec = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 	http.ServeFile(w, r, "./api/openapi.yaml")
 })
 
-var Ping = http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {})
+var Ping = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
 func GetResourceUtilization(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
