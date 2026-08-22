@@ -21,6 +21,7 @@ var (
 	ErrCannotMatchAnchor   = errors.New("could not locate the anchor on the given matrix")
 	ErrMaxIterations       = errors.New("a maximum iterations bound was met")
 	ErrNoncontinuousMat    = errors.New("attempted to use a non-continuous matrix for an operation that requires a continuous one")
+	ErrMatTypeMismatch     = errors.New("attempted to perform an invalid operation on two matrices of different types")
 )
 
 type MatType int

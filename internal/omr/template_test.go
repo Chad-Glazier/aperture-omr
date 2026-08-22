@@ -12,12 +12,11 @@ import (
 // Helpers
 //
 
-func getSampleTemplate(t *testing.T) PreprocessingTemplate {
-	t.Helper()
+func getSampleTemplate() (PreprocessingTemplate, error) {
 
 	tmpl := PreprocessingTemplate{}
-	tmpl.Width = 1200
-	tmpl.Height = 1700
+	tmpl.Width = 1952
+	tmpl.Height = 2496
 	tmpl.BinarizeConfig = BinarizeConfig{
 		BlurSize:       3,
 		MorphCloseSize: 3,
@@ -25,58 +24,47 @@ func getSampleTemplate(t *testing.T) PreprocessingTemplate {
 		AdaptiveC:      10,
 	}
 	tmpl.MinAnchorConfidence = 0.50
-	tmpl.Width = 1200
-	tmpl.Height = 1700
 
-	ancMat := getTestAnchorMat(t)
+	ancMat0, err := getTestAnchor0Mat()
+	if err != nil {
+		return PreprocessingTemplate{}, err
+	}
 
-	tmpl.Anchors = make([][]Anchor, 2)
+	ancMat1, err := getTestAnchor1Mat()
+	if err != nil {
+		return PreprocessingTemplate{}, err
+	}
+
+	ancMat2, err := getTestAnchor2Mat()
+	if err != nil {
+		return PreprocessingTemplate{}, err
+	}
+
+	tmpl.Anchors = make([][]Anchor, 1)
 	tmpl.Anchors[0] = make([]Anchor, 3)
-	tmpl.Anchors[1] = make([]Anchor, 3)
 	tmpl.Anchors[0][0] = Anchor{
-		Mat: ancMat,
+		Mat: ancMat0,
 		Pos: NormalPoint{
-			X:   float64(24)/float64(tmpl.Width),
-			Y:   float64(24)/float64(tmpl.Height),			
+			X:   float64(1680)/float64(tmpl.Width),
+			Y:   float64(1710)/float64(tmpl.Height),			
 		},
 	}
 	tmpl.Anchors[0][1] = Anchor{
-		Mat: Clone(ancMat),
+		Mat: ancMat1,
 		Pos: NormalPoint{
-			X:   float64(1152)/float64(tmpl.Width),
-			Y:   float64(24)/float64(tmpl.Height),	
+			X:   float64(164)/float64(tmpl.Width),
+			Y:   float64(144)/float64(tmpl.Height),	
 		},
 	}
 	tmpl.Anchors[0][2] = Anchor{
-		Mat: Clone(ancMat),
+		Mat: ancMat2,
 		Pos: NormalPoint{
-			X:   float64(24)/float64(tmpl.Width),
-			Y:   float64(1652)/float64(tmpl.Height),	
-		},
-	}
-	tmpl.Anchors[1][0] = Anchor{
-		Mat: ancMat,
-		Pos: NormalPoint{
-			X:   float64(24)/float64(tmpl.Width),
-			Y:   float64(24)/float64(tmpl.Height),	
-		},
-	}
-	tmpl.Anchors[1][1] = Anchor{
-		Mat: Clone(ancMat),
-		Pos: NormalPoint{
-			X:   float64(1152)/float64(tmpl.Width),
-			Y:   float64(24)/float64(tmpl.Height),	
-		},
-	}
-	tmpl.Anchors[1][2] = Anchor{
-		Mat: Clone(ancMat),
-		Pos: NormalPoint{
-			X:   float64(1152)/float64(tmpl.Width),
-			Y:   float64(1652)/float64(tmpl.Height),	
+			X:   float64(164)/float64(tmpl.Width),
+			Y:   float64(2260)/float64(tmpl.Height),	
 		},
 	}
 
-	return tmpl
+	return tmpl, nil
 }
 
 //
@@ -85,7 +73,8 @@ func getSampleTemplate(t *testing.T) PreprocessingTemplate {
 
 func TestPreprocessingTemplate(t *testing.T) {
 
-	tmpl := getSampleTemplate(t)
+	tmpl, err := getSampleTemplate()
+	assert.Assert(t, err == nil)
 	defer tmpl.Close()
 	
 	tName := t.Name()
@@ -116,7 +105,7 @@ func TestPreprocessingTemplate(t *testing.T) {
 		scaledUp, err := ScalePreprocessingTemplate(
 			FitMethodCover,	
 			tmpl, 
-			2000, 2000,
+			3000, 3000,
 		)
 		assert.NilError(t, err)
 		defer scaledUp.Close()
@@ -124,8 +113,8 @@ func TestPreprocessingTemplate(t *testing.T) {
 		// Since we're using "cover" and targetting 2000x2000, we expect that 
 		// the larger dimension is greater than or equal to 2000 and the 
 		// smaller is exactly equal to 2000. 
-		assert.Assert(t, min(scaledUp.Width, scaledUp.Height) == 2000)
-		assert.Assert(t, max(scaledUp.Width, scaledUp.Height) >= 2000)
+		assert.Assert(t, min(scaledUp.Width, scaledUp.Height) == 3000)
+		assert.Assert(t, max(scaledUp.Width, scaledUp.Height) >= 3000)
 
 		page0, err := scaledUp.ToImage(0)
 		assert.NilError(t, err)

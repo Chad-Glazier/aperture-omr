@@ -17,7 +17,7 @@ type PreprocessingTemplate struct {
 	Anchors [][]Anchor
 
 	// A confidence score (0.0 to 1.0) that defines how closely a suspected
-	// anchor on the scan must match the actual anchor to be considered a 
+	// anchor on the scan must match the actual anchor to be considered a
 	// match.
 	MinAnchorConfidence float64
 
@@ -41,7 +41,7 @@ func (p PreprocessingTemplate) Close() {
 func (p PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
 	r := image.Rect(0, 0, int(p.Width), int(p.Height))
 	img := image.NewGray(r)
-	
+
 	for _, a := range p.Anchors[pageIdx] {
 
 		ancImg, err := MatToImage(a.Mat)
@@ -49,10 +49,10 @@ func (p PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
 			return nil, ErrEncoding
 		}
 		ancRect := image.Rect(
-			int(a.Pos.X * float64(p.Width)), 
-			int(a.Pos.Y * float64(p.Height)), 
-			int(a.Pos.X * float64(p.Width)) + int(a.Mat.Width()),
-			int(a.Pos.Y * float64(p.Height)) + int(a.Mat.Height()),
+			int(a.Pos.X*float64(p.Width)),
+			int(a.Pos.Y*float64(p.Height)),
+			int(a.Pos.X*float64(p.Width))+int(a.Mat.Width()),
+			int(a.Pos.Y*float64(p.Height))+int(a.Mat.Height()),
 		)
 		draw.Draw(img, ancRect, ancImg, image.Point{}, draw.Over)
 	}
@@ -67,12 +67,12 @@ func (p PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
 type FitMethod uint
 
 const (
-	// The template will be scaled so that it completely covers the target 
-	// dimensions while preserving its aspect ratio. This may cause the 
+	// The template will be scaled so that it completely covers the target
+	// dimensions while preserving its aspect ratio. This may cause the
 	// template to overflow.
 	FitMethodCover FitMethod = iota
 	// The template will be scaled so that it fits completely inside the target
-	// dimensions while preserving its aspect ratio. This may cause the 
+	// dimensions while preserving its aspect ratio. This may cause the
 	// template to overflow.
 	FitMethodContain
 	// The template will be scaled to match the target dimensions exactly. This
@@ -80,19 +80,19 @@ const (
 	FitMethodFill
 )
 
-// Returns a copy of the given template, scaled to match the specified 
+// Returns a copy of the given template, scaled to match the specified
 // dimensions.
 //
 // If an error is returned, it will be [ErrOpenCV].
 func ScalePreprocessingTemplate(
 	method FitMethod,
-	src PreprocessingTemplate, 
+	src PreprocessingTemplate,
 	targetWidth, targetHeight uint,
 ) (PreprocessingTemplate, error) {
 
 	var (
-		scaleX = float64(targetWidth)/float64(src.Width)
-		scaleY = float64(targetHeight)/float64(src.Height)
+		scaleX = float64(targetWidth) / float64(src.Width)
+		scaleY = float64(targetHeight) / float64(src.Height)
 	)
 	switch method {
 	case FitMethodCover:
@@ -100,7 +100,7 @@ func ScalePreprocessingTemplate(
 			targetWidth = uint(scaleY * float64(src.Width))
 		} else {
 			targetHeight = uint(scaleX * float64(src.Height))
-		}		
+		}
 	case FitMethodContain:
 		if scaleY < scaleX {
 			targetWidth = uint(scaleY * float64(src.Width))
@@ -118,32 +118,32 @@ func ScalePreprocessingTemplate(
 }
 
 // Returns a deep copy of the given template with all relevant values scaled to
-// fit the given dimensions. Note that the output anchors will not be binary, 
+// fit the given dimensions. Note that the output anchors will not be binary,
 // even if the input anchors are. See [Scale].
 //
 // If an error is returned, it will be [ErrOpenCV].
 func scalePreprocessingTemplateTo(
 	src PreprocessingTemplate,
-	width, height uint,	
+	width, height uint,
 ) (
-	PreprocessingTemplate, 
+	PreprocessingTemplate,
 	error,
 ) {
 	var (
-		scaleX = float64(width)/float64(src.Width)
-		scaleY = float64(height)/float64(src.Height)
+		scaleX = float64(width) / float64(src.Width)
+		scaleY = float64(height) / float64(src.Height)
 	)
 
 	scaled := PreprocessingTemplate{
-		Width:  width,
-		Height: height,
+		Width:               width,
+		Height:              height,
 		MinAnchorConfidence: src.MinAnchorConfidence,
 	}
 	scaled.BinarizeConfig = scaleBinarizationConfig(
-		src.BinarizeConfig, 
+		src.BinarizeConfig,
 		scaleX, scaleY,
 	)
-	
+
 	scaled.Anchors = make([][]Anchor, len(src.Anchors))
 	for i := range src.Anchors {
 		scaled.Anchors[i] = make([]Anchor, len(src.Anchors[i]))
@@ -152,8 +152,10 @@ func scalePreprocessingTemplateTo(
 			scaledAnchor := src.Anchors[i][j]
 			scaledAnchor.Mat = NewMat()
 			err := Scale(
-				scaledAnchor.Mat, 
-				src.Anchors[i][j].Mat, scaleX, scaleY)
+				scaledAnchor.Mat,
+				src.Anchors[i][j].Mat,
+				scaleX, scaleY,
+			)
 			if err != nil {
 				scaled.Close()
 				return PreprocessingTemplate{}, ErrOpenCV
@@ -166,3 +168,14 @@ func scalePreprocessingTemplateTo(
 	return scaled, nil
 }
 
+func (p PreprocessingTemplate) BinarizeAllAnchors() {
+	for i := range p.Anchors {
+		for j := range p.Anchors[i] {
+			Binarize(
+				p.Anchors[i][j].Mat, 
+				p.Anchors[i][j].Mat, 
+				&p.BinarizeConfig,
+			)
+		}
+	}
+}

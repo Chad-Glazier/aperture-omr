@@ -8,4 +8,4 @@ data/
 debug.log
 
 # Test output data.
-testoutput/*
+output/*.png

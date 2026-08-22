@@ -31,7 +31,7 @@ func (a Anchor) Close() {
 
 type FindAnchorResult struct {
 	// The position in the source matrix where the anchor's best match was
-	// found.
+	// found. Importantly, this point is the *center* of the anchor's position.
 	Position image.Point
 	// The orientation (i.e., rotation in radians) of the anchor that yielded
 	// the best match.
@@ -57,35 +57,27 @@ type FindAnchorConfig struct {
 	//
 	// Defaults to [DefaultSearchAreaPadding].
 	SearchAreaPadding float64
-
-	// The search will be terminated early if the maximum confidence is met.
-	//
-	// Defaults to [DefaultMaxConfidence].
-	MaxConfidence float64
 }
 
 const (
 	DefaultInitialAngle       float64 = 0.00
-	DefaultAngleSearchBreadth float64 = math.Pi / 12
-	DefaultSearchAreaPadding  float64 = 0.10
-	DefaultMaxConfidence      float64 = 0.95
+	DefaultAngleSearchBreadth float64 = 20.0 / 180.0 * math.Pi
+	DefaultSearchAreaPadding  float64 = 0.125
 )
 
 // Attempts to locate an anchor on the given matrix. The return value describes
 // the best match that was found.
 //
-// If an error is returned, it will be [ErrWrongMatType], [ErrEmptyMat], or
+// If an error is returned, it will be [ErrMatTypeMismatch], [ErrEmptyMat], or
 // [ErrOpenCV].
 func FindAnchor(
 	mat Mat,
 	anchor Anchor,
-	minConfidence float64,
 	conf *FindAnchorConfig,
-	bConf *BinarizeConfig,
 ) (FindAnchorResult, error) {
 	switch { // Handle bad inputs.
-	case *mat.t != MatTypeBinary, *anchor.Mat.t != MatTypeBinary:
-		return FindAnchorResult{}, ErrWrongMatType
+	case *mat.t != *anchor.Mat.t:
+		return FindAnchorResult{}, ErrMatTypeMismatch
 	case mat.Empty(), anchor.Mat.Empty():
 		return FindAnchorResult{}, ErrEmptyMat
 	}
@@ -110,15 +102,12 @@ func FindAnchor(
 	if c.SearchAreaPadding == 0 {
 		c.SearchAreaPadding = DefaultSearchAreaPadding
 	}
-	if c.MaxConfidence == 0 {
-		c.MaxConfidence = DefaultMaxConfidence
-	}
 
 	//
 	// Search for the anchor.
 	//
 
-	searchArea := searchRegion(mat, anchor, c.SearchAreaPadding)
+	searchArea, offset := searchRegion(mat, anchor, c.SearchAreaPadding)
 	defer searchArea.Close()
 
 	best, err := refiningSearch(
@@ -126,13 +115,12 @@ func FindAnchor(
 		c.InitialAngle+c.AngleSearchBreadth/2,
 		0.025,
 		func(angle float64) (image.Point, float64, error) {
+
 			rotated, err := RotateAnchor(anchor, angle)
 			if err != nil {
 				return image.Point{}, 0, ErrOpenCV
 			}
 			defer rotated.Close()
-
-			Binarize(rotated.Mat, rotated.Mat, bConf)
 
 			return matchAnchor(searchArea, rotated)
 		},
@@ -142,20 +130,32 @@ func FindAnchor(
 	}
 
 	return FindAnchorResult{
-		Position:    best.result,
+		Position:    image.Pt(
+			best.result.X + offset.X,
+			best.result.Y + offset.Y,
+		),
 		Confidence:  best.quality,
 		Orientation: best.candidate,
 	}, nil
 }
 
 // Matches an anchor against a larger region, returning the position where the
-// best match was found and the quality of that match (0 to 1).
+// best match was found and the quality of that match (0 to 1). Importantly, 
+// the returned position represents the *center* of the match.
 //
-// If an error is returned, it will be [ErrOpenCV].
+// If an error is returned, it will be [ErrOpenCV], [ErrEmptyMat], or 
+// [ErrMatTypeMismatch].
 func matchAnchor(
 	searchArea Mat,
 	anchor Anchor,
 ) (image.Point, float64, error) {
+	switch {
+	case searchArea.Empty() || anchor.Mat.Empty():
+		return image.Point{}, 0, ErrEmptyMat
+	case *searchArea.t != *anchor.Mat.t:
+		return image.Point{}, 0, ErrMatTypeMismatch
+	}
+
 	var (
 		mask   = gocv.NewMat()
 		result = gocv.NewMat()
@@ -175,6 +175,8 @@ func matchAnchor(
 	}
 
 	_, confidence, _, position := gocv.MinMaxLoc(result)
+	position.X += int(anchor.Mat.Width()/2)
+	position.Y += int(anchor.Mat.Height()/2)
 	return position, float64(confidence), nil
 }
 
@@ -182,12 +184,15 @@ func matchAnchor(
 // given anchor and will be at least as large as it. Padding will be added to
 // the region as a percentage (0 to 1) of the source matrix's respective
 // dimension. The returned region will be restricted so that it never goes
-// beyond the source matrix's bounds.
+// beyond the source matrix's bounds. 
+//
+// The second return value is the top-left corner of the region in terms of the
+// source's coordinates.
 func searchRegion(
 	mat Mat,
 	anchor Anchor,
 	padding float64,
-) Mat {
+) (Mat, image.Point) {
 	padding = max(0, padding)
 	var (
 		w = float64(mat.Width())
@@ -205,7 +210,9 @@ func searchRegion(
 	y1 = min(y1, int(mat.Height()))
 
 	region := mat.m.Region(image.Rect(x0, y0, x1, y1))
-	return newMatFromGoCV(region)
+	regionMat := newMatFromGoCV(region)
+	*regionMat.t = *mat.t
+	return regionMat, image.Pt(x0, y0)
 }
 
 // Rotates an anchor by the given angle (in radians) and returns the result.

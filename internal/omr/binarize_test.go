@@ -11,17 +11,20 @@ import (
 // Helper functions
 //
 
-func getTestMat(t *testing.T) Mat {
-	t.Helper()
+func getSamplePageMat() (Mat, error) {
 
-	r, err := os.Open("testdata/input/exam_page.jpeg")
-	assert.NilError(t, err)
+	r, err := os.Open("testdata/input/sample_page.png")
+	if err != nil {
+		return Mat{}, err
+	}
 	defer r.Close()
 
 	mat, err := DecodeImageToMat(r)
-	assert.NilError(t, err)
+	if err != nil {
+		return Mat{}, err
+	}
 
-	return mat
+	return mat, nil
 }
 
 //
@@ -35,11 +38,12 @@ func TestBinarize(t *testing.T) {
 	t.Run("write to output", func(t *testing.T) {
 		var outputName = "testdata/output/"+tName+"_out.png"
 
-		src := getTestMat(t)
+		src, err := getSamplePageMat()
+		assert.Assert(t, err == nil)
 		defer src.Close()
 		dst := NewMat()
 		defer dst.Close()
-		err := Binarize(dst, src, nil)
+		err = Binarize(dst, src, nil)
 		assert.Assert(t, err == nil)
 
 		drawInputOutput(t, src, dst, outputName)
@@ -50,7 +54,8 @@ func TestBinarize(t *testing.T) {
 		err := Binarize(empty, empty, nil)
 		assert.Assert(t, err == ErrEmptyMat)
 
-		mat := getTestMat(t)
+		mat, err := getSamplePageMat()
+		assert.Assert(t, err == nil)
 		*mat.t = MatTypeUnknown
 		err = Binarize(mat, mat, nil)
 		assert.Assert(t, err == ErrWrongMatType)
@@ -62,7 +67,7 @@ func TestBinarize(t *testing.T) {
 //
 
 func BenchmarkBinarize(b *testing.B) {
-	r, err := os.Open("testdata/input/exam_page.jpeg")
+	r, err := os.Open("testdata/input/sample_page.png")
 	assert.NilError(b, err)
 	defer r.Close()
 
