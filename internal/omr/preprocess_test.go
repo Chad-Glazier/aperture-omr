@@ -17,12 +17,6 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 	tmpl := PreprocessingTemplate{}
 	tmpl.Width = 1952
 	tmpl.Height = 2496
-	tmpl.BinarizeConfig = BinarizeConfig{
-		BlurSize:       3,
-		MorphCloseSize: 3,
-		BlockSize:      51,
-		AdaptiveC:      10,
-	}
 	tmpl.MinAnchorConfidence = 0.50
 
 	ancMat0, err := getTestAnchor0Mat()

@@ -22,6 +22,7 @@ var (
 	ErrMaxIterations       = errors.New("a maximum iterations bound was met")
 	ErrNoncontinuousMat    = errors.New("attempted to use a non-continuous matrix for an operation that requires a continuous one")
 	ErrMatTypeMismatch     = errors.New("attempted to perform an invalid operation on two matrices of different types")
+	ErrInvalidMask         = errors.New("the given bit mask is invalid")
 )
 
 type MatType int
@@ -34,12 +35,12 @@ const (
 	// distinct type, so this is still represented by 8-bit unsigned integers
 	// on a single channel.
 	//
-	// See [gocv.MatTypeCV8UC1].
+	// See [gocv.MatTypeCV8U].
 	MatTypeBinary
 
 	// 8-bit unsigned integers on a single-channel.
 	//
-	// See [gocv.MatTypeCV8UC1].
+	// See [gocv.MatTypeCV8U].
 	MatTypeGray
 )
 
@@ -73,7 +74,7 @@ func newMatFromGoCV(mat gocv.Mat) Mat {
 		t      MatType
 		m      = Mat{m: mat, closed: &closed, t: &t}
 	)
-	if mat.Type() == gocv.MatTypeCV8UC1 {
+	if mat.Type() == gocv.MatTypeCV8U {
 		*m.t = MatTypeGray
 	}
 	return m
@@ -118,7 +119,7 @@ func (m Mat) Empty() bool {
 		return true
 	}
 
-	return m.m.Empty()
+	return m.m.Empty() || m.Width() == 0 || m.Height() == 0
 }
 
 func (m Mat) Rows() uint {
@@ -161,7 +162,7 @@ func Scale(dst, src Mat, scaleX, scaleY float64) error {
 
 	var method gocv.InterpolationFlags
 	if min(scaleX, scaleY) < 1 {
-		// Best quality images when upsampling.
+		// Best quality images when downsampling.
 		method = gocv.InterpolationArea
 	} else {
 		// Visually best when upsampling. However, [gocv.InterpolationLinear]
@@ -189,6 +190,68 @@ func Scale(dst, src Mat, scaleX, scaleY float64) error {
 	return nil
 }
 
+// Describes a method for fitting one rectangle within another. The options are
+// named in the same way as the CSS "object-fit" property.
+//
+// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/object-fit>
+type FitMethod uint
+
+const (
+	// The image will be scaled so that it completely covers the target
+	// dimensions while preserving its aspect ratio. This may cause the
+	// image to overflow.
+	FitMethodCover FitMethod = iota
+	// The image will be scaled so that it fits completely inside the target
+	// dimensions while preserving its aspect ratio. This may cause the
+	// image to overflow.
+	FitMethodContain
+	// The image will be scaled to match the target dimensions exactly. This
+	// may not preserve the aspect ratio.
+	FitMethodFill
+)
+
+// Returns a clone of the given matrix, scaled to fit the given dimensions. The
+// fitting method determines how the matrix should be resized when the desired
+// aspect ratio is different from the initial one.
+//
+// Due to the interpolation used for scaling matrices, the returned matrix will
+// never by binary. If the input matrix is [MatTypeBinary], the output will be
+// [MatTypeGray].
+//
+// If an error is returned, it will be [ErrOpenCV].
+func ScaleTo(dst, src Mat, w, h uint, fit FitMethod) error {
+
+	var method gocv.InterpolationFlags
+	if w < src.Width() || h < src.Height() {
+		// Best quality images when downsampling.
+		method = gocv.InterpolationArea
+	} else {
+		// Visually best when upsampling. However, [gocv.InterpolationLinear]
+		// is faster and we could use that instead to maximize the speed of
+		// this function.
+		method = gocv.InterpolationCubic
+	}
+
+	err := gocv.Resize(
+		src.m, &dst.m,
+		image.Pt(int(w), int(h)),
+		0, 0,
+		method,
+	)
+	if err != nil {
+		return ErrOpenCV
+	}
+
+	if *src.t == MatTypeBinary {
+		*dst.t = MatTypeGray
+	} else {
+		*dst.t = *src.t
+	}
+
+	return nil
+}
+
+// Returns the bounds of the matrix.
 func (m Mat) Region() image.Rectangle {
 	return image.Rect(
 		0, 0,
@@ -197,10 +260,11 @@ func (m Mat) Region() image.Rectangle {
 	)
 }
 
-// Rotates a matrix by the given angle in radians.
+// Rotates a matrix by the given angle in radians. The background color will be
+// used to fill in any empty space.
 //
 // If an error is returned, it will be [ErrOpenCV].
-func Rotate(dst Mat, src Mat, angle float64) error {
+func Rotate(dst Mat, src Mat, angle float64, bg color.RGBA) error {
 	var (
 		w = int(src.Width())
 		h = int(src.Height())
@@ -231,7 +295,7 @@ func Rotate(dst Mat, src Mat, angle float64) error {
 		image.Pt(int(newW), int(newH)),
 		gocv.InterpolationArea,
 		gocv.BorderConstant,
-		color.RGBA{255, 255, 255, 255},
+		bg,
 	)
 	if err != nil {
 		return ErrOpenCV

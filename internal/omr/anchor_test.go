@@ -260,7 +260,7 @@ func TestFindAnchor(t *testing.T) {
 		outputName := "testdata/output/" + tName + "_maxrotation_noisy.png"
 
 		rotatedPage := Clone(noisyPage)
-		Rotate(rotatedPage, rotatedPage, rad(-9.2))
+		Rotate(rotatedPage, rotatedPage, rad(-9.2), color.RGBA{})
 
 		result, err := FindAnchor(
 			rotatedPage,
@@ -288,7 +288,7 @@ func TestFindAnchor(t *testing.T) {
 		for angle := rad(-10.0); angle <= rad(10.0); angle += rad(3) {
 
 			rotatedPage := NewMat()
-			Rotate(rotatedPage, page, angle)
+			Rotate(rotatedPage, page, angle, color.RGBA{})
 
 			result, err := FindAnchor(
 				rotatedPage,
@@ -326,7 +326,7 @@ func TestMatchAnchor(t *testing.T) {
 		assert.Assert(t, err == nil)
 		defer tmpl.Close()
 
-		_, _, err = matchAnchor(NewMat(), tmpl.Anchors[0][0])
+		_, _, err = matchAnchor(NewMat(), tmpl.Anchors[0][0], NewMat())
 		assert.Assert(t, err == ErrEmptyMat)
 
 		page, err := getSamplePageMat()
@@ -334,7 +334,7 @@ func TestMatchAnchor(t *testing.T) {
 		defer page.Close()
 
 		*tmpl.Anchors[0][0].Mat.t = MatTypeUnknown
-		_, _, err = matchAnchor(page, tmpl.Anchors[0][0])
+		_, _, err = matchAnchor(page, tmpl.Anchors[0][0], NewMat())
 		assert.Assert(t, err == ErrMatTypeMismatch)
 	})
 
@@ -354,7 +354,9 @@ func TestMatchAnchor(t *testing.T) {
 
 		// This is a practically ideal sample, so we should expect the match to
 		// be very close and have a very high quality score.
-		center, quality, err := matchAnchor(page, anc)
+		center, quality, err := matchAnchor(page, anc, NewMat())
+		t.Log(NewMat().Empty())
+		t.Log(err)
 		assert.Assert(t, err == nil)
 		assert.Assert(t, quality >= 0.95)
 		assert.Assert(t, pointsAreClose(center, expectedCenter, 3))
@@ -374,7 +376,7 @@ func TestMatchAnchor(t *testing.T) {
 		// match quality to be low.
 		anc.Pos = NormalPoint{0, 0}
 		searchArea, _ := searchRegion(page, anc, 0.10)
-		_, quality, err := matchAnchor(searchArea, anc)
+		_, quality, err := matchAnchor(searchArea, anc, NewMat())
 		assert.Assert(t, err == nil)
 		assert.Assert(t, quality <= 0.50)
 	})
@@ -478,6 +480,7 @@ func TestRotateAnchor(t *testing.T) {
 
 	t.Run("15deg", func(t *testing.T) {
 		var outputName = "testdata/output/" + tName + "_15deg.png"
+		var maskOutName = "testdata/output/" + tName + "_mask_15deg.png"
 
 		ancMat, err := getTestAnchor0Mat()
 		assert.Assert(t, err == nil)
@@ -485,10 +488,11 @@ func TestRotateAnchor(t *testing.T) {
 
 		anc := Anchor{Mat: ancMat, Pos: NormalPoint{}}
 
-		rotated, err := RotateAnchor(anc, 15.0/180.0*math.Pi)
+		rotated, mask, err := RotateAnchor(anc, 15.0/180.0*math.Pi)
 		assert.Assert(t, err == nil)
 
 		drawInputOutput(t, ancMat, rotated.Mat, outputName)
+		drawInputOutput(t, ancMat, mask, maskOutName)
 	})
 
 	t.Run("-15deg", func(t *testing.T) {
@@ -500,7 +504,8 @@ func TestRotateAnchor(t *testing.T) {
 
 		anc := Anchor{Mat: ancMat, Pos: NormalPoint{}}
 
-		rotated, err := RotateAnchor(anc, -15.0/180.0*math.Pi)
+		rotated, mask, err := RotateAnchor(anc, -15.0/180.0*math.Pi)
+		gocv.BitwiseAnd(rotated.Mat.m, mask.m, &rotated.Mat.m)
 		assert.Assert(t, err == nil)
 
 		drawInputOutput(t, ancMat, rotated.Mat, outputName)
@@ -544,7 +549,7 @@ func BenchmarkFindAnchorUnrotated(b *testing.B) {
 	page, err := getSamplePageMat()
 	assert.Assert(b, err == nil)
 	rotated := Clone(page)
-	err = Rotate(rotated, rotated, rad(-1.23))
+	err = Rotate(rotated, rotated, rad(-1.23), color.RGBA{})
 	assert.Assert(b, err == nil)
 
 	// This configuration is wide enough to support +/- 10 degree rotations.

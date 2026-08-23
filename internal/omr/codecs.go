@@ -45,7 +45,7 @@ func RgbaToMat(img *image.RGBA) (Mat, error) {
 		}
 	}
 
-	m, err := gocv.NewMatFromBytes(h, w, gocv.MatTypeCV8UC1, bytes)
+	m, err := gocv.NewMatFromBytes(h, w, gocv.MatTypeCV8U, bytes)
 	if err != nil {
 		return Mat{}, ErrOpenCV
 	}

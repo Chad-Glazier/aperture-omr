@@ -1,8 +1,21 @@
+//
+// Notes | Updated August 22nd, 2026
+//
+// Although we calculate a mask for rotated anchors, we cannot use them in the
+// current version of the [FindAnchor] function. This is because OpenCV does 
+// not currently support masked template matching with the method we're relying
+// on (TM_CCOEFF_NORMED). The lack of a mask means that rotated anchors will
+// have added white edges. Since these rotations shouldn't be severe (roughly
+// 10 degrees in the worst case) this shouldn't be a big deal. However, those
+// edges *will* always be white. This creates  problems if the background color
+// is not white. This is listed as a known limitation in the documentation.
+//
+
 package omr
 
 import (
-	"errors"
 	"image"
+	"image/color"
 	"math"
 
 	"gocv.io/x/gocv"
@@ -132,8 +145,6 @@ func FindAnchor(
 	searchArea, offset := searchRegion(mat, anchor, c.SearchAreaPadding)
 	defer searchArea.Close()
 
-	var ErrMaxQuality = errors.New("max quality was met")
-
 	best, err := refiningSearch(
 		c.InitialAngle-c.AngleSearchBreadth/2,
 		c.InitialAngle+c.AngleSearchBreadth/2,
@@ -141,16 +152,17 @@ func FindAnchor(
 		c.Granularity,
 		c.MaxQuality,
 		func(angle float64) (image.Point, float64, error) {
-			rotated, err := RotateAnchor(anchor, angle)
+			rotated, mask, err := RotateAnchor(anchor, angle)
 			if err != nil {
 				return image.Point{}, 0, ErrOpenCV
 			}
 			defer rotated.Close()
+			defer mask.Close()
 
-			return matchAnchor(searchArea, rotated)
+			return matchAnchor(searchArea, rotated, NewMat())
 		},
 	)
-	if err != nil && err != ErrMaxQuality {
+	if err != nil {
 		return FindAnchorResult{}, err
 	}
 
@@ -173,19 +185,24 @@ func FindAnchor(
 func matchAnchor(
 	searchArea Mat,
 	anchor Anchor,
+	anchorMask Mat,
 ) (image.Point, float64, error) {
 	switch {
 	case searchArea.Empty() || anchor.Mat.Empty():
 		return image.Point{}, 0, ErrEmptyMat
 	case *searchArea.t != *anchor.Mat.t:
 		return image.Point{}, 0, ErrMatTypeMismatch
+	case !anchorMask.Empty():
+		if anchorMask.m.Type() != gocv.MatTypeCV8U ||
+			anchorMask.Width() != anchor.Mat.Width() ||
+			anchorMask.Height() != anchor.Mat.Height() {
+			return image.Point{}, 0, ErrInvalidMask
+		}
 	}
 
 	var (
-		mask   = gocv.NewMat()
 		result = gocv.NewMat()
 	)
-	defer mask.Close()
 	defer result.Close()
 
 	err := gocv.MatchTemplate(
@@ -193,7 +210,7 @@ func matchAnchor(
 		anchor.Mat.m,
 		&result,
 		gocv.TmCcoeffNormed,
-		mask,
+		anchorMask.m,
 	)
 	if err != nil {
 		return image.Point{}, 0, ErrOpenCV
@@ -241,18 +258,32 @@ func searchRegion(
 }
 
 // Rotates an anchor by the given angle (in radians) and returns the result.
+// Since the rotated anchor may have larger dimensions than the source, a mask
+// is also returned that will cut out the added empty space.
 //
 // If an error is returned, it will be [ErrOpenCV].
-func RotateAnchor(src Anchor, angle float64) (Anchor, error) {
+func RotateAnchor(src Anchor, angle float64) (Anchor, Mat, error) {
 	rotated := NewMat()
-	err := Rotate(rotated, src.Mat, angle)
+	err := Rotate(rotated, src.Mat, angle, color.RGBA{255, 255, 255, 255})
 	if err != nil {
 		rotated.Close()
-		return Anchor{}, ErrOpenCV
+		return Anchor{}, Mat{}, ErrOpenCV
 	}
 
+	mask := newMatFromGoCV(gocv.NewMatWithSize(
+		src.Mat.m.Rows(), src.Mat.m.Cols(),
+		gocv.MatTypeCV8U,
+	))
+	err = Rotate(mask, mask, angle, color.RGBA{255, 255, 255, 255})
+	if err != nil {
+		mask.Close()
+		rotated.Close()
+		return Anchor{}, Mat{}, ErrOpenCV
+	}
+	gocv.Threshold(mask.m, &mask.m, 127, 255, gocv.ThresholdBinaryInv)
+
 	src.Mat = rotated
-	return src, nil
+	return src, mask, nil
 }
 
 // Conducts a search on the set of values in between a and b (inclusive).
@@ -260,9 +291,8 @@ func RotateAnchor(src Anchor, angle float64) (Anchor, error) {
 // the second is the evaluated quality of that result, and the last is an
 // error. The "quality" value is the one used to guide the search. If an error
 // is ever returned from the objective function, the search will terminate
-// early and return it (along with the best values found up until that point).
-// The function may also terminate early if the maximum quality is met or
-// exceeded.
+// early and return it. The function may also terminate early if the maximum
+// quality is met or exceeded.
 //
 // The search is done by sampling a number of equidistant points (the number is
 // set by the "granularity") in the current search area, keeping note of the

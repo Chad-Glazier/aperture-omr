@@ -5,6 +5,14 @@ import (
 	"image/draw"
 )
 
+type PreprocessResult struct {
+	pages []Mat
+}
+
+func Preprocess(template PreprocessingTemplate, pages []Mat) PreprocessResult {
+	return PreprocessResult{}
+}
+
 // A template used to inform the preprocessing steps. This template describes
 // the "target" scan; i.e., the shape and size of the desired scan. The
 // coordinates used for anchors are relative to the target scan.
@@ -20,10 +28,6 @@ type PreprocessingTemplate struct {
 	// anchor on the scan must match the actual anchor to be considered a
 	// match.
 	MinAnchorConfidence float64
-
-	// The configuration used for binarizing scans. It's important that the
-	// binarization configuration is shared between the anchors and the scans.
-	BinarizeConfig BinarizeConfig
 }
 
 // Closes all matrices used by this template.
@@ -59,26 +63,6 @@ func (p PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
 
 	return img, nil
 }
-
-// Describes a method for fitting one rectangle within another. The options are
-// named in the same way as the CSS "object-fit" property.
-//
-// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/object-fit>
-type FitMethod uint
-
-const (
-	// The template will be scaled so that it completely covers the target
-	// dimensions while preserving its aspect ratio. This may cause the
-	// template to overflow.
-	FitMethodCover FitMethod = iota
-	// The template will be scaled so that it fits completely inside the target
-	// dimensions while preserving its aspect ratio. This may cause the
-	// template to overflow.
-	FitMethodContain
-	// The template will be scaled to match the target dimensions exactly. This
-	// may not preserve the aspect ratio.
-	FitMethodFill
-)
 
 // Returns a copy of the given template, scaled to match the specified
 // dimensions.
@@ -139,10 +123,6 @@ func scalePreprocessingTemplateTo(
 		Height:              height,
 		MinAnchorConfidence: src.MinAnchorConfidence,
 	}
-	scaled.BinarizeConfig = scaleBinarizationConfig(
-		src.BinarizeConfig,
-		scaleX, scaleY,
-	)
 
 	scaled.Anchors = make([][]Anchor, len(src.Anchors))
 	for i := range src.Anchors {
@@ -166,16 +146,4 @@ func scalePreprocessingTemplateTo(
 	}
 
 	return scaled, nil
-}
-
-func (p PreprocessingTemplate) BinarizeAllAnchors() {
-	for i := range p.Anchors {
-		for j := range p.Anchors[i] {
-			Binarize(
-				p.Anchors[i][j].Mat,
-				p.Anchors[i][j].Mat,
-				&p.BinarizeConfig,
-			)
-		}
-	}
 }
