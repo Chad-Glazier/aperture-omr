@@ -154,38 +154,49 @@ func overlayCross(
 	w, h uint,
 	orientation float64,
 ) Mat {
+	return overlayCrosses(mat, []image.Point{center}, w, h, orientation)
+}
+
+func overlayCrosses(
+	mat Mat,
+	centers []image.Point,
+	w, h uint,
+	orientation float64,
+) Mat {
 	copy := Clone(mat)
 	angle := orientation * -1
 
 	sin, cos := math.Sin(angle), math.Cos(angle)
 
-	rotate := func(x, y int) image.Point {
+	rotate := func(pt image.Point, x, y int) image.Point {
 		rx := float64(x)*cos - float64(y)*sin
 		ry := float64(x)*sin + float64(y)*cos
 
 		return image.Pt(
-			center.X-int(math.Round(rx)),
-			center.Y-int(math.Round(ry)),
+			pt.X-int(math.Round(rx)),
+			pt.Y-int(math.Round(ry)),
 		)
 	}
-	gocv.Line(
-		&copy.m,
-		rotate(0, -int(h/2)),
-		rotate(0, int(h/2)),
-		color.RGBA{255, 0, 0, 255},
-		5,
-	)
-	gocv.Line(
-		&copy.m,
-		rotate(-int(w/2), 0),
-		rotate(int(w/2), 0),
-		color.RGBA{255, 0, 0, 255},
-		5,
-	)
+
+	for _, center := range centers {
+		gocv.Line(
+			&copy.m,
+			rotate(center, 0, -int(h/2)),
+			rotate(center, 0, int(h/2)),
+			color.RGBA{255, 0, 0, 255},
+			5,
+		)
+		gocv.Line(
+			&copy.m,
+			rotate(center, -int(w/2), 0),
+			rotate(center, int(w/2), 0),
+			color.RGBA{255, 0, 0, 255},
+			5,
+		)		
+	}
 
 	return copy
 }
-
 func rad(degrees float64) float64 {
 	return degrees / 180.0 * math.Pi
 }
@@ -197,6 +208,42 @@ func deg(radians float64) float64 {
 //
 // Tests
 //
+
+func TestFindAnchors(t *testing.T) {
+	tName := t.Name()
+	tmpl, err := getSampleTemplate()
+	assert.Assert(t, err == nil)
+	noisyPage, err := getNoisyPageMat()
+	assert.Assert(t, err == nil)
+
+	t.Run("near-max rotation with noise", func(t *testing.T) {
+		outputName := "testdata/output/" + tName + "_maxrotation_noisy.png"
+
+		rotatedPage := Clone(noisyPage)
+		Rotate(rotatedPage, rotatedPage, rad(-9.2), color.RGBA{})
+
+		result, err := FindAnchors(
+			rotatedPage,
+			tmpl.Anchors[0],
+			0.95,
+			&FindAnchorConfig{
+				MaxQuality: 0.95,
+				SearchAreaPadding: 0.15,
+			},
+		)
+		assert.Assert(t, err == nil)
+
+		output := overlayCrosses(
+			rotatedPage,
+			result,
+			400, 400, 
+			0,
+		)
+		defer output.Close()
+
+		drawInputOutput(t, rotatedPage, output, outputName)
+	})
+}
 
 func TestFindAnchor(t *testing.T) {
 	tName := t.Name()
@@ -210,10 +257,10 @@ func TestFindAnchor(t *testing.T) {
 	t.Run("unrotated", func(t *testing.T) {
 		outputName := "testdata/output/" + tName + "_unrotated.png"
 
-		result, err := FindAnchor(
+		result, err := findAnchor(
 			page,
 			tmpl.Anchors[0][0],
-			&FindAnchorConfig{
+			FindAnchorConfig{
 				MaxQuality: 0.99,
 			},
 		)
@@ -235,10 +282,10 @@ func TestFindAnchor(t *testing.T) {
 	t.Run("unrotated with noise", func(t *testing.T) {
 		outputName := "testdata/output/" + tName + "_unrotated_noisy.png"
 
-		result, err := FindAnchor(
+		result, err := findAnchor(
 			page,
 			tmpl.Anchors[0][0],
-			&FindAnchorConfig{
+			FindAnchorConfig{
 				MaxQuality: 0.95,
 			},
 		)
@@ -262,10 +309,10 @@ func TestFindAnchor(t *testing.T) {
 		rotatedPage := Clone(noisyPage)
 		Rotate(rotatedPage, rotatedPage, rad(-9.2), color.RGBA{})
 
-		result, err := FindAnchor(
+		result, err := findAnchor(
 			rotatedPage,
 			tmpl.Anchors[0][0],
-			&FindAnchorConfig{
+			FindAnchorConfig{
 				MaxQuality: 0.95,
 			},
 		)
@@ -290,10 +337,10 @@ func TestFindAnchor(t *testing.T) {
 			rotatedPage := NewMat()
 			Rotate(rotatedPage, page, angle, color.RGBA{})
 
-			result, err := FindAnchor(
+			result, err := findAnchor(
 				rotatedPage,
 				tmpl.Anchors[0][0],
-				&FindAnchorConfig{
+				FindAnchorConfig{
 					InitialAngle:       0,
 					AngleSearchBreadth: rad(20),
 					SearchAreaPadding:  0.125,
@@ -542,7 +589,49 @@ func TestRefiningSearch(t *testing.T) {
 // Benchmarks
 //
 
-func BenchmarkFindAnchorUnrotated(b *testing.B) {
+func BenchmarkFindAnchors(b *testing.B) {
+	tmpl, err := getSampleTemplate()
+	assert.Assert(b, err == nil)
+	page, err := getSamplePageMat()
+	assert.Assert(b, err == nil)
+	rotated := Clone(page)
+	err = Rotate(rotated, rotated, rad(-1.23), color.RGBA{})
+	assert.Assert(b, err == nil)
+
+	// This configuration is wide enough to support +/- 10 degree rotations.
+	// In practice, most scanning machines will have a much better skews which
+	// will allow for tighter searches (which are much, much faster). We're
+	// just benchmarking the worst case.
+	conf := FindAnchorConfig{
+		InitialAngle:       0,
+		AngleSearchBreadth: rad(20),
+		SearchAreaPadding:  0.15,
+		Granularity:        7,
+		MaxQuality:         0.95,
+	}
+
+	b.Run("unrotated with good initial guess", func(b *testing.B) {
+		for b.Loop() {
+			FindAnchors(rotated, tmpl.Anchors[0], 0.95, &conf)
+		}
+	})
+
+	b.Run("rotated with bad initial guess", func(b *testing.B) {
+		for b.Loop() {
+			FindAnchors(rotated, tmpl.Anchors[0], 0.95, &conf)
+		}
+	})
+
+	b.Run("rotated with good initial guess", func(b *testing.B) {
+		conf := conf
+		conf.InitialAngle = rad(-1.23)
+		for b.Loop() {
+			FindAnchors(rotated, tmpl.Anchors[0], 0.95, &conf)
+		}
+	})
+}
+
+func BenchmarkFindAnchor(b *testing.B) {
 
 	tmpl, err := getSampleTemplate()
 	assert.Assert(b, err == nil)
@@ -559,20 +648,20 @@ func BenchmarkFindAnchorUnrotated(b *testing.B) {
 	conf := FindAnchorConfig{
 		InitialAngle:       0,
 		AngleSearchBreadth: rad(20),
-		SearchAreaPadding:  0.125,
+		SearchAreaPadding:  0.15,
 		Granularity:        7,
 		MaxQuality:         0.99,
 	}
 
 	b.Run("unrotated with good initial guess", func(b *testing.B) {
 		for b.Loop() {
-			FindAnchor(page, tmpl.Anchors[0][0], &conf)
+			findAnchor(page, tmpl.Anchors[0][0], conf)
 		}
 	})
 
 	b.Run("rotated with bad initial guess", func(b *testing.B) {
 		for b.Loop() {
-			FindAnchor(rotated, tmpl.Anchors[0][0], &conf)
+			findAnchor(rotated, tmpl.Anchors[0][0], conf)
 		}
 	})
 
@@ -580,7 +669,7 @@ func BenchmarkFindAnchorUnrotated(b *testing.B) {
 		conf := conf
 		conf.InitialAngle = rad(-1.23)
 		for b.Loop() {
-			FindAnchor(rotated, tmpl.Anchors[0][0], &conf)
+			findAnchor(rotated, tmpl.Anchors[0][0], conf)
 		}
 	})
 }

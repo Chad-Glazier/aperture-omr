@@ -2,7 +2,7 @@
 // Notes | Updated August 22nd, 2026
 //
 // Although we calculate a mask for rotated anchors, we cannot use them in the
-// current version of the [FindAnchor] function. This is because OpenCV does 
+// current version of the [FindAnchor] function. This is because OpenCV does
 // not currently support masked template matching with the method we're relying
 // on (TM_CCOEFF_NORMED). The lack of a mask means that rotated anchors will
 // have added white edges. Since these rotations shouldn't be severe (roughly
@@ -41,6 +41,61 @@ type Anchor struct {
 // Closes the matrix used for this anchor.
 func (a Anchor) Close() {
 	a.Mat.Close()
+}
+
+// Returns the anchor's coordinates in terms of the given width and height.
+func (a Anchor) Coords(w, h uint) (uint, uint) {
+	return uint(a.Pos.X * float64(w)), uint(a.Pos.Y * float64(h))
+}
+
+// Finds all anchors on the given page. It is assumed that the given anchors
+// have already been scaled to match the page's dimensions.
+//
+// If an error is returned, it will be [ErrMatTypeMismatch], [ErrEmptyMat],
+// [ErrOpenCV], or [ErrCannotMatchAnchor].
+func FindAnchors(
+	page Mat,
+	anchors []Anchor,
+	minConfidence float64,
+	conf *FindAnchorConfig,
+) ([]image.Point, error) {
+	
+	//
+	// Set the default configuration values.
+	//
+
+	var c FindAnchorConfig
+	if conf == nil {
+		c = FindAnchorConfig{}
+	} else {
+		c = *conf
+	}
+
+	setDefaultConfig(&c)
+
+	//
+	// Search for the anchors.
+	//
+
+	positions := make([]image.Point, len(anchors))
+	for i, anchor := range anchors {
+		result, err := findAnchor(page, anchor, c)
+		if err != nil {
+			return nil, err
+		}
+		if result.Confidence < minConfidence {
+			return nil, ErrCannotMatchAnchor
+		}
+		positions[i] = result.Position
+
+		// If the confidence was very high, it's likely that the orientation
+		// was good. We can start with that orientation for subsequent anchors.
+		if result.Confidence >= c.MaxQuality {
+			conf.InitialAngle = result.Orientation
+		}
+	}
+
+	return positions, nil
 }
 
 type FindAnchorResult struct {
@@ -89,39 +144,12 @@ type FindAnchorConfig struct {
 const (
 	DefaultInitialAngle       float64 = 0.00
 	DefaultAngleSearchBreadth float64 = 20.0 / 180.0 * math.Pi
-	DefaultSearchAreaPadding  float64 = 0.125
-	DefaultGranularity        uint    = 5
+	DefaultSearchAreaPadding  float64 = 0.15
+	DefaultGranularity        uint    = 7
 	DefaultMaxQuality         float64 = 0.99
 )
 
-// Attempts to locate an anchor on the given matrix. The return value describes
-// the best match that was found.
-//
-// If an error is returned, it will be [ErrMatTypeMismatch], [ErrEmptyMat], or
-// [ErrOpenCV].
-func FindAnchor(
-	mat Mat,
-	anchor Anchor,
-	conf *FindAnchorConfig,
-) (FindAnchorResult, error) {
-	switch { // Handle bad inputs.
-	case *mat.t != *anchor.Mat.t:
-		return FindAnchorResult{}, ErrMatTypeMismatch
-	case mat.Empty(), anchor.Mat.Empty():
-		return FindAnchorResult{}, ErrEmptyMat
-	}
-
-	//
-	// Set the default configuration values.
-	//
-
-	var c FindAnchorConfig
-	if conf == nil {
-		c = FindAnchorConfig{}
-	} else {
-		c = *conf
-	}
-
+func setDefaultConfig(c *FindAnchorConfig) {
 	if c.AngleSearchBreadth == 0 {
 		c.AngleSearchBreadth = DefaultAngleSearchBreadth
 	}
@@ -137,20 +165,40 @@ func FindAnchor(
 	if c.MaxQuality == 0 {
 		c.MaxQuality = DefaultMaxQuality
 	}
+}
+
+// Attempts to locate an anchor on the given matrix. The return value describes
+// the best match that was found.
+//
+// If an error is returned, it will be [ErrMatTypeMismatch], [ErrEmptyMat], or
+// [ErrOpenCV].
+func findAnchor(
+	mat Mat,
+	anchor Anchor,
+	conf FindAnchorConfig,
+) (FindAnchorResult, error) {
+	switch { // Handle bad inputs.
+	case *mat.t != *anchor.Mat.t:
+		return FindAnchorResult{}, ErrMatTypeMismatch
+	case mat.Empty(), anchor.Mat.Empty():
+		return FindAnchorResult{}, ErrEmptyMat
+	}
+
+	setDefaultConfig(&conf)
 
 	//
 	// Search for the anchor.
 	//
 
-	searchArea, offset := searchRegion(mat, anchor, c.SearchAreaPadding)
+	searchArea, offset := searchRegion(mat, anchor, conf.SearchAreaPadding)
 	defer searchArea.Close()
 
 	best, err := refiningSearch(
-		c.InitialAngle-c.AngleSearchBreadth/2,
-		c.InitialAngle+c.AngleSearchBreadth/2,
+		conf.InitialAngle-conf.AngleSearchBreadth/2,
+		conf.InitialAngle+conf.AngleSearchBreadth/2,
 		0.0025,
-		c.Granularity,
-		c.MaxQuality,
+		conf.Granularity,
+		conf.MaxQuality,
 		func(angle float64) (image.Point, float64, error) {
 			rotated, mask, err := RotateAnchor(anchor, angle)
 			if err != nil {

@@ -10,6 +10,8 @@ type PreprocessResult struct {
 }
 
 func Preprocess(template PreprocessingTemplate, pages []Mat) PreprocessResult {
+	FindAnchors()
+
 	return PreprocessResult{}
 }
 
