@@ -1,6 +1,8 @@
 package omr
 
 import (
+	"fmt"
+	"image/color"
 	"image/png"
 	"os"
 	"testing"
@@ -58,12 +60,69 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 		},
 	}
 
+	tmpl.AnchorSearchConfig = &FindAnchorConfig{
+		MaxQuality: 0.85,
+		Granularity: 5,
+	}
+
 	return tmpl, nil
 }
 
 //
 // Tests
 //
+
+func TestPreprocess(t *testing.T) {
+	tmpl, err := getSampleTemplate()
+	assert.Assert(t, err == nil)
+	defer tmpl.Close()
+	
+	noisyPage, err := getNoisyPageMat()
+	assert.Assert(t, err == nil)
+	defer noisyPage.Close()
+
+	page, err := getSamplePageMat()
+	assert.Assert(t, err == nil)
+	defer page.Close()
+
+	tName := t.Name()
+
+	t.Run("preprocess ideal input", func(t *testing.T) {
+		var output = "testdata/output/" + tName + "_ideal.png"
+
+		result, err := Preprocess(tmpl, []Mat{ page })
+		assert.Assert(t, err == nil)
+
+		drawInputOutput(t, page, result[0], output)
+	})
+
+	t.Run("preprocess noisy and rotated", func(t *testing.T) {
+		rotated := NewMat()
+		defer rotated.Close()
+
+		for _, degrees := range []float64{ 1.5, -5 } {
+
+			t.Logf("trying %.1f\u00b0 rotation", degrees)
+
+			var output = fmt.Sprintf(
+				"testdata/output/%s_%.0fdeg_noisy.png",
+				tName, degrees,
+			)
+
+			RotateWithoutResizing(
+				rotated, 
+				noisyPage, 
+				rad(degrees), 
+				color.RGBA{},
+			)
+
+			result, err := Preprocess(tmpl, []Mat{ rotated })
+			assert.Assert(t, err == nil)
+
+			drawInputOutput(t, rotated, result[0], output)
+		}
+	})
+}
 
 func TestPreprocessingTemplate(t *testing.T) {
 
@@ -176,5 +235,39 @@ func TestPreprocessingTemplate(t *testing.T) {
 		assert.NilError(t, err)
 
 		t.Log("output written to " + output)
+	})
+}
+
+//
+// Benchmarks
+//
+
+func BenchmarkPreprocess(b *testing.B) {
+	tmpl, err := getSampleTemplate()
+	assert.Assert(b, err == nil)
+	defer tmpl.Close()
+	
+	noisyPage, err := getNoisyPageMat()
+	assert.Assert(b, err == nil)
+	defer noisyPage.Close()
+
+	page, err := getSamplePageMat()
+	assert.Assert(b, err == nil)
+	defer page.Close()
+
+	rotated := NewMat()
+	defer rotated.Close()
+	Rotate(rotated, noisyPage, rad(3), color.RGBA{})
+
+	b.Run("preprocess ideal", func(b *testing.B) {
+		for b.Loop() {
+			Preprocess(tmpl, []Mat{ page })
+		}
+	})
+
+	b.Run("preprocess noisy rotated", func(b *testing.B) {
+		for b.Loop() {
+			Preprocess(tmpl, []Mat{ rotated })
+		}
 	})
 }

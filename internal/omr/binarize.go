@@ -152,7 +152,7 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 	return nil
 }
 
-// Scales the pixel dimensions in the configuration by the given multiplier.
+// Scales the pixel dimensions in the configuration by the given multipliers.
 // This is useful if, for example, you've configured the values for scans at
 // one specific resolution but you want it to behave properly with other
 // resolutions as well.

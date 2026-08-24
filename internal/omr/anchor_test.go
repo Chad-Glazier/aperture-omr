@@ -192,7 +192,7 @@ func overlayCrosses(
 			rotate(center, int(w/2), 0),
 			color.RGBA{255, 0, 0, 255},
 			5,
-		)		
+		)
 	}
 
 	return copy
@@ -227,7 +227,7 @@ func TestFindAnchors(t *testing.T) {
 			tmpl.Anchors[0],
 			0.95,
 			&FindAnchorConfig{
-				MaxQuality: 0.95,
+				MaxQuality:        0.95,
 				SearchAreaPadding: 0.15,
 			},
 		)
@@ -236,7 +236,7 @@ func TestFindAnchors(t *testing.T) {
 		output := overlayCrosses(
 			rotatedPage,
 			result,
-			400, 400, 
+			400, 400,
 			0,
 		)
 		defer output.Close()
@@ -349,6 +349,7 @@ func TestFindAnchor(t *testing.T) {
 				},
 			)
 			offBy := deg(math.Abs(result.Orientation - angle))
+			maxOffBy = max(maxOffBy, offBy)
 			t.Logf(
 				"true angle: %.2f\u00b0"+
 					"\tdetected angle: %.2f\u00b0"+
@@ -359,7 +360,6 @@ func TestFindAnchor(t *testing.T) {
 			)
 			assert.Assert(t, err == nil)
 			assert.Assert(t, result.Confidence >= 0.99)
-			maxOffBy = max(maxOffBy, offBy)
 		}
 		t.Logf("maximum angle error: %.2f\u00b0", maxOffBy)
 	})

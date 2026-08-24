@@ -10,19 +10,21 @@ import (
 )
 
 var (
-	ErrEncoding            = errors.New("error while encoding a matrix")
-	ErrDecoding            = errors.New("error decoding input")
-	ErrUnsupportedEncoding = errors.New("attempted to encode a matrix to an unsupported image format")
-	ErrWrongMatType        = errors.New("a matrix operand was not of the correct type")
-	ErrEmptyMat            = errors.New("a matrix operand was empty when it was not allowed to be")
-	ErrOpenCV              = errors.New("opencv returned an unexpected error")
-	ErrIndexOutOfBounds    = errors.New("index out of bounds")
-	ErrCannotContain       = errors.New("attempted to fit a larger object inside of a smaller container")
-	ErrCannotMatchAnchor   = errors.New("could not locate the anchor on the given matrix")
-	ErrMaxIterations       = errors.New("a maximum iterations bound was met")
-	ErrNoncontinuousMat    = errors.New("attempted to use a non-continuous matrix for an operation that requires a continuous one")
-	ErrMatTypeMismatch     = errors.New("attempted to perform an invalid operation on two matrices of different types")
-	ErrInvalidMask         = errors.New("the given bit mask is invalid")
+	ErrEncoding             = errors.New("error while encoding a matrix")
+	ErrDecoding             = errors.New("error decoding input")
+	ErrUnsupportedEncoding  = errors.New("attempted to encode a matrix to an unsupported image format")
+	ErrWrongMatType         = errors.New("a matrix operand was not of the correct type")
+	ErrEmptyMat             = errors.New("a matrix operand was empty when it was not allowed to be")
+	ErrOpenCV               = errors.New("opencv returned an unexpected error")
+	ErrIndexOutOfBounds     = errors.New("index out of bounds")
+	ErrCannotContain        = errors.New("attempted to fit a larger object inside of a smaller container")
+	ErrCannotMatchAnchor    = errors.New("could not locate the anchor on the given matrix")
+	ErrMaxIterations        = errors.New("a maximum iterations bound was met")
+	ErrNoncontinuousMat     = errors.New("attempted to use a non-continuous matrix for an operation that requires a continuous one")
+	ErrMatTypeMismatch      = errors.New("attempted to perform an invalid operation on two matrices of different types")
+	ErrInvalidMask          = errors.New("the given bit mask is invalid")
+	ErrIncompatibleTemplate = errors.New("the template expects a different number of pages than was given")
+	ErrCouldNotCalibrate    = errors.New("the pipeline could not be calibrated; this is likely because the first input was malformed")
 )
 
 type MatType int
@@ -38,7 +40,7 @@ const (
 	// See [gocv.MatTypeCV8U].
 	MatTypeBinary
 
-	// 8-bit unsigned integers on a single-channel.
+	// 8-bit unsigned integers on a single channel.
 	//
 	// See [gocv.MatTypeCV8U].
 	MatTypeGray
@@ -112,6 +114,10 @@ func CloseAll2(c [][]Mat) {
 	}
 }
 
+func (m Mat) Type() MatType {
+	return *m.t
+}
+
 // Returns true if the matrix is empty. Note that all closed matrices are also
 // empty.
 func (m Mat) Empty() bool {
@@ -151,7 +157,7 @@ func Clone(m Mat) Mat {
 	}
 }
 
-// Returns a clone of the given matrix, scaled by the given factors.
+// Scales a matrix by some factors.
 //
 // Due to the interpolation used for scaling matrices, the returned matrix will
 // never by binary. If the input matrix is [MatTypeBinary], the output will be
@@ -159,35 +165,12 @@ func Clone(m Mat) Mat {
 //
 // If an error is returned, it will be [ErrOpenCV].
 func Scale(dst, src Mat, scaleX, scaleY float64) error {
-
-	var method gocv.InterpolationFlags
-	if min(scaleX, scaleY) < 1 {
-		// Best quality images when downsampling.
-		method = gocv.InterpolationArea
-	} else {
-		// Visually best when upsampling. However, [gocv.InterpolationLinear]
-		// is faster and we could use that instead to maximize the speed of
-		// this function.
-		method = gocv.InterpolationCubic
-	}
-
-	err := gocv.Resize(
-		src.m, &dst.m,
-		image.Point{},
-		scaleX, scaleY,
-		method,
+	return ScaleTo(
+		dst, src,
+		uint(scaleX*float64(src.Width())),
+		uint(scaleY*float64(src.Height())),
+		FitMethodFill,
 	)
-	if err != nil {
-		return ErrOpenCV
-	}
-
-	if *src.t == MatTypeBinary {
-		*dst.t = MatTypeGray
-	} else {
-		*dst.t = *src.t
-	}
-
-	return nil
 }
 
 // Describes a method for fitting one rectangle within another. The options are
@@ -210,6 +193,41 @@ const (
 	FitMethodFill
 )
 
+// Given the current width and height of a box and the width and height of some
+// target, this function returns the adjusted width and height that match the
+// given fitting method.
+//
+// For example, suppose you have one box A that you want resized to take up the
+// maximum available space in B. If you want to make sure that A fits within B
+// perfectly, you would use [FitMethodFill]. However, this may ruin A's aspect
+// ratio. If you can't tolerate this, you could use [FitMethodContain] instead.
+// If you instead want the minimum size A has to be in order to completely
+// cover B, while preserving the aspect ratio, you would use [FitMethodCover].
+func FittedBounds(
+	width, height, targetWidth, targetHeight uint,
+	fittingMethod FitMethod,
+) (uint, uint) {
+	var (
+		scaleX = float64(targetWidth) / float64(width)
+		scaleY = float64(targetHeight) / float64(height)
+	)
+	switch fittingMethod {
+	case FitMethodCover:
+		if scaleY > scaleX {
+			targetWidth = uint(scaleY * float64(width))
+		} else {
+			targetHeight = uint(scaleX * float64(height))
+		}
+	case FitMethodContain:
+		if scaleY < scaleX {
+			targetWidth = uint(scaleY * float64(width))
+		} else {
+			targetHeight = uint(scaleX * float64(height))
+		}
+	}
+	return targetWidth, targetHeight
+}
+
 // Returns a clone of the given matrix, scaled to fit the given dimensions. The
 // fitting method determines how the matrix should be resized when the desired
 // aspect ratio is different from the initial one.
@@ -220,6 +238,8 @@ const (
 //
 // If an error is returned, it will be [ErrOpenCV].
 func ScaleTo(dst, src Mat, w, h uint, fit FitMethod) error {
+
+	w, h = FittedBounds(src.Width(), src.Height(), w, h, fit)
 
 	var method gocv.InterpolationFlags
 	if w < src.Width() || h < src.Height() {
@@ -264,7 +284,7 @@ func (m Mat) Region() image.Rectangle {
 // used to fill in any empty space.
 //
 // If an error is returned, it will be [ErrOpenCV].
-func Rotate(dst Mat, src Mat, angle float64, bg color.RGBA) error {
+func Rotate(dst, src Mat, angle float64, bg color.RGBA) error {
 	var (
 		w = int(src.Width())
 		h = int(src.Height())
@@ -293,6 +313,47 @@ func Rotate(dst Mat, src Mat, angle float64, bg color.RGBA) error {
 		src.m, &dst.m,
 		rotation,
 		image.Pt(int(newW), int(newH)),
+		gocv.InterpolationArea,
+		gocv.BorderConstant,
+		bg,
+	)
+	if err != nil {
+		return ErrOpenCV
+	}
+
+	if *src.t == MatTypeBinary {
+		*dst.t = MatTypeGray
+	} else {
+		*dst.t = *src.t
+	}
+
+	return nil
+}
+
+// Rotates a matrix by the given angle in radians. The background color will be
+// used to fill in any empty space. Unlike with [Rotate], the matrix will 
+// preserve its original dimensions, even if that means clipping corners out.
+//
+// If an error is returned, it will be [ErrOpenCV].
+func RotateWithoutResizing(dst, src Mat, angle float64, bg color.RGBA) error {
+	
+	rotation := gocv.GetRotationMatrix2D(
+		image.Pt(
+			int(src.Width()/2),
+			int(src.Height()/2),
+		),		
+		angle/math.Pi*180,
+		1.0,
+	)
+	defer rotation.Close()
+
+	err := gocv.WarpAffineWithParams(
+		src.m, &dst.m,
+		rotation,
+		image.Pt(
+			int(src.Width()),
+			int(src.Height()),
+		),
 		gocv.InterpolationArea,
 		gocv.BorderConstant,
 		bg,

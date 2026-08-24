@@ -2,7 +2,7 @@
 // Notes | Updated August 22nd, 2026
 //
 // Although we calculate a mask for rotated anchors, we cannot use them in the
-// current version of the [FindAnchor] function. This is because OpenCV does
+// current version of the [findAnchor] function. This is because OpenCV does
 // not currently support masked template matching with the method we're relying
 // on (TM_CCOEFF_NORMED). The lack of a mask means that rotated anchors will
 // have added white edges. Since these rotations shouldn't be severe (roughly
@@ -91,7 +91,7 @@ func FindAnchors(
 		// If the confidence was very high, it's likely that the orientation
 		// was good. We can start with that orientation for subsequent anchors.
 		if result.Confidence >= c.MaxQuality {
-			conf.InitialAngle = result.Orientation
+			c.InitialAngle = result.Orientation
 		}
 	}
 
@@ -145,8 +145,8 @@ const (
 	DefaultInitialAngle       float64 = 0.00
 	DefaultAngleSearchBreadth float64 = 20.0 / 180.0 * math.Pi
 	DefaultSearchAreaPadding  float64 = 0.15
-	DefaultGranularity        uint    = 7
-	DefaultMaxQuality         float64 = 0.99
+	DefaultGranularity        uint    = 5
+	DefaultMaxQuality         float64 = 0.95
 )
 
 func setDefaultConfig(c *FindAnchorConfig) {
@@ -196,7 +196,7 @@ func findAnchor(
 	best, err := refiningSearch(
 		conf.InitialAngle-conf.AngleSearchBreadth/2,
 		conf.InitialAngle+conf.AngleSearchBreadth/2,
-		0.0025,
+		0.01,
 		conf.Granularity,
 		conf.MaxQuality,
 		func(angle float64) (image.Point, float64, error) {
@@ -359,6 +359,12 @@ func refiningSearch[T any](
 	maxQuality float64,
 	objective func(float64) (T, float64, error),
 ) (refiningSearchResult[T], error) {
+
+	//
+	// TODO: We should try implementing a clever-er optimization method. The 
+	// best-looking one right now is Brent's Method.
+	// <https://en.wikipedia.org/wiki/Brent's_method>
+	//
 
 	lo, hi := min(a, b), max(a, b)
 	if lo == hi {
