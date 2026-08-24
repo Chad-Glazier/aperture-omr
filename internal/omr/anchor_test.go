@@ -197,6 +197,7 @@ func overlayCrosses(
 
 	return copy
 }
+
 func rad(degrees float64) float64 {
 	return degrees / 180.0 * math.Pi
 }
@@ -435,6 +436,8 @@ func TestSearchRegion(t *testing.T) {
 	assert.Assert(t, err == nil)
 	defer mat.Close()
 
+	tName := t.Name()
+
 	t.Run("zero region", func(t *testing.T) {
 		ancMat, err := getTestAnchor0Mat()
 		assert.Assert(t, err == nil)
@@ -519,6 +522,41 @@ func TestSearchRegion(t *testing.T) {
 		region, _ = searchRegion(mat, anchor, 1.50)
 		assert.Assert(t, region.Width() == mat.Width())
 		assert.Assert(t, region.Height() == mat.Height())
+	})
+
+	t.Run("draw test template regions", func(t *testing.T) {
+		tmpl, err := getSampleTemplate()
+		assert.Assert(t, err == nil)
+		defer tmpl.Close()
+
+		page, err := getSamplePageMat()
+		assert.Assert(t, err == nil)
+		defer page.Close()
+
+		annotated := Clone(page)
+
+		for _, a := range tmpl.Anchors[0] {
+			region, offset := searchRegion(
+				annotated, 
+				a, 
+				tmpl.AnchorSearchConfig.SearchAreaPadding,
+			)
+			err := gocv.Rectangle(
+				&annotated.m, 
+				image.Rect(
+					offset.X, offset.Y,
+					offset.X + int(region.Width()),
+					offset.Y + int(region.Height()),
+				),
+				color.RGBA{},
+				5,
+			)
+			assert.Assert(t, err == nil)
+		}
+
+		drawInputOutput(t, page, annotated, 
+			"testdata/output/" + tName + "_regions.png",
+		)
 	})
 }
 
