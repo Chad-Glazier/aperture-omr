@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"runtime/pprof"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -63,6 +64,8 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 	tmpl.AnchorSearchConfig = &FindAnchorConfig{
 		MaxQuality: 0.85,
 		Granularity: 5,
+		SearchAreaPadding: .10,
+		AngleSearchBreadth: rad(10),
 	}
 
 	return tmpl, nil
@@ -266,6 +269,15 @@ func BenchmarkPreprocess(b *testing.B) {
 	})
 
 	b.Run("preprocess noisy rotated", func(b *testing.B) {
+		os.MkdirAll("testdata/profiles/", 0755)
+		f, err := os.Create("testdata/profiles/preprocess_noisy_rotated_cpu.pb.gz" )
+		assert.Assert(b, err == nil)
+		defer f.Close()
+
+		err = pprof.StartCPUProfile(f)
+		assert.Assert(b, err == nil)
+		defer pprof.StopCPUProfile()
+
 		for b.Loop() {
 			Preprocess(tmpl, []Mat{ rotated })
 		}

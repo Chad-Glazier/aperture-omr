@@ -81,7 +81,3 @@ If you get an error that mentions missing C/C++ objects, it's likely that GoCV i
 ## Acknowledgements
 
 This service was originally developed as a part of a capstone project at UBC. During the development, [Kaden Harris](https://github.com/KadenHarris) implemented the original `internal/scanner` and `internal/marker` packages. The rest of my group also indirectly contributed by reviewing my PRs and doing manual testing. Thanks gang.
-
-## Known Limitations
-
-Currently, the OMR only gives consistent results on papers with white backgrounds.

@@ -143,8 +143,8 @@ type FindAnchorConfig struct {
 
 const (
 	DefaultInitialAngle       float64 = 0.00
-	DefaultAngleSearchBreadth float64 = 20.0 / 180.0 * math.Pi
-	DefaultSearchAreaPadding  float64 = 0.15
+	DefaultAngleSearchBreadth float64 = 10.0 / 180.0 * math.Pi
+	DefaultSearchAreaPadding  float64 = 0.10
 	DefaultGranularity        uint    = 5
 	DefaultMaxQuality         float64 = 0.95
 )

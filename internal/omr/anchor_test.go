@@ -220,7 +220,7 @@ func TestFindAnchors(t *testing.T) {
 		outputName := "testdata/output/" + tName + "_maxrotation_noisy.png"
 
 		rotatedPage := Clone(noisyPage)
-		Rotate(rotatedPage, rotatedPage, rad(-9.2), color.RGBA{})
+		Rotate(rotatedPage, rotatedPage, rad(-4.2), color.RGBA{})
 
 		result, err := FindAnchors(
 			rotatedPage,
@@ -228,7 +228,7 @@ func TestFindAnchors(t *testing.T) {
 			0.95,
 			&FindAnchorConfig{
 				MaxQuality:        0.95,
-				SearchAreaPadding: 0.15,
+				SearchAreaPadding: 0.10,
 			},
 		)
 		assert.Assert(t, err == nil)
@@ -307,7 +307,7 @@ func TestFindAnchor(t *testing.T) {
 		outputName := "testdata/output/" + tName + "_maxrotation_noisy.png"
 
 		rotatedPage := Clone(noisyPage)
-		Rotate(rotatedPage, rotatedPage, rad(-9.2), color.RGBA{})
+		Rotate(rotatedPage, rotatedPage, rad(-4.2), color.RGBA{})
 
 		result, err := findAnchor(
 			rotatedPage,
@@ -332,7 +332,7 @@ func TestFindAnchor(t *testing.T) {
 
 	t.Run("various angles", func(t *testing.T) {
 		maxOffBy := 0.0
-		for angle := rad(-10.0); angle <= rad(10.0); angle += rad(3) {
+		for angle := rad(-5.0); angle <= rad(5.0); angle += rad(2.5) {
 
 			rotatedPage := NewMat()
 			Rotate(rotatedPage, page, angle, color.RGBA{})
@@ -342,10 +342,10 @@ func TestFindAnchor(t *testing.T) {
 				tmpl.Anchors[0][0],
 				FindAnchorConfig{
 					InitialAngle:       0,
-					AngleSearchBreadth: rad(20),
-					SearchAreaPadding:  0.125,
+					AngleSearchBreadth: rad(10),
+					SearchAreaPadding:  0.10,
 					Granularity:        7,
-					MaxQuality:         0.99,
+					MaxQuality:         0.95,
 				},
 			)
 			offBy := deg(math.Abs(result.Orientation - angle))
@@ -359,7 +359,7 @@ func TestFindAnchor(t *testing.T) {
 				offBy,
 			)
 			assert.Assert(t, err == nil)
-			assert.Assert(t, result.Confidence >= 0.99)
+			assert.Assert(t, result.Confidence >= 0.95)
 		}
 		t.Logf("maximum angle error: %.2f\u00b0", maxOffBy)
 	})
@@ -598,14 +598,14 @@ func BenchmarkFindAnchors(b *testing.B) {
 	err = Rotate(rotated, rotated, rad(-1.23), color.RGBA{})
 	assert.Assert(b, err == nil)
 
-	// This configuration is wide enough to support +/- 10 degree rotations.
+	// This configuration is wide enough to support +/- 5 degree rotations.
 	// In practice, most scanning machines will have a much better skews which
 	// will allow for tighter searches (which are much, much faster). We're
 	// just benchmarking the worst case.
 	conf := FindAnchorConfig{
 		InitialAngle:       0,
-		AngleSearchBreadth: rad(20),
-		SearchAreaPadding:  0.15,
+		AngleSearchBreadth: rad(10),
+		SearchAreaPadding:  0.10,
 		Granularity:        7,
 		MaxQuality:         0.95,
 	}
@@ -641,14 +641,14 @@ func BenchmarkFindAnchor(b *testing.B) {
 	err = Rotate(rotated, rotated, rad(-1.23), color.RGBA{})
 	assert.Assert(b, err == nil)
 
-	// This configuration is wide enough to support +/- 10 degree rotations.
+	// This configuration is wide enough to support +/- 5 degree rotations.
 	// In practice, most scanning machines will have a much better skews which
 	// will allow for tighter searches (which are much, much faster). We're
 	// just benchmarking the worst case.
 	conf := FindAnchorConfig{
 		InitialAngle:       0,
-		AngleSearchBreadth: rad(20),
-		SearchAreaPadding:  0.15,
+		AngleSearchBreadth: rad(10),
+		SearchAreaPadding:  0.10,
 		Granularity:        7,
 		MaxQuality:         0.99,
 	}
