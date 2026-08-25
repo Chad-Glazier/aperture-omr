@@ -1,6 +1,7 @@
 package omr
 
 import (
+	"encoding/base64"
 	"image"
 	"io"
 
@@ -105,4 +106,34 @@ func EncodeMatToImage(w io.Writer, contentType string, mat Mat) (int, error) {
 	defer buf.Close()
 
 	return w.Write(buf.GetBytes())
+}
+
+// Converts an image encoded in base64 to a grayscale matrix. The image format
+// can be any of the formats supported by OpenCV.
+//
+// If an error is returned, it will be [ErrDecoding].
+func DecodeBase64(in string) (Mat, error) {
+	buf, err := base64.StdEncoding.DecodeString(in)
+	if err != nil {
+		return Mat{}, ErrDecoding
+	}
+	mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
+	if err != nil {
+		return Mat{}, ErrDecoding
+	}
+	return newMatFromGoCV(mat), nil
+}
+
+// Converts a matrix to a base64-encoded image format (PNG, specifically).
+//
+// If an error is returned, it will be [ErrEncoding].
+func EncodeBase64(in Mat) (string, error) {
+	buf, err := gocv.IMEncode(gocv.PNGFileExt, in.m)
+	if err != nil {
+		return "", ErrEncoding
+	}
+	defer buf.Close()
+
+	str := base64.RawStdEncoding.EncodeToString(buf.GetBytes())
+	return str, nil
 }

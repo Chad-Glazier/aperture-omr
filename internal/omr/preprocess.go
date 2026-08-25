@@ -18,9 +18,10 @@ type PageSet interface {
 }
 
 // Preprocesses page sets as they are received from the given channel, sending
-// the results through the output channel. Each input slice must have exactly
-// as many pages as are expected by the template. It is also assumed that all
-// matrices are roughly the same size.
+// the results through the output channel. Importantly, all received matrices 
+// will be closed by this function. Each input slice must have exactly as many
+// pages as are expected by the template. It is also assumed that all matrices 
+// are roughly the same size.
 //
 // The parallelism argument determines how many concurrent preprocessing
 // operations will be executed at a time. If set to zero, it defaults to 1.

@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"slices"
 
 	"gocv.io/x/gocv"
 )
@@ -53,49 +54,50 @@ const (
 // reference.
 type Mat struct {
 	m      gocv.Mat
-	closed *bool
 	t      *MatType
+	closed *bool
 }
 
 func NewMat() Mat {
-	var (
-		closed = false
-		t      MatType
-	)
+	t := MatTypeUnknown
+	closed := false
 	return Mat{
 		m:      gocv.NewMat(),
-		closed: &closed,
 		t:      &t,
+		closed: &closed,
 	}
 }
 
 // Creates a new matrix from a gocv matrix.
 func newMatFromGoCV(mat gocv.Mat) Mat {
 	var (
-		closed = false
-		t      MatType
-		m      = Mat{m: mat, closed: &closed, t: &t}
+		t = MatTypeUnknown
+		c = false
+		m = Mat{m: mat, t: &t, closed: &c}
 	)
-	if mat.Type() == gocv.MatTypeCV8U {
+	if mat.Type() == gocv.MatTypeCV8U || mat.Type() == gocv.MatTypeCV8UC1 {
 		*m.t = MatTypeGray
 	}
 	return m
 }
 
+func (m Mat) Closed() bool {
+	return m.closed == nil || *m.closed
+}
+
 // Closes a matrix. This is always safe to call, even if the matrix hasn't been
 // properly initialized.
 func (m Mat) Close() {
-	if m.closed == nil {
-		// The matrix is uninitialized.
-		return
-	}
-
-	if *m.closed {
+	if m.Closed() {
 		return
 	}
 
 	m.m.Close()
 	*m.closed = true
+}
+
+func Close(m ...Mat) {
+	CloseAll(m)
 }
 
 // Closes all matrices in the given slice.
@@ -114,18 +116,24 @@ func CloseAll2(c [][]Mat) {
 	}
 }
 
+// Returns the type of the matrix. Closed matrices always have the type
+// [MatTypeUnknown].
 func (m Mat) Type() MatType {
+	if m.t == nil || m.Closed() {
+		return MatTypeUnknown
+	}
+
 	return *m.t
 }
 
-// Returns true if the matrix is empty. Note that all closed matrices are also
+// Returns true if the matrix is empty. All closed matrices are also considered
 // empty.
 func (m Mat) Empty() bool {
-	if *m.closed {
+	if m.Closed() {
 		return true
 	}
 
-	return m.m.Empty() || m.Width() == 0 || m.Height() == 0
+	return m.m.Empty()
 }
 
 func (m Mat) Rows() uint {
@@ -146,14 +154,12 @@ func (m Mat) Width() uint {
 
 // Returns an identical deep copy of the given matrix.
 func Clone(m Mat) Mat {
-	var (
-		closed = *m.closed
-		t      = *m.t
-	)
+	t := *m.t
+	c := *m.closed
 	return Mat{
 		m:      m.m.Clone(),
-		closed: &closed,
 		t:      &t,
+		closed: &c,
 	}
 }
 
@@ -271,7 +277,7 @@ func ScaleTo(dst, src Mat, w, h uint, fit FitMethod) error {
 	return nil
 }
 
-// Returns the bounds of the matrix.
+// Returns the bounds of the matrix. The minimum bound will always be (0, 0).
 func (m Mat) Region() image.Rectangle {
 	return image.Rect(
 		0, 0,
@@ -331,17 +337,17 @@ func Rotate(dst, src Mat, angle float64, bg color.RGBA) error {
 }
 
 // Rotates a matrix by the given angle in radians. The background color will be
-// used to fill in any empty space. Unlike with [Rotate], the matrix will 
+// used to fill in any empty space. Unlike with [Rotate], the matrix will
 // preserve its original dimensions, even if that means clipping corners out.
 //
 // If an error is returned, it will be [ErrOpenCV].
 func RotateWithoutResizing(dst, src Mat, angle float64, bg color.RGBA) error {
-	
+
 	rotation := gocv.GetRotationMatrix2D(
 		image.Pt(
 			int(src.Width()/2),
 			int(src.Height()/2),
-		),		
+		),
 		angle/math.Pi*180,
 		1.0,
 	)
@@ -369,4 +375,74 @@ func RotateWithoutResizing(dst, src Mat, angle float64, bg color.RGBA) error {
 	}
 
 	return nil
+}
+
+// Checks matrices for deep equality. Empty matrices are always treated as
+// having no equal.
+func Equal(mats ...Mat) bool {
+	if len(mats) == 0 {
+		return true
+	}
+
+	// Check for empty matrices.
+	for _, mat := range mats {
+		if mat.Empty() {
+			return false
+		}
+	}
+
+	// Check whether all matrices have the same underlying pointer.
+	ptr := mats[0].m.Ptr()
+	ptrsEqual := true
+	for _, mat := range mats[1:] {
+		if mat.m.Ptr() != ptr {
+			ptrsEqual = false
+			break
+		}
+	}
+	if ptrsEqual {
+		return true
+	}
+
+	// Confirm that the the types are all equal.
+	t := mats[0].Type()
+	for _, mat := range mats[1:] {
+		if t != mat.Type() {
+			return false
+		}
+	}
+
+	// Confirm that the dimensions are all equal.
+	w, h := mats[0].Width(), mats[0].Height()
+	for _, mat := range mats[1:] {
+		if mat.Width() != w || mat.Height() != h {
+			return false
+		}
+	}
+
+	// Lastly, try checking the underlying bytes.
+	var prev []byte
+	for _, mat := range mats {
+		var current []byte
+
+		// [gocv.Mat.IsContinuous] is much faster than copying the bytes into
+		// go-owned memory, but it errs if (and only if) the matrix is not
+		// continuous.
+		if mat.m.IsContinuous() {
+			current, _ = mat.m.DataPtrUint8()
+		} else {
+			current = mat.m.ToBytes()
+		}
+
+		if prev == nil {
+			prev = current
+			continue
+		}
+
+		if !slices.Equal(current, prev) {
+			return false
+		}
+	}
+
+	return true
 }

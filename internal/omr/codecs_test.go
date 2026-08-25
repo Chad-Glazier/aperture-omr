@@ -2,9 +2,11 @@ package omr
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/draw"
 	"image/png"
+	"io"
 	"os"
 	"testing"
 
@@ -113,6 +115,50 @@ func TestImageCodec(t *testing.T) {
 			_, err := EncodeMatToImage(&bytes.Buffer{}, ct, mat)
 			assert.Assert(t, err == ErrUnsupportedEncoding)
 		}
+	})
+}
+
+func TestBase64(t *testing.T) {
+	tName := t.Name()
+
+	t.Run("decode", func(t *testing.T) {
+		r, err := os.Open("testdata/input/sample_image.png")
+		assert.Assert(t, err == nil)
+		defer r.Close()
+
+		buf, err := io.ReadAll(r)
+		assert.Assert(t, err == nil)
+
+		r.Seek(0, io.SeekStart)
+		inMat, err := DecodeImageToMat(r)
+		assert.Assert(t, err == nil)
+		defer inMat.Close()
+
+		encoded := base64.StdEncoding.EncodeToString(buf)
+		outMat, err := DecodeBase64(encoded)
+		assert.Assert(t, err == nil)
+		defer outMat.Close()
+
+		drawInputOutput(t, inMat, outMat, 
+			"testdata/output/"+tName+".png",
+		)
+	})
+	
+	t.Run("decode-encode is stable", func(t *testing.T) {
+		r, err := os.Open("testdata/input/sample_image.png")
+		assert.Assert(t, err == nil)
+		defer r.Close()	
+
+		mat1, err := DecodeImageToMat(r)
+
+		str, err := EncodeBase64(mat1)
+		assert.Assert(t, err == nil)
+
+		mat2, err := DecodeBase64(str)
+		assert.Assert(t, err == nil)
+		defer mat2.Close()
+
+		assert.Assert(t, Equal(mat1, mat2))
 	})
 }
 
