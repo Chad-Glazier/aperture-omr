@@ -3,10 +3,13 @@ package omr
 import (
 	"image"
 	"image/draw"
+	"math"
 	"sync/atomic"
 
 	"gocv.io/x/gocv"
 )
+
+const TolerableAspectRatioDifference = 0.10
 
 type PreprocessResult struct {
 	Pages []Mat
@@ -103,7 +106,8 @@ func handleSet(template PreprocessingTemplate, set PageSet) PreprocessResult {
 //
 // If an error is returned, it will be [ErrIncompatibleTemplate],
 // [ErrEmptyMat], [ErrWrongMatType], [ErrCannotMatchAnchor],
-// [ErrMatTypeMismatch], [ErrEmptyMat], or [ErrOpenCV].
+// [ErrMatTypeMismatch], [ErrEmptyMat], [ErrOpenCV], or 
+// [ErrIncompatibleAspect].
 func Preprocess(
 	template PreprocessingTemplate,
 	pages []Mat,
@@ -119,6 +123,9 @@ func Preprocess(
 		if page.Type() != MatTypeGray {
 			return nil, ErrWrongMatType
 		}
+		if !template.AspectRatioIsTolerable(page) {
+			return nil, ErrIncompatibleAspect
+		} 
 	}
 
 	//
@@ -236,15 +243,28 @@ func (p PreprocessingTemplate) Close() {
 	}
 }
 
+// Returns true if and only if the given matrix's aspect ratio is close to the
+// template's (the maximum difference is set by 
+// [TolerableAspectRatioDifference]).
+func (p PreprocessingTemplate) AspectRatioIsTolerable(m Mat) bool {
+	return math.Abs(m.Aspect() - p.Aspect()) <= TolerableAspectRatioDifference
+}
+
 // Returns the number of pages expected by the template.
 func (p PreprocessingTemplate) PageCount() int {
 	return len(p.Anchors)
 }
 
+// Returns the aspect ratio (width : height) of the template.
+func (p PreprocessingTemplate) Aspect() float64 {
+	return float64(p.Width)/float64(p.Height)
+}
+
 // Visualizes a preprocessing template as an image.
 //
 // If an error is returned, it will be [ErrEncoding] or [ErrIndexOutOfBounds].
-func (p PreprocessingTemplate) ToImage(pageIdx uint) (image.Image, error) {
+func (p PreprocessingTemplate) Image(pageIdx uint) (image.Image, error) {
+	
 	r := image.Rect(0, 0, int(p.Width), int(p.Height))
 	img := image.NewGray(r)
 

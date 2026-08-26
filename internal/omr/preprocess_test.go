@@ -125,6 +125,43 @@ func TestPreprocess(t *testing.T) {
 			drawInputOutput(t, rotated, result[0], output)
 		}
 	})
+
+	t.Run("preprocess various sizes with max rotation", func(t *testing.T) {
+		scaled := NewMat()
+		defer scaled.Close()
+
+		for _, scaling := range []float64{ 0.5, 1.25 } {
+
+			t.Logf("trying %.0f%% sizing", scaling*100)
+
+			var output = fmt.Sprintf(
+				"testdata/output/%s_%.0fscaling_noisy.png",
+				tName, scaling*100,
+			)
+
+			err := Scale(
+				scaled, 
+				noisyPage, 
+				scaling, 
+				scaling, 
+			)
+			assert.Assert(t, err == nil)
+			RotateWithoutResizing(scaled, scaled, rad(5), color.RGBA{})
+
+			scaledTmpl, err := ScalePreprocessingTemplate(
+				FitMethodContain,
+				tmpl, 
+				scaled.Width(),
+				scaled.Height(),
+			)
+			assert.Assert(t, err == nil)
+
+			result, err := Preprocess(scaledTmpl, []Mat{ scaled })
+			assert.Assert(t, err == nil)
+
+			drawInputOutput(t, scaled, result[0], output)
+		}
+	})
 }
 
 func TestPreprocessingTemplate(t *testing.T) {
@@ -142,7 +179,7 @@ func TestPreprocessingTemplate(t *testing.T) {
 		assert.NilError(t, err)
 		defer w.Close()
 
-		page0, err := tmpl.ToImage(0)
+		page0, err := tmpl.Image(0)
 		assert.NilError(t, err)
 
 		err = png.Encode(w, page0)
@@ -166,13 +203,13 @@ func TestPreprocessingTemplate(t *testing.T) {
 		assert.NilError(t, err)
 		defer scaledUp.Close()
 
-		// Since we're using "cover" and targetting 2000x2000, we expect that
-		// the larger dimension is greater than or equal to 2000 and the
-		// smaller is exactly equal to 2000.
+		// Since we're using "cover" and targetting 3000x3000, we expect that
+		// the larger dimension is greater than or equal to 3000 and the
+		// smaller is exactly equal to 3000.
 		assert.Assert(t, min(scaledUp.Width, scaledUp.Height) == 3000)
 		assert.Assert(t, max(scaledUp.Width, scaledUp.Height) >= 3000)
 
-		page0, err := scaledUp.ToImage(0)
+		page0, err := scaledUp.Image(0)
 		assert.NilError(t, err)
 
 		err = png.Encode(w, page0)
@@ -202,7 +239,7 @@ func TestPreprocessingTemplate(t *testing.T) {
 		assert.Assert(t, max(scaledDown.Width, scaledDown.Height) == 1000)
 		assert.Assert(t, min(scaledDown.Width, scaledDown.Height) <= 1000)
 
-		page0, err := scaledDown.ToImage(0)
+		page0, err := scaledDown.Image(0)
 		assert.NilError(t, err)
 
 		err = png.Encode(w, page0)
@@ -231,7 +268,7 @@ func TestPreprocessingTemplate(t *testing.T) {
 		assert.Assert(t, scaledDown.Height == 800)
 		assert.Assert(t, scaledDown.Width == 800)
 
-		page0, err := scaledDown.ToImage(0)
+		page0, err := scaledDown.Image(0)
 		assert.NilError(t, err)
 
 		err = png.Encode(w, page0)

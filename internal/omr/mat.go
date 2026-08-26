@@ -26,6 +26,7 @@ var (
 	ErrInvalidMask          = errors.New("the given bit mask is invalid")
 	ErrIncompatibleTemplate = errors.New("the template expects a different number of pages than was given")
 	ErrCouldNotCalibrate    = errors.New("the pipeline could not be calibrated; this is likely because the first input was malformed")
+	ErrIncompatibleAspect   = errors.New("the aspect ratio of the template radically varies from that of the input")
 )
 
 type MatType int
@@ -150,6 +151,11 @@ func (m Mat) Cols() uint {
 
 func (m Mat) Width() uint {
 	return uint(m.m.Cols())
+}
+
+// Returns the aspect ratio (width : height) of the matrix.
+func (m Mat) Aspect() float64 {
+	return float64(m.Width()) / float64(m.Height())
 }
 
 // Returns an identical deep copy of the given matrix.

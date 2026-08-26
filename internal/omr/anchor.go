@@ -26,6 +26,12 @@ type NormalPoint struct {
 	X, Y float64
 }
 
+// Defines a rectangle using normalized points. See [NormalPoint].
+type NormalRect struct {
+	Min NormalPoint
+	Max NormalPoint
+}
+
 // Anchors represent specific parts of an image that we search for on a scanned
 // sheet. The preprocessing template informs us of where each anchor *should*
 // be on the page. Thus, if we are given an imperfect scan, we can locate its
