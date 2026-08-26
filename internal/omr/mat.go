@@ -27,6 +27,8 @@ var (
 	ErrIncompatibleTemplate = errors.New("the template expects a different number of pages than was given")
 	ErrCouldNotCalibrate    = errors.New("the pipeline could not be calibrated; this is likely because the first input was malformed")
 	ErrIncompatibleAspect   = errors.New("the aspect ratio of the template radically varies from that of the input")
+	ErrQuestionNotDefined   = errors.New("the identified question is not defined on the marking template")
+	ErrBubbleNotDefined     = errors.New("the identified bubble is not defined on the marking template")
 )
 
 type MatType int

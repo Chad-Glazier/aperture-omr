@@ -17,9 +17,8 @@ func getSampleMarkTemplate() MarkTemplate {
 	tmpl := MarkTemplate{
 		Aspect:       1952.0 / 2496.0,
 		BubbleRadius: 52.0 / 2 / 1952.0,
-		Questions:    make([]Questions, 0),
+		Questions:    make([][]Question, 0),
 	}
-	tmpl.Questions = append(tmpl.Questions, make(Questions))
 
 	bubbles := func(firstX, firstY float64) []Bubble {
 		out := make([]Bubble, 5)
@@ -40,10 +39,13 @@ func getSampleMarkTemplate() MarkTemplate {
 		return out
 	}
 
+	tmpl.Questions = append(tmpl.Questions, make([]Question, 10))
 	questions := bubbleCol(418.0 / 1952.0, 512.0 / 2496.0, 10)
 	for i, q := range questions {
-		qId := fmt.Sprintf("Q%d", i+1)
-		tmpl.Questions[0][qId] = q
+		tmpl.Questions[0][i] = Question{ 
+			Id: fmt.Sprintf("Q%d", i+1), 
+			Bubbles: q,
+		}
 	}
 
 	return tmpl
@@ -80,7 +82,7 @@ func TestMarkTemplateImage(t *testing.T) {
 		assert.Assert(t, err == nil)
 		defer page.Close()
 
-		err = Rotate(page, page, rad(5), color.RGBA{})
+		err = RotateWithoutResizing(page, page, rad(5), color.RGBA{})
 		assert.Assert(t, err == nil)
 
 		pTmpl, err := getSampleTemplate()
@@ -99,4 +101,45 @@ func TestMarkTemplateImage(t *testing.T) {
 		drawInputOutput(t, page, mask, output)
 	})
 
+}
+
+func TestFillRatio(t *testing.T) {
+
+	t.Run("log greater than 50 percent", func(t *testing.T) {
+		page, err := getNoisyPageMat()
+		assert.Assert(t, err == nil)
+		defer page.Close()
+
+		err = RotateWithoutResizing(page, page, rad(5), color.RGBA{})
+		assert.Assert(t, err == nil)
+
+		pTmpl, err := getSampleTemplate()
+		assert.Assert(t, err == nil)
+
+		preprocessed, err := Preprocess(pTmpl, []Mat{ page } )
+		assert.Assert(t, err == nil)
+
+		err = Binarize(preprocessed[0], preprocessed[0], nil)
+		assert.Assert(t, err == nil)
+
+		tmpl := getSampleMarkTemplate()
+
+		mask := circleMask(
+			uint(tmpl.BubbleRadius * float64(preprocessed[0].Width())),
+		)
+		defer mask.Close()
+
+		for _, q := range tmpl.Questions[0] {
+			for _, b := range q.Bubbles {
+				fr, err := fillRatio(tmpl, mask, preprocessed, q.Id, b.Id)
+				assert.Assert(t, err == nil)
+				if fr >= 0.25 {
+					t.Logf(
+						"question %s has bubble %s marked (%.0f%%)", 
+						q.Id, b.Id, fr*100,
+					)
+				}
+			}
+		}
+	})
 }
