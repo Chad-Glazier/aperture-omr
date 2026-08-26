@@ -65,7 +65,7 @@ func FindAnchors(
 	minConfidence float64,
 	conf *FindAnchorConfig,
 ) ([]image.Point, error) {
-	
+
 	//
 	// Set the default configuration values.
 	//
@@ -133,12 +133,6 @@ type FindAnchorConfig struct {
 	// Defaults to [DefaultSearchAreaPadding].
 	SearchAreaPadding float64
 
-	// How many samples to take per search iteration. Higher values are slower
-	// to compute, but yield more accurate results.
-	//
-	// Defaults to [DefaultGranularity].
-	Granularity uint
-
 	// The maximum quality of an anchor match. If this value is met or
 	// exceeded, the search will be terminated early (which can dramatically
 	// improve performance).
@@ -151,7 +145,6 @@ const (
 	DefaultInitialAngle       float64 = 0.00
 	DefaultAngleSearchBreadth float64 = 10.0 / 180.0 * math.Pi
 	DefaultSearchAreaPadding  float64 = 0.10
-	DefaultGranularity        uint    = 5
 	DefaultMaxQuality         float64 = 0.95
 )
 
@@ -164,9 +157,6 @@ func setDefaultConfig(c *FindAnchorConfig) {
 	}
 	if c.SearchAreaPadding == 0 {
 		c.SearchAreaPadding = DefaultSearchAreaPadding
-	}
-	if c.Granularity == 0 {
-		c.Granularity = DefaultGranularity
 	}
 	if c.MaxQuality == 0 {
 		c.MaxQuality = DefaultMaxQuality
@@ -199,11 +189,10 @@ func findAnchor(
 	searchArea, offset := searchRegion(mat, anchor, conf.SearchAreaPadding)
 	defer searchArea.Close()
 
-	best, err := refiningSearch(
+	best, err := bisectionSearch(
 		conf.InitialAngle-conf.AngleSearchBreadth/2,
 		conf.InitialAngle+conf.AngleSearchBreadth/2,
-		0.01,
-		conf.Granularity,
+		0.5/180.0*math.Pi,
 		conf.MaxQuality,
 		func(angle float64) (image.Point, float64, error) {
 			rotated, mask, err := RotateAnchor(anchor, angle)
@@ -348,102 +337,58 @@ func RotateAnchor(src Anchor, angle float64) (Anchor, Mat, error) {
 // early and return it. The function may also terminate early if the maximum
 // quality is met or exceeded.
 //
-// The search is done by sampling a number of equidistant points (the number is
-// set by the "granularity") in the current search area, keeping note of the
-// one with the highest quality. Then the search area is reduced, centering on
-// the highest quality candidate from the previous iteration, and re-sampled.
-// This process repeats until the quality stops improving (or until the
-// improvement is less than epsilon). This search is not meant to be a proper
-// convex optimization function; it is specifically meant to find a rough
-// estimate for objective functions that are expensive to compute.
-//
 // If an error is returned, it will be [ErrMaxIterations].
-func refiningSearch[T any](
+func bisectionSearch[T any](
 	a, b float64,
 	epsilon float64,
-	granularity uint,
 	maxQuality float64,
 	objective func(float64) (T, float64, error),
 ) (refiningSearchResult[T], error) {
 
-	//
-	// TODO: We should try implementing a clever-er optimization method. The 
-	// best-looking one right now is Brent's Method.
-	// <https://en.wikipedia.org/wiki/Brent's_method>
-	//
-
 	lo, hi := min(a, b), max(a, b)
-	if lo == hi {
-		r, q, err := objective(lo)
-		return refiningSearchResult[T]{
-			result:    r,
-			quality:   q,
-			candidate: lo,
-		}, err
+
+	r, q, err := objective((hi - lo) / 2.0)
+	if err != nil {
+		return refiningSearchResult[T]{}, err
 	}
 
-	var (
-		bestResult    T
-		bestQuality   float64
-		bestCandidate float64
-		candidates    = make([]float64, granularity)
-		tried         = make(map[float64]bool, 0)
-	)
+	best := refiningSearchResult[T]{
+		result:    r,
+		quality:   q,
+		candidate: (hi - lo) / 2.0,
+	}
 
 	for range 1 << 20 {
 
-		delta := (hi - lo) / float64(len(candidates)-1)
-		for i := range candidates {
-			var offset int
-			if i == 0 {
-				offset = len(candidates) / 2
-			} else if i%2 == 1 {
-				offset = len(candidates)/2 + (i+1)/2
-			} else {
-				offset = len(candidates)/2 - i/2
-			}
-			candidates[i] = lo + float64(offset)*delta
-		}
-		previousBestQuality := bestQuality
-
-		for _, candidate := range candidates {
-			if _, hasBeenTried := tried[candidate]; hasBeenTried {
-				continue
-			}
-			tried[candidate] = true
+		for _, candidate := range []float64{lo, hi} {
 
 			r, q, err := objective(candidate)
 			if err != nil {
 				return refiningSearchResult[T]{}, err
 			}
 
-			if q > bestQuality {
-				bestQuality = q
-				bestResult = r
-				bestCandidate = candidate
+			result := refiningSearchResult[T]{
+				result:    r,
+				quality:   q,
+				candidate: candidate,
+			}
 
-				if q > maxQuality {
-					return refiningSearchResult[T]{
-						result:    bestResult,
-						quality:   bestQuality,
-						candidate: bestCandidate,
-					}, nil
-				}
+			if result.quality > best.quality {
+				best = result
+			}
+
+			if best.quality > maxQuality {
+				return best, nil
 			}
 		}
 
-		if bestQuality-previousBestQuality <= epsilon {
-			return refiningSearchResult[T]{
-				result:    bestResult,
-				quality:   bestQuality,
-				candidate: bestCandidate,
-			}, nil
+		if hi-lo < epsilon {
+			return best, nil
 		}
 
-		breadth := (hi - lo) / (float64(granularity) / 2)
-		center := bestCandidate
-		lo = center - breadth/2
-		hi = center + breadth/2
+		breadth := (hi - lo) / 2.0
+		lo = best.candidate - breadth/2.0
+		hi = best.candidate + breadth/2.0
 	}
 
 	return refiningSearchResult[T]{}, ErrMaxIterations

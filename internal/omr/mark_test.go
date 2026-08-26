@@ -58,12 +58,15 @@ func getSampleMarkTemplate() MarkTemplate {
 func TestMarkTemplateImage(t *testing.T) {
 
 	tName := t.Name()
-	page, err := getSamplePageMat()
-	assert.Assert(t, err == nil)
-	defer page.Close()
 
 	t.Run("draw template", func(t *testing.T) {
 		output := "testdata/output/" + tName + ".png"
+
+		page, err := getNoisyPageMat()
+		assert.Assert(t, err == nil)
+		defer page.Close()
+
+		Binarize(page, page, nil)
 
 		tmpl := getSampleMarkTemplate()
 		mask, err := tmpl.Mask(0, 2496)

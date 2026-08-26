@@ -63,7 +63,6 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 
 	tmpl.AnchorSearchConfig = &FindAnchorConfig{
 		MaxQuality: 0.85,
-		Granularity: 5,
 		SearchAreaPadding: .10,
 		AngleSearchBreadth: rad(10),
 	}

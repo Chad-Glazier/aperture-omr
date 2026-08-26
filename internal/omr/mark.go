@@ -55,7 +55,7 @@ func (m MarkTemplate) Mask(pageIdx uint, height int) (Mat, error) {
 				image.Pt(centerX, centerY),
 				int(r),
 				color.RGBA{255, 255, 255, 255},
-				-1,
+				int(gocv.Filled),
 			)
 		}
 	}

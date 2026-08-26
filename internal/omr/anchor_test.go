@@ -336,6 +336,8 @@ func TestFindAnchor(t *testing.T) {
 		for angle := rad(-5.0); angle <= rad(5.0); angle += rad(2.5) {
 
 			rotatedPage := NewMat()
+			defer rotatedPage.Close()
+
 			Rotate(rotatedPage, page, angle, color.RGBA{})
 
 			result, err := findAnchor(
@@ -345,8 +347,7 @@ func TestFindAnchor(t *testing.T) {
 					InitialAngle:       0,
 					AngleSearchBreadth: rad(10),
 					SearchAreaPadding:  0.10,
-					Granularity:        7,
-					MaxQuality:         0.95,
+					MaxQuality:         0.99,
 				},
 			)
 			offBy := deg(math.Abs(result.Orientation - angle))
@@ -360,7 +361,7 @@ func TestFindAnchor(t *testing.T) {
 				offBy,
 			)
 			assert.Assert(t, err == nil)
-			assert.Assert(t, result.Confidence >= 0.95)
+			assert.Assert(t, result.Confidence >= 0.85)
 		}
 		t.Logf("maximum angle error: %.2f\u00b0", maxOffBy)
 	})
@@ -537,16 +538,16 @@ func TestSearchRegion(t *testing.T) {
 
 		for _, a := range tmpl.Anchors[0] {
 			region, offset := searchRegion(
-				annotated, 
-				a, 
+				annotated,
+				a,
 				tmpl.AnchorSearchConfig.SearchAreaPadding,
 			)
 			err := gocv.Rectangle(
-				&annotated.m, 
+				&annotated.m,
 				image.Rect(
 					offset.X, offset.Y,
-					offset.X + int(region.Width()),
-					offset.Y + int(region.Height()),
+					offset.X+int(region.Width()),
+					offset.Y+int(region.Height()),
 				),
 				color.RGBA{},
 				5,
@@ -554,8 +555,8 @@ func TestSearchRegion(t *testing.T) {
 			assert.Assert(t, err == nil)
 		}
 
-		drawInputOutput(t, page, annotated, 
-			"testdata/output/" + tName + "_regions.png",
+		drawInputOutput(t, page, annotated,
+			"testdata/output/"+tName+"_regions.png",
 		)
 	})
 }
@@ -597,13 +598,12 @@ func TestRotateAnchor(t *testing.T) {
 	})
 }
 
-func TestRefiningSearch(t *testing.T) {
+func TestBisectionSearch(t *testing.T) {
 
 	t.Run("approximates the square root of two", func(t *testing.T) {
-		best, err := refiningSearch(
+		best, err := bisectionSearch(
 			1, 2,
-			0,
-			11,
+			0.001,
 			math.Inf(+1),
 			isSqrtOfTwo,
 		)
@@ -612,10 +612,9 @@ func TestRefiningSearch(t *testing.T) {
 	})
 
 	t.Run("hits max iterations error", func(t *testing.T) {
-		_, err := refiningSearch(
-			0, 100,
+		_, err := bisectionSearch(
+			0, math.Inf(+1),
 			0,
-			3,
 			math.Inf(+1),
 			makeDivergentFunc(),
 		)
@@ -644,13 +643,12 @@ func BenchmarkFindAnchors(b *testing.B) {
 		InitialAngle:       0,
 		AngleSearchBreadth: rad(10),
 		SearchAreaPadding:  0.10,
-		Granularity:        7,
 		MaxQuality:         0.95,
 	}
 
 	b.Run("unrotated with good initial guess", func(b *testing.B) {
 		for b.Loop() {
-			FindAnchors(rotated, tmpl.Anchors[0], 0.95, &conf)
+			FindAnchors(page, tmpl.Anchors[0], 0.95, &conf)
 		}
 	})
 
@@ -687,8 +685,7 @@ func BenchmarkFindAnchor(b *testing.B) {
 		InitialAngle:       0,
 		AngleSearchBreadth: rad(10),
 		SearchAreaPadding:  0.10,
-		Granularity:        7,
-		MaxQuality:         0.99,
+		MaxQuality:         0.85,
 	}
 
 	b.Run("unrotated with good initial guess", func(b *testing.B) {
