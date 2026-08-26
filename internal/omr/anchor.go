@@ -343,16 +343,16 @@ func bisectionSearch[T any](
 	epsilon float64,
 	maxQuality float64,
 	objective func(float64) (T, float64, error),
-) (refiningSearchResult[T], error) {
+) (bisectionSearchResult[T], error) {
 
 	lo, hi := min(a, b), max(a, b)
 
 	r, q, err := objective((hi - lo) / 2.0)
 	if err != nil {
-		return refiningSearchResult[T]{}, err
+		return bisectionSearchResult[T]{}, err
 	}
 
-	best := refiningSearchResult[T]{
+	best := bisectionSearchResult[T]{
 		result:    r,
 		quality:   q,
 		candidate: (hi - lo) / 2.0,
@@ -364,10 +364,10 @@ func bisectionSearch[T any](
 
 			r, q, err := objective(candidate)
 			if err != nil {
-				return refiningSearchResult[T]{}, err
+				return bisectionSearchResult[T]{}, err
 			}
 
-			result := refiningSearchResult[T]{
+			result := bisectionSearchResult[T]{
 				result:    r,
 				quality:   q,
 				candidate: candidate,
@@ -391,10 +391,10 @@ func bisectionSearch[T any](
 		hi = best.candidate + breadth/2.0
 	}
 
-	return refiningSearchResult[T]{}, ErrMaxIterations
+	return bisectionSearchResult[T]{}, ErrMaxIterations
 }
 
-type refiningSearchResult[T any] struct {
+type bisectionSearchResult[T any] struct {
 	result    T       // The best result found in the search.
 	candidate float64 // The candidate (i.e., input) that yielded this result.
 	quality   float64 // The quality of the result.
