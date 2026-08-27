@@ -1,31 +1,21 @@
 package omr
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"strings"
 
 	"gocv.io/x/gocv"
 )
-
-type MarkResult struct {
-	Pages []PageResult
-}
-
-type PageResult struct {
-	Questions []QuestionResult
-}
-
-type QuestionResult struct {
-	SelectedBubbles []string
-}
 
 // Marks the given pages. The input pages will be closed by this function.
 func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 	defer CloseAll(pages)
 
 	for _, page := range pages {
-		err := Binarize(page, page, &template.BinarizeConfig)
+		err := Binarize(page, page, &template.Binarization)
 		if err != nil {
 			return MarkResult{}, err
 		}
@@ -43,15 +33,19 @@ func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 
 		questions := make([]QuestionResult, len(fillRatios[i]))
 		for j := range uint(len(fillRatios[i])) {
-			
-			selected := make([]string, 0)
+
+			selected := make([]BubbleResult, 0)
 			for k := range uint(len(fillRatios[i][j])) {
 
-				if fillRatios[i][j][k] > template.MinimumConfidence {
-					selected = append(selected, template.Bubble(i, j, k).Id)
+				if fr := fillRatios[i][j][k]; fr > template.MinimumConfidence {
+					selected = append(selected, BubbleResult{
+						Id:         template.Bubble(i, j, k).Id,
+						Confidence: fr,
+					})
 				}
 			}
 
+			questions[j].Id = template.Question(i, j).Id
 			questions[j].SelectedBubbles = selected
 		}
 
@@ -61,12 +55,70 @@ func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 	return out, nil
 }
 
+type MarkResult struct {
+	Pages []PageResult
+}
+
+type PageResult struct {
+	Questions []QuestionResult
+}
+
+type QuestionResult struct {
+	Id              string
+	SelectedBubbles []BubbleResult
+}
+
+type BubbleResult struct {
+	Id         string
+	Confidence float64
+}
+
+func DrawTable(result MarkResult) string {
+
+	out := strings.Builder{}
+	out.WriteString("\n")
+	out.WriteString("\n")
+	out.WriteString("| Question | Marked Bubbles             |\n")
+	out.WriteString("|----------|----------------------------|\n")
+
+	for _, page := range result.Pages {
+		for _, q := range page.Questions {
+
+			qIdStr := " " + q.Id
+			if len(qIdStr) < 10 {
+				qIdStr += strings.Repeat(" ", 10-len(qIdStr))
+			}
+
+			var bubbleStr strings.Builder
+			bubbleStr.WriteString(" ")
+			for i, b := range q.SelectedBubbles {
+				fmt.Fprintf(&bubbleStr, "%s (%.0f%%)", b.Id, 100*b.Confidence)
+				if i != len(q.SelectedBubbles)-1 {
+					bubbleStr.WriteString(", ")
+				}
+			}
+			if bubbleStr.Len() < 28 {
+				bubbleStr.WriteString(strings.Repeat(" ", 28-bubbleStr.Len()))
+			}
+
+			fmt.Fprintf(
+				&out,
+				"|%s|%s|\n",
+				qIdStr, bubbleStr.String(),
+			)
+		}
+	}
+	out.WriteString("\n")
+
+	return out.String()
+}
+
 type MarkTemplate struct {
 	Aspect            float64
 	BubbleRadius      float64
-	Questions         [][]Question
 	MinimumConfidence float64
-	BinarizeConfig    BinarizeConfig
+	Questions         [][]Question
+	Binarization      BinarizeConfig
 }
 
 type Question struct {

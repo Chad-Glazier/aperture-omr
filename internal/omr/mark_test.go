@@ -16,15 +16,22 @@ import (
 func getSampleMarkTemplate() MarkTemplate {
 	tmpl := MarkTemplate{
 		Aspect:       1952.0 / 2496.0,
-		BubbleRadius: 52.0 / 2 / 1952.0,
+		BubbleRadius: 26.0 / 1952.0,
+		MinimumConfidence: 0.45,
 		Questions:    make([][]Question, 0),
+		Binarization: BinarizeConfig{
+			BlurSize:       0.0015,
+			MorphCloseSize: 0.0015,
+			BlockSize:      0.0255,
+			AdaptiveC:      10,
+		},
 	}
 
 	bubbles := func(firstX, firstY float64) []Bubble {
 		out := make([]Bubble, 5)
-		for i, id := range []string{"A", "B", "C", "D", "E" } {
+		for i, id := range []string{"A", "B", "C", "D", "E"} {
 			out[i].Id = id
-			out[i].Pos.X = float64(i) * (69.0 / 1952.0) + firstX
+			out[i].Pos.X = float64(i)*(69.0/1952.0) + firstX
 			out[i].Pos.Y = firstY
 		}
 		return out
@@ -33,17 +40,17 @@ func getSampleMarkTemplate() MarkTemplate {
 	bubbleCol := func(firstX, firstY float64, n uint) [][]Bubble {
 		out := make([][]Bubble, n)
 		for i := range n {
-			y := firstY + float64(i) * (80.0 / 2496.0)
+			y := firstY + float64(i)*(80.0/2496.0)
 			out[i] = bubbles(firstX, y)
 		}
 		return out
 	}
 
 	tmpl.Questions = append(tmpl.Questions, make([]Question, 10))
-	questions := bubbleCol(418.0 / 1952.0, 512.0 / 2496.0, 10)
+	questions := bubbleCol(418.0/1952.0, 512.0/2496.0, 10)
 	for i, q := range questions {
-		tmpl.Questions[0][i] = Question{ 
-			Id: fmt.Sprintf("Q%d", i+1), 
+		tmpl.Questions[0][i] = Question{
+			Id:      fmt.Sprintf("Q%d", i+1),
 			Bubbles: q,
 		}
 	}
@@ -72,7 +79,7 @@ func TestMarkTemplateMask(t *testing.T) {
 		pTmpl, err := getSampleTemplate()
 		assert.Assert(t, err == nil)
 
-		preprocessed, err := Preprocess(pTmpl, []Mat{ page } )
+		preprocessed, err := Preprocess(pTmpl, []Mat{page})
 		assert.Assert(t, err == nil)
 
 		tmpl := getSampleMarkTemplate()
@@ -87,8 +94,29 @@ func TestMarkTemplateMask(t *testing.T) {
 
 }
 
-func TestFillRatios(t *testing.T) {
+func TestMark(t *testing.T) {
 
-	
-	
+	t.Run("log marks", func(t *testing.T) {
+
+		page, err := getNoisyPageMat()
+		assert.Assert(t, err == nil)
+		defer page.Close()
+
+		err = RotateWithoutResizing(page, page, rad(5), color.RGBA{})
+		assert.Assert(t, err == nil)
+
+		pTmpl, err := getSampleTemplate()
+		assert.Assert(t, err == nil)
+
+		preprocessed, err := Preprocess(pTmpl, []Mat{page})
+		assert.Assert(t, err == nil)
+
+		tmpl := getSampleMarkTemplate()
+		
+		result, err := Mark(tmpl, preprocessed)
+		assert.Assert(t, err == nil)
+
+		t.Log(DrawTable(result))
+
+	})
 }
