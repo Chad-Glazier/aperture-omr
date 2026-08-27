@@ -7,41 +7,43 @@ import (
 )
 
 type BinarizeConfig struct {
-	// The Gaussian kernel size, used for blurring. Must be positive and odd.
+	// The Gaussian kernel size, used for blurring.  Represented as a 
+	// proportion of the matrix's width.
 	//
 	// Defaults to [DefaultBlurSize].
 	//
 	// <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#gae8bdcd9154ed5ca3cbc1766d960f45c1>
-	BlurSize uint
+	BlurSize float64
 
-	// The kernel size for the morphological closing operation.
+	// The kernel size for the morphological closing operation. Represented as 
+	// a proportion of the matrix's width.
 	//
 	// Defaults to [DefaultMorphCloseSize].
 	//
 	// <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#ga67493776e3ad1a3df63883829375201f>
-	MorphCloseSize uint
+	MorphCloseSize float64
 
 	// The size of a pixel neighborhood that is used to calculate a threshold
-	// value for each pixel. Must be positive and odd.
+	// value for each pixel. Represented as a proportion of the matrix's width.
 	//
 	// Defaults to [DefaultBlockSize].
 	//
 	// <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3?>
-	BlockSize uint
+	BlockSize float64
 
 	// A constant that is subtracted from each pixel's threshold value.
 	//
 	// Defaults to [DefaultAdaptiveC].
 	//
 	// <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3>
-	AdaptiveC float32
+	AdaptiveC float64
 }
 
 const (
-	DefaultBlurSize       uint    = 3
-	DefaultMorphCloseSize uint    = 3
-	DefaultBlockSize      uint    = 51
-	DefaultAdaptiveC      float32 = 10
+	DefaultBlurSize       float64 = 0.0015
+	DefaultMorphCloseSize float64 = 0.0015
+	DefaultBlockSize      float64 = 0.0255
+	DefaultAdaptiveC      float64 = 10.000
 )
 
 // Binarizes a grayscale matrix.
@@ -81,18 +83,13 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 		c.AdaptiveC = DefaultAdaptiveC
 	}
 
-	// Certain values must be odd. We could return an error when they are not,
-	// but I prefer silently adjusting them.
-	if c.BlurSize%2 == 0 {
-		c.BlurSize++
-	}
-
-	// If the block size is larger than the minimum dimension of the matrix,
-	// extra work will be done for no good reason. Thus we cap it.
-	c.BlockSize = min(c.BlockSize, src.Height(), src.Width())
-	if c.BlockSize%2 == 0 {
-		c.BlockSize++
-	}
+	var (
+		w = src.Width()
+		blurSize = mpyOdd(c.BlurSize, w)
+		morphCloseSize = mpyOdd(c.MorphCloseSize, w)
+		blockSize = mpyOdd(c.BlockSize, w)
+		adaptiveC = c.AdaptiveC
+	)
 
 	//
 	// Now that the configured values are set, we begin the operation. We use
@@ -112,14 +109,14 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 	var (
 		kernel = gocv.GetStructuringElement(
 			gocv.MorphRect,
-			image.Pt(int(c.MorphCloseSize), int(c.MorphCloseSize)),
+			image.Pt(morphCloseSize, morphCloseSize),
 		)
 	)
 	defer kernel.Close()
 
 	err := gocv.GaussianBlur(
 		src.m, &dst.m,
-		image.Pt(int(c.BlurSize), int(c.BlurSize)),
+		image.Pt(blurSize, blurSize),
 		0, 0,
 		gocv.BorderDefault,
 	)
@@ -132,8 +129,8 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 		255,
 		gocv.AdaptiveThresholdMean,
 		gocv.ThresholdBinary,
-		int(c.BlockSize),
-		c.AdaptiveC,
+		blockSize,
+		float32(adaptiveC),
 	)
 	if err != nil {
 		return ErrOpenCV
@@ -150,4 +147,16 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 
 	*dst.t = MatTypeBinary
 	return nil
+}
+
+// Multiplies the two given numbers but always returns a positive, odd integer.
+func mpyOdd(a float64, b uint) int {
+	i := int(a * float64(b))
+	if i < 1 {
+		return 1
+	}
+	if i%2 == 0 {
+		return i+1
+	}
+	return i
 }
