@@ -9,9 +9,20 @@ import (
 )
 
 type MarkResult struct {
+	Pages []PageResult
 }
 
+type PageResult struct {
+	Questions []QuestionResult
+}
+
+type QuestionResult struct {
+	SelectedBubbles []string
+}
+
+// Marks the given pages. The input pages will be closed by this function.
 func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
+	defer CloseAll(pages)
 
 	for _, page := range pages {
 		err := Binarize(page, page, &template.BinarizeConfig)
@@ -20,8 +31,34 @@ func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 		}
 	}
 
-	
+	fillRatios, err := template.RawFillRatios(pages)
+	if err != nil {
+		return MarkResult{}, err
+	}
+	NormalizeFillRatios(fillRatios)
 
+	out := MarkResult{}
+	out.Pages = make([]PageResult, len(fillRatios))
+	for i := range uint(len(fillRatios)) {
+
+		questions := make([]QuestionResult, len(fillRatios[i]))
+		for j := range uint(len(fillRatios[i])) {
+			
+			selected := make([]string, 0)
+			for k := range uint(len(fillRatios[i][j])) {
+
+				if fillRatios[i][j][k] > template.MinimumConfidence {
+					selected = append(selected, template.Bubble(i, j, k).Id)
+				}
+			}
+
+			questions[j].SelectedBubbles = selected
+		}
+
+		out.Pages[i].Questions = questions
+	}
+
+	return out, nil
 }
 
 type MarkTemplate struct {
@@ -185,7 +222,7 @@ func NormalizeFillRatios(values [][][]float64) {
 
 // Calculates the fill ratios of each bubble. The i-th page's j-th question's
 // k-th bubble will have its fill ratio stored at the element indexed [i][j][k]
-// in the returned slice.
+// in the returned slice. Note that the input pages will be mutated.
 //
 // The input matrices should all be binary and have a similar aspect ratio to
 // the template.
@@ -227,7 +264,8 @@ func (m MarkTemplate) RawFillRatios(pages []Mat) ([][][]float64, error) {
 }
 
 // Returns the fill ratio (0 to 1) of the specified bubble. In order for this
-// to function correctly, the pages should be binarized.
+// to function correctly, the pages should be binarized. Note that the input
+// pages will be mutated.
 //
 // The given mask will be applied to the bubble before counting the fill ratio.
 // The mask should just be a circle; it will be assumed that the diameter of
@@ -253,16 +291,13 @@ func fillRatio(
 	)
 	defer bubble.Close()
 
-	masked := NewMat()
-	defer masked.Close()
-
-	err := gocv.BitwiseAnd(bubble.m, mask.m, &masked.m)
+	err := gocv.BitwiseAnd(bubble.m, mask.m, &bubble.m)
 	if err != nil {
 		return 0, ErrOpenCV
 	}
 
 	var (
-		white = float64(gocv.CountNonZero(masked.m))
+		white = float64(gocv.CountNonZero(bubble.m))
 		total = math.Pi * math.Pow(float64(mask.Width())/2.0, 2)
 		black = total - white
 	)
