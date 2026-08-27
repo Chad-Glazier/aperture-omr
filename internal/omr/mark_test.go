@@ -116,7 +116,7 @@ func TestMark(t *testing.T) {
 		result, err := Mark(tmpl, preprocessed)
 		assert.Assert(t, err == nil)
 
-		t.Log(DrawTable(result))
-
+		EncodeResultsMarkdown(result, t.Output())
+		EncodeResultsCsv(result, t.Output())
 	})
 }

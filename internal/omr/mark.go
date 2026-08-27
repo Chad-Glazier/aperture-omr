@@ -1,11 +1,9 @@
 package omr
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
-	"strings"
 
 	"gocv.io/x/gocv"
 )
@@ -71,46 +69,6 @@ type QuestionResult struct {
 type BubbleResult struct {
 	Id         string
 	Confidence float64
-}
-
-func DrawTable(result MarkResult) string {
-
-	out := strings.Builder{}
-	out.WriteString("\n")
-	out.WriteString("\n")
-	out.WriteString("| Question | Marked Bubbles             |\n")
-	out.WriteString("|----------|----------------------------|\n")
-
-	for _, page := range result.Pages {
-		for _, q := range page.Questions {
-
-			qIdStr := " " + q.Id
-			if len(qIdStr) < 10 {
-				qIdStr += strings.Repeat(" ", 10-len(qIdStr))
-			}
-
-			var bubbleStr strings.Builder
-			bubbleStr.WriteString(" ")
-			for i, b := range q.SelectedBubbles {
-				fmt.Fprintf(&bubbleStr, "%s (%.0f%%)", b.Id, 100*b.Confidence)
-				if i != len(q.SelectedBubbles)-1 {
-					bubbleStr.WriteString(", ")
-				}
-			}
-			if bubbleStr.Len() < 28 {
-				bubbleStr.WriteString(strings.Repeat(" ", 28-bubbleStr.Len()))
-			}
-
-			fmt.Fprintf(
-				&out,
-				"|%s|%s|\n",
-				qIdStr, bubbleStr.String(),
-			)
-		}
-	}
-	out.WriteString("\n")
-
-	return out.String()
 }
 
 type MarkTemplate struct {

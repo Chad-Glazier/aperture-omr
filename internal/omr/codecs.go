@@ -2,8 +2,11 @@ package omr
 
 import (
 	"encoding/base64"
+	"encoding/csv"
+	"fmt"
 	"image"
 	"io"
+	"strings"
 
 	"gocv.io/x/gocv"
 )
@@ -136,4 +139,71 @@ func EncodeBase64(in Mat) (string, error) {
 
 	str := base64.RawStdEncoding.EncodeToString(buf.GetBytes())
 	return str, nil
+}
+
+// Converts marking results to CSV format and writes it to the given output.
+//
+// If an error is returned, it will be [Err???]
+func EncodeResultsCsv(m MarkResult, out io.Writer) error {
+	w := csv.NewWriter(out)
+	defer w.Flush()
+
+	err := w.Write([]string{"question id", "marked bubble", "confidence"})
+	if err != nil {
+		return ErrWriting
+	}
+
+	for _, page := range m.Pages {
+		for _, q := range page.Questions {
+			for _, b := range q.SelectedBubbles {
+				err := w.Write([]string{
+					q.Id, 
+					b.Id, 
+					fmt.Sprintf("%.3f", b.Confidence),
+				})		
+				if err != nil {
+					return ErrWriting
+				}		
+			}
+		}
+	}
+
+	return nil
+} 
+
+func EncodeResultsMarkdown(result MarkResult, out io.Writer) (int, error) {
+
+	w := strings.Builder{}
+	w.WriteString("| Question | Marked Bubbles             |\n")
+	w.WriteString("|----------|----------------------------|\n")
+
+	for _, page := range result.Pages {
+		for _, q := range page.Questions {
+
+			qIdStr := " " + q.Id
+			if len(qIdStr) < 10 {
+				qIdStr += strings.Repeat(" ", 10-len(qIdStr))
+			}
+
+			var bubbleStr strings.Builder
+			bubbleStr.WriteString(" ")
+			for i, b := range q.SelectedBubbles {
+				fmt.Fprintf(&bubbleStr, "%s (%.0f%%)", b.Id, 100*b.Confidence)
+				if i != len(q.SelectedBubbles)-1 {
+					bubbleStr.WriteString(", ")
+				}
+			}
+			if bubbleStr.Len() < 28 {
+				bubbleStr.WriteString(strings.Repeat(" ", 28-bubbleStr.Len()))
+			}
+
+			fmt.Fprintf(
+				&w,
+				"|%s|%s|\n",
+				qIdStr, bubbleStr.String(),
+			)
+		}
+	}
+
+	return out.Write([]byte(w.String()))
 }

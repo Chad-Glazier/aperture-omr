@@ -30,6 +30,7 @@ var (
 	ErrPageNotDefined        = errors.New("the identified page is not defined on the marking template")
 	ErrQuestionNotDefined    = errors.New("the identified question is not defined on the marking template")
 	ErrBubbleNotDefined      = errors.New("the identified bubble is not defined on the marking template")
+	ErrWriting               = errors.New("error writing to the given output")
 )
 
 type MatType int
@@ -170,6 +171,16 @@ func Clone(m Mat) Mat {
 		t:      &t,
 		closed: &c,
 	}
+}
+
+// Returns an identical deep copy of each of the given matrices. The returned
+// slice will preserve their ordering.
+func CloneAll(mats []Mat) []Mat {
+	out := make([]Mat, len(mats))
+	for i, mat := range mats {
+		out[i] = Clone(mat)
+	} 
+	return out
 }
 
 // Scales a matrix by some factors.

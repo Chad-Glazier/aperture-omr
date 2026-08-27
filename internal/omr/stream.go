@@ -31,7 +31,7 @@ func (r result) Error() error {
 // will be propagated through the output.
 //
 // The parallelism argument determines how many concurrent instances of the
-// callback can be running at once. If set to zero, it will default to 1.
+// callback can run at once. If set to zero, it will default to 1.
 func ForEach(
 	in <-chan PageSet,
 	parallelism uint,
