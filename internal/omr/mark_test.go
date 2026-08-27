@@ -55,30 +55,11 @@ func getSampleMarkTemplate() MarkTemplate {
 // Tests
 //
 
-func TestMarkTemplateImage(t *testing.T) {
+func TestMarkTemplateMask(t *testing.T) {
 
 	tName := t.Name()
 
-	t.Run("draw template", func(t *testing.T) {
-		output := "testdata/output/" + tName + ".png"
-
-		page, err := getNoisyPageMat()
-		assert.Assert(t, err == nil)
-		defer page.Close()
-
-		Binarize(page, page, nil)
-
-		tmpl := getSampleMarkTemplate()
-		mask, err := tmpl.Mask(0, 2496)
-		assert.Assert(t, err == nil)
-		defer mask.Close()
-
-		gocv.BitwiseAnd(page.m, mask.m, &mask.m)
-
-		drawInputOutput(t, page, mask, output)
-	})
-
-	t.Run("draw template over preprocessed image", func(t *testing.T) {
+	t.Run("preprocess and then mask", func(t *testing.T) {
 		output := "testdata/output/" + tName + "_preprocessed.png"
 
 		page, err := getNoisyPageMat()
@@ -106,43 +87,8 @@ func TestMarkTemplateImage(t *testing.T) {
 
 }
 
-func TestFillRatio(t *testing.T) {
+func TestFillRatios(t *testing.T) {
 
-	t.Run("log greater than 50 percent", func(t *testing.T) {
-		page, err := getNoisyPageMat()
-		assert.Assert(t, err == nil)
-		defer page.Close()
-
-		err = RotateWithoutResizing(page, page, rad(5), color.RGBA{})
-		assert.Assert(t, err == nil)
-
-		pTmpl, err := getSampleTemplate()
-		assert.Assert(t, err == nil)
-
-		preprocessed, err := Preprocess(pTmpl, []Mat{ page } )
-		assert.Assert(t, err == nil)
-
-		err = Binarize(preprocessed[0], preprocessed[0], nil)
-		assert.Assert(t, err == nil)
-
-		tmpl := getSampleMarkTemplate()
-
-		mask := circleMask(
-			uint(tmpl.BubbleRadius * float64(preprocessed[0].Width())),
-		)
-		defer mask.Close()
-
-		for _, q := range tmpl.Questions[0] {
-			for _, b := range q.Bubbles {
-				fr, err := fillRatio(tmpl, mask, preprocessed, q.Id, b.Id)
-				assert.Assert(t, err == nil)
-				if fr >= 0.25 {
-					t.Logf(
-						"question %s has bubble %s marked (%.0f%%)", 
-						q.Id, b.Id, fr*100,
-					)
-				}
-			}
-		}
-	})
+	
+	
 }

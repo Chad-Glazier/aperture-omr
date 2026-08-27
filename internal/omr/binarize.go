@@ -53,7 +53,7 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 	switch { // Handle bad inputs.
 	case src.Empty():
 		return ErrEmptyMat
-	case *src.t != MatTypeGray:
+	case src.Type() != MatTypeGray:
 		return ErrWrongMatType
 	}
 
@@ -150,36 +150,4 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 
 	*dst.t = MatTypeBinary
 	return nil
-}
-
-// Scales the pixel dimensions in the configuration by the given multipliers.
-// This is useful if, for example, you've configured the values for scans at
-// one specific resolution but you want it to behave properly with other
-// resolutions as well.
-func scaleBinarizationConfig(
-	c BinarizeConfig,
-	scaleX, scaleY float64,
-) BinarizeConfig {
-
-	// The factor to use for scaling linear values. At the time of writing,
-	// all of the binarization configuration values are linear.
-	//
-	// We could also use something like "min(scaleX, scaleY)",
-	// "max(scaleX, scaleY)", or a more thoughtful function. Simply taking the
-	// average seems fine for our use case though.
-	linearScaling := (scaleX + scaleY) / 2
-
-	c.BlurSize = uint(linearScaling * float64(c.BlurSize))
-	c.MorphCloseSize = uint(linearScaling * float64(c.MorphCloseSize))
-	c.BlockSize = uint(linearScaling * float64(c.BlockSize))
-
-	// Make sure the values that have to be odd are, in fact, odd.
-	if c.BlurSize%2 == 0 {
-		c.BlurSize++
-	}
-	if c.BlockSize%2 == 0 {
-		c.BlockSize++
-	}
-
-	return c
 }

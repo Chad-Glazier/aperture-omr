@@ -4,109 +4,18 @@ import (
 	"image"
 	"image/draw"
 	"math"
-	"sync/atomic"
 
 	"gocv.io/x/gocv"
 )
 
 const TolerableAspectRatioDifference = 0.10
 
-type PreprocessResult struct {
-	Pages []Mat
-	Error error
-}
-
-type PageSet interface {
-	Pages() []Mat
-}
-
-// Preprocesses page sets as they are received from the given channel, sending
-// the results through the output channel. Importantly, all received matrices 
-// will be closed by this function. Each input slice must have exactly as many
-// pages as are expected by the template. It is also assumed that all matrices 
-// are roughly the same size.
-//
-// The parallelism argument determines how many concurrent preprocessing
-// operations will be executed at a time. If set to zero, it defaults to 1.
-//
-// If an error is returned, it will be [ErrCouldNotCalibrate] or [ErrOpenCV].
-func PreprocessStream(
-	template PreprocessingTemplate,
-	parallelism uint,
-	pageStream <-chan PageSet,
-) (<-chan PreprocessResult, error) {
-	if parallelism == 0 {
-		parallelism = 1
-	}
-
-	//
-	// We need to read the first set in order to scale the preprocessing
-	// template for the operation.
-	//
-
-	first := <-pageStream
-	firstPages := first.Pages()
-	defer CloseAll(firstPages)
-
-	if len(firstPages) == 0 {
-		return nil, ErrCouldNotCalibrate
-	}
-
-	template, err := ScalePreprocessingTemplate(
-		FitMethodContain,
-		template,
-		firstPages[0].Width(), firstPages[0].Height(),
-	)
-	if err != nil {
-		return nil, ErrOpenCV
-	}
-	defer template.Close()
-
-	firstResult := handleSet(template, first)
-
-	//
-	// Now, we can start up the threads and return the channel.
-	//
-
-	var (
-		out     = make(chan PreprocessResult, parallelism)
-		threads atomic.Int32
-	)
-	for range parallelism {
-		go func() {
-			threads.Add(1)
-
-			for pageSet := range pageStream {
-				out <- handleSet(template, pageSet)
-			}
-
-			if threads.Add(-1) == 0 {
-				close(out)
-			}
-		}()
-	}
-
-	out <- firstResult
-	return out, nil
-}
-
-func handleSet(template PreprocessingTemplate, set PageSet) PreprocessResult {
-	pages := set.Pages()
-	defer CloseAll(pages)
-
-	result, err := Preprocess(template, pages)
-	return PreprocessResult{
-		Pages: result,
-		Error: err,
-	}
-}
-
 // Uses a preprocessing template to produce a set of correctly rotated/
 // positioned matrices.
 //
-// If an error is returned, it will be [ErrIncompatibleTemplate],
+// If an error is returned, it will be [ErrIncompatiblePageCount],
 // [ErrEmptyMat], [ErrWrongMatType], [ErrCannotMatchAnchor],
-// [ErrMatTypeMismatch], [ErrEmptyMat], [ErrOpenCV], or 
+// [ErrMatTypeMismatch], [ErrEmptyMat], [ErrOpenCV], or
 // [ErrIncompatibleAspect].
 func Preprocess(
 	template PreprocessingTemplate,
@@ -114,7 +23,7 @@ func Preprocess(
 ) ([]Mat, error) {
 
 	if len(pages) != len(template.Anchors) {
-		return nil, ErrIncompatibleTemplate
+		return nil, ErrIncompatiblePageCount
 	}
 	for _, page := range pages {
 		if page.Empty() {
@@ -125,7 +34,7 @@ func Preprocess(
 		}
 		if !template.AspectRatioIsTolerable(page) {
 			return nil, ErrIncompatibleAspect
-		} 
+		}
 	}
 
 	//
@@ -244,10 +153,10 @@ func (p PreprocessingTemplate) Close() {
 }
 
 // Returns true if and only if the given matrix's aspect ratio is close to the
-// template's (the maximum difference is set by 
+// template's (the maximum difference is set by
 // [TolerableAspectRatioDifference]).
 func (p PreprocessingTemplate) AspectRatioIsTolerable(m Mat) bool {
-	return math.Abs(m.Aspect() - p.Aspect()) <= TolerableAspectRatioDifference
+	return math.Abs(m.Aspect()-p.Aspect()) <= TolerableAspectRatioDifference
 }
 
 // Returns the number of pages expected by the template.
@@ -257,14 +166,14 @@ func (p PreprocessingTemplate) PageCount() int {
 
 // Returns the aspect ratio (width : height) of the template.
 func (p PreprocessingTemplate) Aspect() float64 {
-	return float64(p.Width)/float64(p.Height)
+	return float64(p.Width) / float64(p.Height)
 }
 
 // Visualizes a preprocessing template as an image.
 //
 // If an error is returned, it will be [ErrEncoding] or [ErrIndexOutOfBounds].
 func (p PreprocessingTemplate) Image(pageIdx uint) (image.Image, error) {
-	
+
 	r := image.Rect(0, 0, int(p.Width), int(p.Height))
 	img := image.NewGray(r)
 
