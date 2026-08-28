@@ -62,8 +62,8 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 	}
 
 	tmpl.AnchorSearchConfig = &FindAnchorConfig{
-		MaxQuality: 0.85,
-		SearchAreaPadding: .10,
+		MaxQuality:         0.85,
+		SearchAreaPadding:  .10,
 		AngleSearchBreadth: rad(10),
 	}
 
@@ -78,7 +78,7 @@ func TestPreprocess(t *testing.T) {
 	tmpl, err := getSampleTemplate()
 	assert.Assert(t, err == nil)
 	defer tmpl.Close()
-	
+
 	noisyPage, err := getNoisyPageMat()
 	assert.Assert(t, err == nil)
 	defer noisyPage.Close()
@@ -92,7 +92,7 @@ func TestPreprocess(t *testing.T) {
 	t.Run("preprocess ideal input", func(t *testing.T) {
 		var output = "testdata/output/" + tName + "_ideal.png"
 
-		result, err := Preprocess(tmpl, []Mat{ page })
+		result, err := Preprocess(tmpl, []Mat{page})
 		assert.Assert(t, err == nil)
 
 		drawInputOutput(t, page, result[0], output)
@@ -102,7 +102,7 @@ func TestPreprocess(t *testing.T) {
 		rotated := NewMat()
 		defer rotated.Close()
 
-		for _, degrees := range []float64{ 1.5, -5 } {
+		for _, degrees := range []float64{1.5, -5} {
 
 			t.Logf("trying %.1f\u00b0 rotation", degrees)
 
@@ -112,13 +112,13 @@ func TestPreprocess(t *testing.T) {
 			)
 
 			RotateWithoutResizing(
-				rotated, 
-				noisyPage, 
-				rad(degrees), 
+				rotated,
+				noisyPage,
+				rad(degrees),
 				color.RGBA{},
 			)
 
-			result, err := Preprocess(tmpl, []Mat{ rotated })
+			result, err := Preprocess(tmpl, []Mat{rotated})
 			assert.Assert(t, err == nil)
 
 			drawInputOutput(t, rotated, result[0], output)
@@ -129,7 +129,7 @@ func TestPreprocess(t *testing.T) {
 		scaled := NewMat()
 		defer scaled.Close()
 
-		for _, scaling := range []float64{ 0.5, 1.25 } {
+		for _, scaling := range []float64{0.5, 1.25} {
 
 			t.Logf("trying %.0f%% sizing", scaling*100)
 
@@ -139,23 +139,23 @@ func TestPreprocess(t *testing.T) {
 			)
 
 			err := Scale(
-				scaled, 
-				noisyPage, 
-				scaling, 
-				scaling, 
+				scaled,
+				noisyPage,
+				scaling,
+				scaling,
 			)
 			assert.Assert(t, err == nil)
 			RotateWithoutResizing(scaled, scaled, rad(5), color.RGBA{})
 
 			scaledTmpl, err := ScalePreprocessingTemplate(
 				FitMethodContain,
-				tmpl, 
+				tmpl,
 				scaled.Width(),
 				scaled.Height(),
 			)
 			assert.Assert(t, err == nil)
 
-			result, err := Preprocess(scaledTmpl, []Mat{ scaled })
+			result, err := Preprocess(scaledTmpl, []Mat{scaled})
 			assert.Assert(t, err == nil)
 
 			drawInputOutput(t, scaled, result[0], output)
@@ -285,7 +285,7 @@ func BenchmarkPreprocess(b *testing.B) {
 	tmpl, err := getSampleTemplate()
 	assert.Assert(b, err == nil)
 	defer tmpl.Close()
-	
+
 	noisyPage, err := getNoisyPageMat()
 	assert.Assert(b, err == nil)
 	defer noisyPage.Close()
@@ -300,13 +300,13 @@ func BenchmarkPreprocess(b *testing.B) {
 
 	b.Run("preprocess ideal", func(b *testing.B) {
 		for b.Loop() {
-			Preprocess(tmpl, []Mat{ page })
+			Preprocess(tmpl, []Mat{page})
 		}
 	})
 
 	b.Run("preprocess noisy rotated", func(b *testing.B) {
 		os.MkdirAll("testdata/profiles/", 0755)
-		f, err := os.Create("testdata/profiles/preprocess_noisy_rotated_cpu.pb.gz" )
+		f, err := os.Create("testdata/profiles/preprocess_noisy_rotated_cpu.pb.gz")
 		assert.Assert(b, err == nil)
 		defer f.Close()
 
@@ -315,7 +315,7 @@ func BenchmarkPreprocess(b *testing.B) {
 		defer pprof.StopCPUProfile()
 
 		for b.Loop() {
-			Preprocess(tmpl, []Mat{ rotated })
+			Preprocess(tmpl, []Mat{rotated})
 		}
 	})
 }

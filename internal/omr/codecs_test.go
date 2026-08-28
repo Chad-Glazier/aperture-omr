@@ -139,15 +139,15 @@ func TestBase64(t *testing.T) {
 		assert.Assert(t, err == nil)
 		defer outMat.Close()
 
-		drawInputOutput(t, inMat, outMat, 
+		drawInputOutput(t, inMat, outMat,
 			"testdata/output/"+tName+".png",
 		)
 	})
-	
+
 	t.Run("decode-encode is stable", func(t *testing.T) {
 		r, err := os.Open("testdata/input/sample_image.png")
 		assert.Assert(t, err == nil)
-		defer r.Close()	
+		defer r.Close()
 
 		mat1, err := DecodeImageToMat(r)
 		assert.Assert(t, err == nil)
@@ -168,7 +168,7 @@ func TestEncodeDecodeM4t(t *testing.T) {
 	t.Run("decodes the same matrix as other codecs", func(t *testing.T) {
 		r, err := os.Open("testdata/input/sample_image.png")
 		assert.Assert(t, err == nil)
-		defer r.Close()	
+		defer r.Close()
 
 		mat1, err := DecodeImageToMat(r)
 		assert.Assert(t, err == nil)
@@ -249,7 +249,7 @@ func BenchmarkM4t(b *testing.B) {
 	b.Run("encode", func(b *testing.B) {
 		for b.Loop() {
 			EncodeM4t(&bytes.Buffer{}, mat)
-		}		
+		}
 	})
 
 	encoded := bytes.Buffer{}

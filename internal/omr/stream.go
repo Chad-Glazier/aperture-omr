@@ -189,7 +189,7 @@ func preprocessSet(template PreprocessingTemplate, set PageSet) PageSet {
 // and they must have a similar aspect ratio to the template.
 //
 // The parallelism argument determines the buffer size of the returned channel,
-// not the number of threads. Marking is too fast to justify the overhead of 
+// not the number of threads. Marking is too fast to justify the overhead of
 // real parallelism.
 //
 // If a given page set has a non-nil error, this stream will propagate the

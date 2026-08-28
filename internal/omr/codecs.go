@@ -159,21 +159,21 @@ func EncodeResultsCsv(m MarkResult, out io.Writer) error {
 		for _, q := range page.Questions {
 			for _, b := range q.SelectedBubbles {
 				err := w.Write([]string{
-					q.Id, 
-					b.Id, 
+					q.Id,
+					b.Id,
 					fmt.Sprintf("%.3f", b.Confidence),
-				})		
+				})
 				if err != nil {
 					return ErrWriting
-				}		
+				}
 			}
 		}
 	}
 
 	return nil
-} 
+}
 
-// Converts marking results to a markdown table and writes it to the given 
+// Converts marking results to a markdown table and writes it to the given
 // output.
 //
 // If an error is returned, it will be [ErrWriting].

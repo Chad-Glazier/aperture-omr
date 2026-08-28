@@ -113,7 +113,7 @@ func TestClone(t *testing.T) {
 		defer Close(src, dst)
 
 		assert.Assert(t, dst.Empty())
-		assert.Assert(t, dst.Type() == MatTypeUnknown)		
+		assert.Assert(t, dst.Type() == MatTypeUnknown)
 	})
 }
 
@@ -134,7 +134,7 @@ func TestScale(t *testing.T) {
 		assert.Assert(t, !dst.Empty())
 		assert.Assert(t, dst.Width() == expectedWidth)
 		assert.Assert(t, dst.Height() == expectedHeight)
-		assert.Assert(t, dst.Type() == MatTypeGray)		
+		assert.Assert(t, dst.Type() == MatTypeGray)
 	})
 
 	t.Run("on binary", func(t *testing.T) {
@@ -156,20 +156,20 @@ func TestScale(t *testing.T) {
 		defer Close(src, dst)
 
 		err := Scale(dst, src, 2, 2)
-		assert.Assert(t, err != nil)		
+		assert.Assert(t, err != nil)
 	})
 }
 
 func TestFittedBounds(t *testing.T) {
 	tt := []struct {
-		name              string
-		width             uint
-		height            uint
-		targetWidth       uint
-		targetHeight      uint
-		method            FitMethod
-		expectedWidth     uint
-		expectedHeight    uint
+		name           string
+		width          uint
+		height         uint
+		targetWidth    uint
+		targetHeight   uint
+		method         FitMethod
+		expectedWidth  uint
+		expectedHeight uint
 	}{
 		{
 			name:           "fill",
@@ -330,17 +330,17 @@ func TestRotate(t *testing.T) {
 
 		// The rotation should increase the dimensions.
 		assert.Assert(t, dst.Width() >= src.Width())
-		assert.Assert(t, dst.Height() >= src.Height())		
+		assert.Assert(t, dst.Height() >= src.Height())
 	})
 
 	t.Run("no angle", func(t *testing.T) {
 		dst := NewMat()
 		defer dst.Close()
-		
+
 		err := Rotate(dst, src, 0, color.RGBA{255, 255, 255, 255})
 		assert.Assert(t, err == nil)
 		assert.Assert(t, dst.Width() == src.Width())
-		assert.Assert(t, dst.Height() == src.Height())		
+		assert.Assert(t, dst.Height() == src.Height())
 	})
 }
 
@@ -362,7 +362,7 @@ func TestRotateWithoutResizing(t *testing.T) {
 		assert.Assert(t, !dst.Empty())
 		assert.Assert(t, dst.Type() == MatTypeGray)
 		assert.Assert(t, dst.Width() == src.Width())
-		assert.Assert(t, dst.Height() == src.Height())		
+		assert.Assert(t, dst.Height() == src.Height())
 	})
 
 	t.Run("zero angle", func(t *testing.T) {
@@ -378,7 +378,7 @@ func TestRotateWithoutResizing(t *testing.T) {
 		assert.Assert(t, err == nil)
 		assert.Assert(t, dst.Width() == src.Width())
 		assert.Assert(t, dst.Height() == src.Height())
-		assert.Assert(t, Equal(src, dst))		
+		assert.Assert(t, Equal(src, dst))
 	})
 }
 
@@ -395,13 +395,13 @@ func TestEqual(t *testing.T) {
 	t.Run("different matrices", func(t *testing.T) {
 		a := gocv.NewMatWithSize(20, 20, gocv.MatTypeCV8U)
 		b := gocv.NewMatWithSize(20, 20, gocv.MatTypeCV8U)
-	
+
 		a.SetUCharAt(0, 0, 255)
-	
+
 		ma := newMatFromGoCV(a)
 		mb := newMatFromGoCV(b)
 		defer Close(ma, mb)
-	
+
 		assert.Assert(t, !Equal(ma, mb))
 	})
 
@@ -416,7 +416,7 @@ func TestEqual(t *testing.T) {
 		assert.Assert(t, !Equal(a, b))
 
 		a.Close()
-		b.Close()		
+		b.Close()
 	})
 
 	t.Run("empty", func(t *testing.T) {

@@ -3,4 +3,3 @@ package omr
 //
 // Helper functions
 //
-

@@ -47,7 +47,7 @@ func RenderPageBlocks(
 	dpi uint,
 	blockSize uint,
 	allottedThreads uint,
-) (chan PageBlock, uint, error) {
+) (<-chan PageBlock, uint, error) {
 
 	dpi = min(MaxDpi, dpi)
 

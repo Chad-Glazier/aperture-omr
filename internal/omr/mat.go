@@ -180,7 +180,7 @@ func CloneAll(mats []Mat) []Mat {
 	out := make([]Mat, len(mats))
 	for i, mat := range mats {
 		out[i] = Clone(mat)
-	} 
+	}
 	return out
 }
 

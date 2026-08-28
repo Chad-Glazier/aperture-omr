@@ -7,7 +7,7 @@ import (
 )
 
 type BinarizeConfig struct {
-	// The Gaussian kernel size, used for blurring.  Represented as a 
+	// The Gaussian kernel size, used for blurring.  Represented as a
 	// proportion of the matrix's width.
 	//
 	// Defaults to [DefaultBlurSize].
@@ -15,7 +15,7 @@ type BinarizeConfig struct {
 	// <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#gae8bdcd9154ed5ca3cbc1766d960f45c1>
 	BlurSize float64
 
-	// The kernel size for the morphological closing operation. Represented as 
+	// The kernel size for the morphological closing operation. Represented as
 	// a proportion of the matrix's width.
 	//
 	// Defaults to [DefaultMorphCloseSize].
@@ -84,11 +84,11 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 	}
 
 	var (
-		w = src.Width()
-		blurSize = mpyOdd(c.BlurSize, w)
+		w              = src.Width()
+		blurSize       = mpyOdd(c.BlurSize, w)
 		morphCloseSize = mpyOdd(c.MorphCloseSize, w)
-		blockSize = mpyOdd(c.BlockSize, w)
-		adaptiveC = c.AdaptiveC
+		blockSize      = mpyOdd(c.BlockSize, w)
+		adaptiveC      = c.AdaptiveC
 	)
 
 	//
@@ -156,7 +156,7 @@ func mpyOdd(a float64, b uint) int {
 		return 1
 	}
 	if i%2 == 0 {
-		return i+1
+		return i + 1
 	}
 	return i
 }
