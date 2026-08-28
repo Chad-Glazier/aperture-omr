@@ -15,10 +15,10 @@ import (
 
 func getSampleMarkTemplate() MarkTemplate {
 	tmpl := MarkTemplate{
-		Aspect:       1952.0 / 2496.0,
-		BubbleRadius: 26.0 / 1952.0,
+		Aspect:            1952.0 / 2496.0,
+		BubbleRadius:      26.0 / 1952.0,
 		MinimumConfidence: 0.45,
-		Questions:    make([][]Question, 0),
+		Questions:         make([][]Question, 0),
 		Binarization: BinarizeConfig{
 			BlurSize:       0.0015,
 			MorphCloseSize: 0.0015,
@@ -112,11 +112,28 @@ func TestMark(t *testing.T) {
 		assert.Assert(t, err == nil)
 
 		tmpl := getSampleMarkTemplate()
-		
+
 		result, err := Mark(tmpl, preprocessed)
 		assert.Assert(t, err == nil)
 
 		EncodeResultsMarkdown(result, t.Output())
-		EncodeResultsCsv(result, t.Output())
+	})
+}
+
+//
+// Benchmarks
+//
+
+func BenchmarkMark(b *testing.B) {
+	b.Run("10 questions", func(b *testing.B) {
+		page, err := getNoisyPageMat()
+		assert.Assert(b, err == nil)
+		defer page.Close()
+
+		tmpl := getSampleMarkTemplate()
+
+		for b.Loop() {
+			Mark(tmpl, []Mat{page})
+		}
 	})
 }

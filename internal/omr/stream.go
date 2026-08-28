@@ -10,11 +10,13 @@ import (
 type PageSet interface {
 	Pages() []Mat
 	Error() error
+	Metadata() map[string]string
 }
 
 type result struct {
 	pages []Mat
 	err   error
+	meta  map[string]string
 }
 
 func (r result) Pages() []Mat {
@@ -23,6 +25,10 @@ func (r result) Pages() []Mat {
 
 func (r result) Error() error {
 	return r.err
+}
+
+func (r result) Metadata() map[string]string {
+	return r.meta
 }
 
 // Executes a given callback function for each received page set. The output
@@ -48,10 +54,7 @@ func ForEach(
 		for pageSet := range in {
 
 			if err := pageSet.Error(); err != nil {
-				out <- result{
-					pages: nil,
-					err:   err,
-				}
+				out <- pageSet
 				continue
 			}
 
@@ -70,6 +73,7 @@ func ForEach(
 					out <- result{
 						pages: nil,
 						err:   err,
+						meta:  pageSet.Metadata(),
 					}
 					return
 				}
@@ -77,10 +81,11 @@ func ForEach(
 				out <- result{
 					pages: pages,
 					err:   nil,
-				}	
+					meta:  pageSet.Metadata(),
+				}
 			}()
 		}
-		
+
 		sem.Acquire(context.Background(), int64(parallelism))
 		close(out)
 	}()
@@ -163,10 +168,7 @@ func PreprocessStream(
 
 func preprocessSet(template PreprocessingTemplate, set PageSet) PageSet {
 	if err := set.Error(); err != nil {
-		return result{
-			pages: nil,
-			err:   err,
-		}
+		return set
 	}
 
 	pages := set.Pages()
@@ -176,5 +178,63 @@ func preprocessSet(template PreprocessingTemplate, set PageSet) PageSet {
 	return result{
 		pages: preprocessed,
 		err:   err,
+		meta:  set.Metadata(),
 	}
+}
+
+// Marks page sets as they are received from the given channel, sending the
+// results through the output channel. Importantly, all received matrices
+// will be closed by this function. Each input slice must have exactly as many
+// pages as are expected by the template, the matrices must be [MatTypeGray],
+// and they must have a similar aspect ratio to the template.
+//
+// The parallelism argument determines the buffer size of the returned channel,
+// not the number of threads. Marking is too fast to justify the overhead of 
+// real parallelism.
+//
+// If a given page set has a non-nil error, this stream will propagate the
+// error to its respective output. It will not stop the stream.
+//
+// If an error is returned, it will be [ErrCouldNotCalibrate] or [ErrOpenCV].
+func MarkStream(
+	template MarkTemplate,
+	parallelism uint,
+	pageStream <-chan PageSet,
+) <-chan MarkStreamResult {
+
+	out := make(chan MarkStreamResult, parallelism)
+
+	for pageSet := range pageStream {
+		if err := pageSet.Error(); err != nil {
+			out <- MarkStreamResult{
+				Error:    err,
+				Metadata: pageSet.Metadata(),
+			}
+			continue
+		}
+
+		pages := pageSet.Pages()
+		marks, err := Mark(template, pages)
+		if err != nil {
+			CloseAll(pages)
+			out <- MarkStreamResult{
+				Error:    err,
+				Metadata: pageSet.Metadata(),
+			}
+			continue
+		}
+
+		out <- MarkStreamResult{
+			Marks:    marks,
+			Metadata: pageSet.Metadata(),
+		}
+	}
+
+	return out
+}
+
+type MarkStreamResult struct {
+	Metadata map[string]string
+	Marks    MarkResult
+	Error    error
 }

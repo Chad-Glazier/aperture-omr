@@ -103,6 +103,11 @@ func BenchmarkBinarize(b *testing.B) {
 	assert.NilError(b, err)
 
 	for b.Loop() {
-		Binarize(mat, mat, nil)
+		Binarize(mat, mat, &BinarizeConfig{
+			BlurSize:       0.0015,
+			MorphCloseSize: 0.0015,
+			BlockSize:      0.0255,
+			AdaptiveC:      10,
+		})
 	}
 }

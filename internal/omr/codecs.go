@@ -2,12 +2,14 @@ package omr
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/csv"
 	"fmt"
 	"image"
 	"io"
 	"strings"
 
+	"github.com/pierrec/lz4/v4"
 	"gocv.io/x/gocv"
 )
 
@@ -171,7 +173,11 @@ func EncodeResultsCsv(m MarkResult, out io.Writer) error {
 	return nil
 } 
 
-func EncodeResultsMarkdown(result MarkResult, out io.Writer) (int, error) {
+// Converts marking results to a markdown table and writes it to the given 
+// output.
+//
+// If an error is returned, it will be [ErrWriting].
+func EncodeResultsMarkdown(result MarkResult, out io.Writer) error {
 
 	w := strings.Builder{}
 	w.WriteString("| Question | Marked Bubbles             |\n")
@@ -188,7 +194,7 @@ func EncodeResultsMarkdown(result MarkResult, out io.Writer) (int, error) {
 			var bubbleStr strings.Builder
 			bubbleStr.WriteString(" ")
 			for i, b := range q.SelectedBubbles {
-				fmt.Fprintf(&bubbleStr, "%s (%.0f%%)", b.Id, 100*b.Confidence)
+				fmt.Fprintf(&bubbleStr, "%s (%.1f%%)", b.Id, 100*b.Confidence)
 				if i != len(q.SelectedBubbles)-1 {
 					bubbleStr.WriteString(", ")
 				}
@@ -205,5 +211,109 @@ func EncodeResultsMarkdown(result MarkResult, out io.Writer) (int, error) {
 		}
 	}
 
-	return out.Write([]byte(w.String()))
+	_, err := out.Write([]byte(w.String()))
+	if err != nil {
+		return ErrWriting
+	}
+	return nil
+}
+
+// Encodes a matrix using the "M4t" custom file format. M4t is suitable for
+// persistent storage and is faster to encode/decode than traditional image
+// formats. The caveat is that it only works with grayscale/binary matrices.
+//
+// If an error is returned, it will be [ErrEncoding], [ErrWriting], or
+// [ErrWrongMatType].
+func EncodeM4t(w io.Writer, mat Mat) error {
+
+	if t := mat.Type(); t != MatTypeBinary && t != MatTypeGray {
+		return ErrWrongMatType
+	}
+
+	//
+	// Rather than storing OpenCV matrices as images, which requires
+	// inefficient encoding/decoding, we can store them a bit more neatly by
+	// just using the underlying byte buffer that OpenCV maintains. The file
+	// format we use is described below.
+	//
+	// OpenCV matrices have the following data that needs to be stored in order
+	// to recreate them:
+	// - the rows and columns in the matrix,
+	// - the matrix type flag, and
+	// - the bytes that store the data.
+	// In order to store this data, we will write it into a binary file that
+	// includes the dimensions and matrix type as part of a header.
+	//
+	//        [int32][int32][int32][bytes...]
+	//         │      │      │      └─ the bytes buffer for the matrix
+	//         │      │      └──────── the matrix type flag
+	//         │      └─────────────── the number of columns
+	//         └────────────────────── the number of rows
+	//
+	// The integers are stored in little endian format and the bytes buffer is
+	// compressed with the LZ4 algorithm.
+	//
+
+	if !mat.m.IsContinuous() {
+		mat = Clone(mat)
+		defer mat.Close()
+	}
+
+	buf, err := mat.m.DataPtrUint8()
+	if err != nil {
+		return ErrEncoding
+	}
+
+	header := make([]byte, 12)
+	binary.Encode(header[0:4], binary.LittleEndian, int32(mat.Rows()))
+	binary.Encode(header[4:8], binary.LittleEndian, int32(mat.Cols()))
+	binary.Encode(header[8:12], binary.LittleEndian, int32(mat.m.Type()))
+
+	if _, err := w.Write(header); err != nil {
+		return err
+	}
+
+	compressedWriter := lz4.NewWriter(w)
+	defer compressedWriter.Close()
+
+	if _, err := compressedWriter.Write(buf); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Encodes a matrix using the "M4t" custom file format. See [EncodeM4t].
+// The returned matrix will be [MatTypeGray].
+//
+// If an error is returned, it will be [ErrEncoding], [ErrReading], or
+// [ErrWrongMatType].
+func DecodeM4t(r io.Reader) (Mat, error) {
+
+	header := make([]byte, 12)
+	if _, err := io.ReadFull(r, header); err != nil {
+		return Mat{}, ErrReading
+	}
+	var rows, cols, mt int32
+	binary.Decode(header[0:4], binary.LittleEndian, &rows)
+	binary.Decode(header[4:8], binary.LittleEndian, &cols)
+	binary.Decode(header[8:12], binary.LittleEndian, &mt)
+
+	compressedReader := lz4.NewReader(r)
+	buf, err := io.ReadAll(compressedReader)
+	if err != nil {
+		return Mat{}, ErrDecoding
+	}
+
+	mat, err := gocv.NewMatFromBytes(
+		int(rows),
+		int(cols),
+		gocv.MatType(mt),
+		buf,
+	)
+	if err != nil {
+		return Mat{}, ErrDecoding
+	}
+
+	return newMatFromGoCV(mat), nil
 }

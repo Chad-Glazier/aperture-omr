@@ -150,11 +150,35 @@ func TestBase64(t *testing.T) {
 		defer r.Close()	
 
 		mat1, err := DecodeImageToMat(r)
+		assert.Assert(t, err == nil)
+		defer mat1.Close()
 
 		str, err := EncodeBase64(mat1)
 		assert.Assert(t, err == nil)
 
 		mat2, err := DecodeBase64(str)
+		assert.Assert(t, err == nil)
+		defer mat2.Close()
+
+		assert.Assert(t, Equal(mat1, mat2))
+	})
+}
+
+func TestEncodeDecodeM4t(t *testing.T) {
+	t.Run("decodes the same matrix as other codecs", func(t *testing.T) {
+		r, err := os.Open("testdata/input/sample_image.png")
+		assert.Assert(t, err == nil)
+		defer r.Close()	
+
+		mat1, err := DecodeImageToMat(r)
+		assert.Assert(t, err == nil)
+		defer mat1.Close()
+
+		encoded := bytes.Buffer{}
+		err = EncodeM4t(&encoded, mat1)
+		assert.Assert(t, err == nil)
+
+		mat2, err := DecodeM4t(&encoded)
 		assert.Assert(t, err == nil)
 		defer mat2.Close()
 
@@ -210,4 +234,32 @@ func BenchmarkEncodeMatToImage(b *testing.B) {
 	for b.Loop() {
 		EncodeMatToImage(&bytes.Buffer{}, "image/png", mat)
 	}
+}
+
+func BenchmarkM4t(b *testing.B) {
+	const (
+		inputName = "testdata/input/sample_image.png"
+	)
+
+	buf, err := os.ReadFile(inputName)
+	assert.NilError(b, err)
+	mat, err := DecodeImageToMat(bytes.NewReader(buf))
+	assert.NilError(b, err)
+
+	b.Run("encode", func(b *testing.B) {
+		for b.Loop() {
+			EncodeM4t(&bytes.Buffer{}, mat)
+		}		
+	})
+
+	encoded := bytes.Buffer{}
+	err = EncodeM4t(&encoded, mat)
+	assert.Assert(b, err == nil)
+
+	b.Run("decode", func(b *testing.B) {
+		for b.Loop() {
+			DecodeM4t(bytes.NewReader(encoded.Bytes()))
+		}
+	})
+
 }

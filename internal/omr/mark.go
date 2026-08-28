@@ -8,10 +8,30 @@ import (
 	"gocv.io/x/gocv"
 )
 
-// Marks the given pages. The input pages will be closed by this function.
+// Marks the given pages, which should be [MatTypeGray]. The number of pages
+// must match the number of pages in the template, and they must have a similar
+// aspect ratio to the template.
+//
+// If an error is returned, it will be [ErrWrongMatType], [ErrEmptyMat],
+// [ErrOpenCV], [ErrIncompatiblePageCount], or [ErrIncompatibleAspect].
 func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 	defer CloseAll(pages)
 
+	//
+	// In order to mark the pages, we take the following steps:
+	//
+	// 1) We binarize the pages, setting each pixel to either 255 or 0.
+	//    <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3>
+	//
+	// 2) We get the fill ratios of each bubble on the page. That is, the ratio
+	//    of the number of black (filled) pixels to the total number of pixels
+	//    for the bubble. We then normalize the fill ratios.
+	//
+	// 3) We construct the output results from the normalized fill ratios. All
+	//    bubbles that have a fill ratio below the set minimum will be omitted.
+	//
+
+	// (1)
 	for _, page := range pages {
 		err := Binarize(page, page, &template.Binarization)
 		if err != nil {
@@ -19,12 +39,14 @@ func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 		}
 	}
 
+	// (2)
 	fillRatios, err := template.RawFillRatios(pages)
 	if err != nil {
 		return MarkResult{}, err
 	}
 	NormalizeFillRatios(fillRatios)
 
+	// (3)
 	out := MarkResult{}
 	out.Pages = make([]PageResult, len(fillRatios))
 	for i := range uint(len(fillRatios)) {
@@ -71,12 +93,37 @@ type BubbleResult struct {
 	Confidence float64
 }
 
+// A template used to inform the marking steps. This template exclusively uses
+// normalized coordinates. I.e., instead of using pixel coordinates, we use
+// numbers in the interval [0, 1] which represent a proportion of the
+// respective axis. E.g., the position (0.5, 0.5) is the center of a page,
+// (0, 0) is the top-left corner, and (1, 1) is the bottom-right corner. This
+// allows us to make the marking process function identically on pages with
+// various resolutions.
 type MarkTemplate struct {
-	Aspect            float64
-	BubbleRadius      float64
+	// The aspect ratio of the marking template. If the aspect ratio of a
+	// marking template is radically different from the aspect ratio of a given
+	// page, they will be considered incompatible.
+	Aspect float64
+
+	// The radius of bubbles on the page as a proportion of the width of the
+	// page.
+	BubbleRadius float64
+
+	// The minimum confidence (0-1) that a bubble should have in order to be
+	// considered "marked." Bubbles with fill ratios below this threshold will
+	// be omitted from the results.
 	MinimumConfidence float64
-	Questions         [][]Question
-	Binarization      BinarizeConfig
+
+	// The questions on the template. The i-th page's j-th question should be
+	// at index [i][j]. For semantic reasons it's recommended that each
+	// question have a unique ID, though the marking procedure doesn't actually
+	// care either way.
+	Questions [][]Question
+
+	// Configures the binarization applied to pages before counting their fill
+	// ratios.
+	Binarization BinarizeConfig
 }
 
 type Question struct {
@@ -210,21 +257,19 @@ func (m MarkTemplate) BubbleRegion(
 // Normalizes the given fill ratios in place. After normalization, the minimum
 // fill ratio will be 0 and the maximum will be 1.
 func NormalizeFillRatios(values [][][]float64) {
-	var minVal, maxVal float64
+	var minVal float64
 	for i := range values {
 		for j := range values[i] {
 			for _, val := range values[i][j] {
 				minVal = min(minVal, val)
-				maxVal = max(maxVal, val)
 			}
 		}
 	}
 
-	valueRange := maxVal - minVal
 	for i := range values {
 		for j := range values[i] {
 			for k, val := range values[i][j] {
-				values[i][j][k] = (val - minVal) / valueRange
+				values[i][j][k] = val - minVal
 			}
 		}
 	}

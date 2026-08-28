@@ -30,6 +30,7 @@ var (
 	ErrPageNotDefined        = errors.New("the identified page is not defined on the marking template")
 	ErrQuestionNotDefined    = errors.New("the identified question is not defined on the marking template")
 	ErrBubbleNotDefined      = errors.New("the identified bubble is not defined on the marking template")
+	ErrReading               = errors.New("error reading from the given input")
 	ErrWriting               = errors.New("error writing to the given output")
 )
 
