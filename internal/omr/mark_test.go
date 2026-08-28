@@ -22,7 +22,7 @@ func getSampleMarkTemplate() MarkTemplate {
 		Binarization: BinarizeConfig{
 			BlurSize:       0.0015,
 			MorphCloseSize: 0.0015,
-			BlockSize:      0.0255,
+			BlockSize:      0.0555,
 			AdaptiveC:      10,
 		},
 	}
@@ -73,7 +73,7 @@ func TestMarkTemplateMask(t *testing.T) {
 		assert.Assert(t, err == nil)
 		defer page.Close()
 
-		err = RotateWithoutResizing(page, page, rad(5), color.RGBA{})
+		err = RotateWithoutResizing(page, page, rad(-5), color.RGBA{})
 		assert.Assert(t, err == nil)
 
 		pTmpl, err := getSampleTemplate()
@@ -82,14 +82,18 @@ func TestMarkTemplateMask(t *testing.T) {
 		preprocessed, err := Preprocess(pTmpl, []Mat{page})
 		assert.Assert(t, err == nil)
 
+
 		tmpl := getSampleMarkTemplate()
 		mask, err := tmpl.Mask(0, int(preprocessed[0].Height()))
 		assert.Assert(t, err == nil)
 		defer mask.Close()
 
+		err = Binarize(preprocessed[0], preprocessed[0], &tmpl.Binarization)
+		assert.Assert(t, err == nil)
+
 		gocv.BitwiseAnd(preprocessed[0].m, mask.m, &mask.m)
 
-		drawInputOutput(t, page, mask, output)
+		drawInputOutput(t, preprocessed[0], mask, output)
 	})
 
 }

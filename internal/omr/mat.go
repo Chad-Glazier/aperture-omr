@@ -1,3 +1,7 @@
+/* 
+Package omr implements the core Optical Mark Recognition (OMR) logic for
+Aperture OMR.
+*/
 package omr
 
 import (
