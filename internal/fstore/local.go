@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gocv.io/x/gocv"
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 )
 
 //
@@ -113,7 +113,7 @@ func NewLocalMatStore(rootDir string) (MatStore, error) {
 	return &localMatStore{root: rootDir}, nil
 }
 
-func (s *localMatStore) Set(key string, mat gocv.Mat) error {
+func (s *localMatStore) Set(key string, mat omr.Mat) error {
 	w, err := os.Create(filepath.Join(s.root, key))
 	if err != nil {
 		return ErrCreatingFile
@@ -127,16 +127,16 @@ func (s *localMatStore) Set(key string, mat gocv.Mat) error {
 	return nil
 }
 
-func (s *localMatStore) Get(key string) (gocv.Mat, error) {
+func (s *localMatStore) Get(key string) (omr.Mat, error) {
 	f, err := os.Open(filepath.Join(s.root, key))
 	if err != nil {
-		return gocv.Mat{}, ErrNotFound
+		return omr.Mat{}, ErrNotFound
 	}
 	defer f.Close()
 
 	mat, err := DecodeMat(f)
 	if err != nil {
-		return gocv.Mat{}, ErrDecoding
+		return omr.Mat{}, ErrDecoding
 	}
 
 	return mat, nil

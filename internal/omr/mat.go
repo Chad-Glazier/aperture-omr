@@ -1,6 +1,6 @@
 /*
 Package omr implements the core Optical Mark Recognition (OMR) logic for
-Aperture OMR.
+Aperture.
 */
 package omr
 
@@ -15,28 +15,27 @@ import (
 )
 
 var (
-	ErrEncoding              = errors.New("error while encoding a matrix")
-	ErrDecoding              = errors.New("error decoding input")
-	ErrUnsupportedEncoding   = errors.New("attempted to encode a matrix to an unsupported image format")
-	ErrWrongMatType          = errors.New("a matrix operand was not of the correct type")
-	ErrEmptyMat              = errors.New("a matrix operand was empty when it was not allowed to be")
-	ErrOpenCV                = errors.New("opencv returned an unexpected error")
-	ErrIndexOutOfBounds      = errors.New("index out of bounds")
-	ErrCannotContain         = errors.New("attempted to fit a larger object inside of a smaller container")
-	ErrCannotMatchAnchor     = errors.New("could not locate the anchor on the given matrix")
-	ErrMaxIterations         = errors.New("a maximum iterations bound was met")
-	ErrNoncontinuousMat      = errors.New("attempted to use a non-continuous matrix for an operation that requires a continuous one")
-	ErrMatTypeMismatch       = errors.New("attempted to perform an invalid operation on two matrices of different types")
-	ErrInvalidMask           = errors.New("the given bit mask is invalid")
-	ErrIncompatiblePageCount = errors.New("the template expects a different number of pages than was given")
-	ErrCouldNotCalibrate     = errors.New("the pipeline could not be calibrated; this is likely because the first input was malformed")
-	ErrIncompatibleAspect    = errors.New("the aspect ratio of the template radically varies from that of the input")
-	ErrPageNotDefined        = errors.New("the identified page is not defined on the marking template")
-	ErrQuestionNotDefined    = errors.New("the identified question is not defined on the marking template")
-	ErrBubbleNotDefined      = errors.New("the identified bubble is not defined on the marking template")
-	ErrReading               = errors.New("error reading from the given input")
-	ErrWriting               = errors.New("error writing to the given output")
-	ErrUnexpectedPanic       = errors.New("unexpected panic during execution")
+	ErrEncoding              = errors.New("omr: error while encoding a matrix")
+	ErrDecoding              = errors.New("omr: error decoding input")
+	ErrUnsupportedEncoding   = errors.New("omr: attempted to encode a matrix to an unsupported image format")
+	ErrWrongMatType          = errors.New("omr: a matrix operand was not of the correct type")
+	ErrEmptyMat              = errors.New("omr: a matrix operand was empty when it was not allowed to be")
+	ErrOpenCV                = errors.New("omr: opencv returned an unexpected error")
+	ErrIndexOutOfBounds      = errors.New("omr: index out of bounds")
+	ErrCannotContain         = errors.New("omr: attempted to fit a larger object inside of a smaller container")
+	ErrCannotMatchAnchor     = errors.New("omr: could not locate the anchor on the given matrix")
+	ErrMaxIterations         = errors.New("omr: a maximum iterations bound was met")
+	ErrNoncontinuousMat      = errors.New("omr: attempted to use a non-continuous matrix for an operation that requires a continuous one")
+	ErrMatTypeMismatch       = errors.New("omr: attempted to perform an invalid operation on two matrices of different types")
+	ErrInvalidMask           = errors.New("omr: the given bit mask is invalid")
+	ErrIncompatiblePageCount = errors.New("omr: the template expects a different number of pages than was given")
+	ErrCouldNotCalibrate     = errors.New("omr: the pipeline could not be calibrated; this is likely because the first input was malformed")
+	ErrIncompatibleAspect    = errors.New("omr: the aspect ratio of the template radically varies from that of the input")
+	ErrPageNotDefined        = errors.New("omr: the identified page is not defined on the marking template")
+	ErrQuestionNotDefined    = errors.New("omr: the identified question is not defined on the marking template")
+	ErrBubbleNotDefined      = errors.New("omr: the identified bubble is not defined on the marking template")
+	ErrReading               = errors.New("omr: error reading from the given input")
+	ErrWriting               = errors.New("omr: error writing to the given output")
 )
 
 type MatType int

@@ -1,5 +1,5 @@
 /*
-This package provides the means to store files ("fs" is short for "file
+This package provides the means to store files ("fstore" is short for "file
 storage").
 */
 package fstore
@@ -9,14 +9,14 @@ import (
 	"image"
 	"io"
 
-	"gocv.io/x/gocv"
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 )
 
 var (
-	ErrNotFound     = errors.New("the requested resource was not found")
-	ErrEncoding     = errors.New("error encoding data")
-	ErrDecoding     = errors.New("error decoding data")
-	ErrCreatingFile = errors.New("the underlying system failed to create a new file")
+	ErrNotFound     = errors.New("fstore: the requested resource was not found")
+	ErrEncoding     = errors.New("fstore: error encoding data")
+	ErrDecoding     = errors.New("fstore: error decoding data")
+	ErrCreatingFile = errors.New("fstore: the underlying system failed to create a new file")
 )
 
 // Represents an image store, implementing a map-like interface to save and
@@ -63,13 +63,13 @@ type MatStore interface {
 	// Loads an OpenCV matrix by the given key.
 	//
 	// If an error is returned, it will be [ErrNotFound] or [ErrDecoding].
-	Get(key string) (gocv.Mat, error)
+	Get(key string) (omr.Mat, error)
 
 	// Saves an OpenCV matrix under the given key. If a matrix already exists
 	// with the given key, it will be overwritten.
 	//
 	// If an error is returned, it will be [ErrEncoding] or [ErrCreatingFile].
-	Set(key string, mat gocv.Mat) error
+	Set(key string, mat omr.Mat) error
 
 	// Deletes a stored matrix.
 	Delete(key string)

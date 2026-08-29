@@ -2,17 +2,17 @@ package pdf
 
 import (
 	"errors"
-	"image"
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/gen2brain/go-fitz"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
-	"gocv.io/x/gocv"
 )
 
 const (
@@ -28,34 +28,44 @@ var (
 	ErrInvalidBlockSize  = errors.New("pdf: the given block size does not divide the given n")
 )
 
-type PageBlock struct {
-	Pages []gocv.Mat
-	From  uint
-	Thru  uint
-	Error error
+type pageBlock struct {
+	pages []omr.Mat
+	err   error
+	from  uint
+	thru  uint
 }
 
-func (p *PageBlock) Close() {
-	for i := range p.Pages {
-		p.Pages[i].Close()
+var _ omr.PageSet = (*pageBlock)(nil)
+
+func (p pageBlock) Pages() []omr.Mat {
+	return p.pages
+}
+
+func (p pageBlock) Metadata() map[string]string {
+	return map[string]string{
+		"from": strconv.FormatUint(uint64(p.from), 10),
+		"thru": strconv.FormatUint(uint64(p.thru), 10),
 	}
-	p.Pages = nil
+}
+
+func (p pageBlock) Error() error {
+	return p.err
 }
 
 func RenderPageBlocks(
 	r io.ReadSeeker,
 	dpi uint,
 	blockSize uint,
-	allottedThreads uint,
-) (<-chan PageBlock, uint, error) {
+	parallelism uint,
+) (<-chan omr.PageSet, uint, error) {
 
 	dpi = min(MaxDpi, dpi)
 
-	if allottedThreads == 0 {
-		allottedThreads = min(MaxConcurrentBlocks, uint(runtime.GOMAXPROCS(0))/2)
+	if parallelism == 0 {
+		parallelism = min(MaxConcurrentBlocks, uint(runtime.GOMAXPROCS(0))/2)
 	}
 
-	allottedThreads = min(MaxConcurrentBlocks, allottedThreads)
+	parallelism = min(MaxConcurrentBlocks, parallelism)
 
 	// The number of allotted threads should be scaled down when the block size
 	// is above 2. Most exams won't be more than two pages, but the possibility
@@ -63,9 +73,9 @@ func RenderPageBlocks(
 	// a bunch of large blocks simultaneously. (It's also worth mentioning that
 	// this equation can return a value greater than MaxConcurrentBlocks when
 	// blocks are 1-page, but that's fine.)
-	allottedThreads = uint(max(1, int(allottedThreads)+2-int(blockSize)))
+	parallelism = uint(max(1, int(parallelism)+2-int(blockSize)))
 
-	docs, err := blockPartitionPdf(r, blockSize, allottedThreads)
+	docs, err := blockPartitionPdf(r, blockSize, parallelism)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -76,11 +86,16 @@ func RenderPageBlocks(
 	}
 
 	threadCount := atomic.Int32{}
-	ch := make(chan PageBlock)
+	out := make(chan omr.PageSet)
 
 	for i := range docs {
 		go func() {
 			threadCount.Add(1)
+			defer func() {
+				if threadCount.Add(-1) == 0 {
+					close(out)
+				}
+			}()
 
 			doc := docs[i]
 			defer doc.close()
@@ -89,30 +104,24 @@ func RenderPageBlocks(
 				startIdx := uint(i) * blockSize
 				mats, err := renderPages(doc.doc, dpi, startIdx, blockSize)
 				if err != nil {
-					ch <- PageBlock{
-						Pages: nil,
-						From:  block.from,
-						Thru:  block.thru,
-						Error: err,
+					out <- pageBlock{
+						from:  block.from,
+						thru:  block.thru,
+						err:   err,
 					}
 					continue
 				}
 
-				ch <- PageBlock{
-					Pages: mats,
-					From:  block.from,
-					Thru:  block.thru,
-					Error: nil,
+				out <- pageBlock{
+					pages: mats,
+					from:  block.from,
+					thru:  block.thru,
 				}
-			}
-
-			if threadCount.Add(-1) == 0 {
-				close(ch)
 			}
 		}()
 	}
 
-	return ch, numBlocks, nil
+	return out, numBlocks, nil
 }
 
 type blockedSubdoc struct {
@@ -252,28 +261,24 @@ func renderPages(
 	dpi,
 	startIdx,
 	count uint,
-) ([]gocv.Mat, error) {
+) ([]omr.Mat, error) {
 
 	if startIdx+count > uint(doc.NumPage()) || startIdx == uint(doc.NumPage()) {
 		return nil, ErrPageOutOfBounds
 	}
 
-	mats := make([]gocv.Mat, 0, count)
+	mats := make([]omr.Mat, 0, count)
 
 	for i := startIdx; i < startIdx+count; i++ {
-
 		img, err := doc.ImageDPI(int(i), float64(dpi))
 		if err != nil {
-			for i := range mats {
-				mats[i].Close()
-			}
+			omr.CloseAll(mats)
 			return nil, err
 		}
-		mat, err := rgbaToGrayMat(img)
+
+		mat, err := omr.RgbaToMat(img)
 		if err != nil {
-			for i := range mats {
-				mats[i].Close()
-			}
+			omr.CloseAll(mats)
 			return nil, err
 		}
 
@@ -281,32 +286,6 @@ func renderPages(
 	}
 
 	return mats, nil
-}
-
-// Converts an RGBA image into a grayscale OpenCV matrix.
-func rgbaToGrayMat(img *image.RGBA) (gocv.Mat, error) {
-
-	w := img.Bounds().Dx()
-	h := img.Bounds().Dy()
-
-	bytes := make([]byte, w*h)
-
-	for x := range w {
-		for y := range h {
-
-			//
-			// This luminosity formula is copied from the Go standard library.
-			// <https://cs.opensource.google/go/go/+/master:src/image/color/color.go;l=244>
-			//
-
-			pixel := img.At(x, y)
-			r, g, b, _ := pixel.RGBA()
-			lum := (19595*r + 38470*g + 7471*b + 1<<15) >> 24
-			bytes[x+y*w] = byte(lum)
-		}
-	}
-
-	return gocv.NewMatFromBytes(h, w, gocv.MatTypeCV8UC1, bytes)
 }
 
 // Prepares a pdfcpu context for PDF splitting.

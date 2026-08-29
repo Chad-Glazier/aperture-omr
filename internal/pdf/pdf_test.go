@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"image"
-	"image/draw"
-	"image/png"
 	"reflect"
 	"testing"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/gen2brain/go-fitz"
-	"gocv.io/x/gocv"
+	"gotest.tools/v3/assert"
 )
 
 //go:embed testdata/*
@@ -21,9 +19,7 @@ func TestRenderPageBlocks_OK(t *testing.T) {
 
 	// The large sample PDF has 88 pages.
 	buf, err := testData.ReadFile("testdata/sample_large.pdf")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	batches, nBatches, err := RenderPageBlocks(
 		bytes.NewReader(buf),
@@ -31,9 +27,7 @@ func TestRenderPageBlocks_OK(t *testing.T) {
 		2,
 		0,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	if nBatches != 88/2 {
 		t.Fatalf(
@@ -51,8 +45,9 @@ func TestRenderPageBlocks_OK(t *testing.T) {
 		}
 
 		// Ensure that each page's matrix is a well-formed image.
-		for _, page := range batch.Pages {
-			_, err := gocv.IMEncode(gocv.PNGFileExt, page)
+		for _, page := range batch.Pages() {
+			w := bytes.Buffer{}
+			_, err := omr.EncodeMatToImage(&w, "image/jpeg", page)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -380,58 +375,8 @@ func TestRenderPages(t *testing.T) {
 			if uint(len(mats)) != tt.count {
 				t.Errorf("len: got %d, want %d", len(mats), tt.count)
 			}
-
-			//
-			// Uncomment the following block and create a "testoutput"
-			// directory if you need to manually review the output.
-			//
-
-			// for i, mat := range mats {
-			// 	gocv.IMWrite(
-			// 		fmt.Sprintf(
-			// 			"testoutput/render_pages_start%dcount%d_%d.png",
-			// 			tt.startIdx, tt.count, i,
-			// 		),
-			// 		*mat,
-			// 	)
-			// }
 		})
 	}
-}
-
-func TestRgbaToGrayMat(t *testing.T) {
-
-	f, err := testData.Open("testdata/sample_image.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	img, err := png.Decode(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	img.ColorModel()
-
-	rgba, ok := img.(*image.RGBA)
-	if !ok {
-		b := img.Bounds()
-		rgba = image.NewRGBA(b)
-		draw.Draw(rgba, b, img, b.Min, draw.Over)
-	}
-
-	mat, err := rgbaToGrayMat(rgba)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer mat.Close()
-
-	//
-	// Uncomment the following statement and create a "testoutput" directory if
-	// you need to manually review the output.
-	//
-
-	// gocv.IMWrite("testoutput/rgba_to_gray_mat_output.png", mat)
 }
 
 func TestPageSpan(t *testing.T) {

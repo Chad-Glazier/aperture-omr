@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"gocv.io/x/gocv"
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"gotest.tools/v3/assert"
 )
 
@@ -16,22 +16,8 @@ var testData embed.FS
 // Helper functions
 //
 
-func assertMatsAreEqual(t *testing.T, a, b gocv.Mat) {
-
-	assert.Assert(t, a.Type() == b.Type())
-	assert.Assert(t, a.Rows() == b.Rows())
-	assert.Assert(t, a.Cols() == b.Cols())
-	assert.Assert(t, a.Channels() == b.Channels())
-
-	for i := range a.Rows() {
-		for j := range a.Cols() {
-			for k := range a.Channels() {
-				assert.Assert(t,
-					a.GetUCharAt3(i, j, k) == b.GetUCharAt3(i, j, k),
-				)
-			}
-		}
-	}
+func assertMatsAreEqual(t *testing.T, a, b omr.Mat) {
+	assert.Assert(t, omr.Equal(a, b))
 }
 
 //
@@ -129,10 +115,11 @@ func TestLocalMatStore(t *testing.T) {
 	store, err := NewLocalMatStore(t.TempDir())
 	assert.NilError(t, err)
 
-	buf, err := testData.ReadFile("testdata/sample_image.jpg")
+	r, err := testData.Open("testdata/sample_image.jpg")
 	assert.NilError(t, err)
+	defer r.Close()
 
-	mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
+	mat, err := omr.DecodeImageToMat(r)
 	assert.NilError(t, err)
 
 	t.Run("basic read write delete", func(t *testing.T) {

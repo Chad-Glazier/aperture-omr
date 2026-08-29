@@ -107,12 +107,12 @@ func TestImageCodec(t *testing.T) {
 		}
 
 		for _, ct := range supported {
-			_, err = EncodeMatToImage(&bytes.Buffer{}, ct, mat)
+			_, err = EncodeMatToImage(&bytes.Buffer{}, ImageEncoding(ct), mat)
 			assert.Assert(t, err == nil)
 		}
 
 		for _, ct := range unsupported {
-			_, err := EncodeMatToImage(&bytes.Buffer{}, ct, mat)
+			_, err := EncodeMatToImage(&bytes.Buffer{}, ImageEncoding(ct), mat)
 			assert.Assert(t, err == ErrUnsupportedEncoding)
 		}
 	})

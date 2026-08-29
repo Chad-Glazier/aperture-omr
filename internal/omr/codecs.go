@@ -87,18 +87,25 @@ func DecodeImageToMat(r io.Reader) (Mat, error) {
 	return newMatFromGoCV(mat), nil
 }
 
+type ImageEncoding string
+
+const (
+	ImageEncodingJpeg ImageEncoding = "image/jpeg"
+	ImageEncodingPng  ImageEncoding = "image/png"
+)
+
 // Writes a matrix to the given output as an image. The encoding will match the
 // given content type, which should be formatted as a MIME type. At the time of
 // writing, the only supported content types are "image/jpeg" and "image/png".
 //
 // If an error is returned, it will be [ErrUnsupportedEncoding] or
 // [ErrEncoding].
-func EncodeMatToImage(w io.Writer, contentType string, mat Mat) (int, error) {
+func EncodeMatToImage(w io.Writer, contentType ImageEncoding, mat Mat) (int, error) {
 	var ext gocv.FileExt
 	switch contentType {
-	case "image/jpeg":
+	case ImageEncodingJpeg:
 		ext = gocv.JPEGFileExt
-	case "image/png":
+	case ImageEncodingPng:
 		ext = gocv.PNGFileExt
 	default:
 		return 0, ErrUnsupportedEncoding
