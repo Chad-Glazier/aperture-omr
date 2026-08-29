@@ -1,4 +1,4 @@
-/* 
+/*
 Package omr implements the core Optical Mark Recognition (OMR) logic for
 Aperture OMR.
 */
@@ -36,6 +36,7 @@ var (
 	ErrBubbleNotDefined      = errors.New("the identified bubble is not defined on the marking template")
 	ErrReading               = errors.New("error reading from the given input")
 	ErrWriting               = errors.New("error writing to the given output")
+	ErrUnexpectedPanic       = errors.New("unexpected panic during execution")
 )
 
 type MatType int

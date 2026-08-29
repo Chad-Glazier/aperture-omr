@@ -1,10 +1,7 @@
 package omr
 
 import (
-	"context"
 	"sync/atomic"
-
-	"golang.org/x/sync/semaphore"
 )
 
 type PageSet interface {
@@ -43,52 +40,46 @@ func ForEach(
 	parallelism uint,
 	fn func([]Mat) error,
 ) <-chan PageSet {
-
 	parallelism = max(1, parallelism)
+
 	var (
-		sem = semaphore.NewWeighted(int64(parallelism))
-		out = make(chan PageSet, parallelism)
+		out     = make(chan PageSet, parallelism)
+		threads atomic.Int32
 	)
+	for range parallelism {
+		go func() {
+			threads.Add(1)
+			defer func() {
+				if threads.Add(-1) == 0 {
+					close(out)
+				}
+			}()
 
-	go func() {
-		for pageSet := range in {
+			for pageSet := range in {
+				
+				if err := pageSet.Error(); err != nil {
+					out <- pageSet
+					continue
+				}
 
-			if err := pageSet.Error(); err != nil {
-				out <- pageSet
-				continue
-			}
-
-			pages := pageSet.Pages()
-
-			// This method only errs if (a) we attempt to acquire a greater
-			// weight than was assigned to the semaphore, or (b) the context
-			// errs. Neither of those conditions are possible here.
-			sem.Acquire(context.Background(), 1)
-			go func() {
-				defer sem.Release(1)
-
+				pages := pageSet.Pages()
 				err := fn(pages)
 				if err != nil {
 					CloseAll(pages)
 					out <- result{
-						pages: nil,
-						err:   err,
-						meta:  pageSet.Metadata(),
+						err:  err,
+						meta: pageSet.Metadata(),
 					}
 					return
 				}
 
 				out <- result{
 					pages: pages,
-					err:   nil,
 					meta:  pageSet.Metadata(),
 				}
-			}()
-		}
-
-		sem.Acquire(context.Background(), int64(parallelism))
-		close(out)
-	}()
+			}
+		}()
+	}
 
 	return out
 }
@@ -151,13 +142,14 @@ func PreprocessStream(
 	for range parallelism {
 		go func() {
 			threads.Add(1)
+			defer func() {
+				if threads.Add(-1) == 0 {
+					close(out)
+				}
+			}()
 
 			for pageSet := range pageStream {
 				out <- preprocessSet(template, pageSet)
-			}
-
-			if threads.Add(-1) == 0 {
-				close(out)
 			}
 		}()
 	}
@@ -194,8 +186,6 @@ func preprocessSet(template PreprocessingTemplate, set PageSet) PageSet {
 //
 // If a given page set has a non-nil error, this stream will propagate the
 // error to its respective output. It will not stop the stream.
-//
-// If an error is returned, it will be [ErrCouldNotCalibrate] or [ErrOpenCV].
 func MarkStream(
 	template MarkTemplate,
 	parallelism uint,
@@ -214,9 +204,10 @@ func MarkStream(
 		}
 
 		pages := pageSet.Pages()
+		defer CloseAll(pages)
+
 		marks, err := Mark(template, pages)
 		if err != nil {
-			CloseAll(pages)
 			out <- MarkStreamResult{
 				Error:    err,
 				Metadata: pageSet.Metadata(),

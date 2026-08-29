@@ -82,7 +82,6 @@ func TestMarkTemplateMask(t *testing.T) {
 		preprocessed, err := Preprocess(pTmpl, []Mat{page})
 		assert.Assert(t, err == nil)
 
-
 		tmpl := getSampleMarkTemplate()
 		mask, err := tmpl.Mask(0, int(preprocessed[0].Height()))
 		assert.Assert(t, err == nil)
