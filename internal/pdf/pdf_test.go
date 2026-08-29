@@ -17,7 +17,7 @@ var testData embed.FS
 
 func TestRenderPageBlocks_OK(t *testing.T) {
 
-	// The large sample PDF has 88 pages.
+	// Note that the large sample PDF has 88 pages.
 	buf, err := testData.ReadFile("testdata/sample_large.pdf")
 	assert.Assert(t, err == nil)
 
@@ -28,39 +28,24 @@ func TestRenderPageBlocks_OK(t *testing.T) {
 		0,
 	)
 	assert.Assert(t, err == nil)
-
-	if nBatches != 88/2 {
-		t.Fatalf(
-			"pdf had %d pages but only %d %d-page batches were prepared",
-			88, nBatches, 2,
-		)
-	}
+	assert.Assert(t, nBatches == 88/2)
 
 	nBatchesRendered := 0
 	for batch := range batches {
 		nBatchesRendered++
 
-		if batch.Error != nil {
-			t.Fatal(batch.Error)
-		}
+		assert.Assert(t, batch.Error() == nil)
 
 		// Ensure that each page's matrix is a well-formed image.
 		for _, page := range batch.Pages() {
 			w := bytes.Buffer{}
-			_, err := omr.EncodeMatToImage(&w, "image/jpeg", page)
-			if err != nil {
-				t.Fatal(err)
-			}
+			_, err := omr.EncodeMatToImage(&w, omr.ImageEncodingJpeg, page)
+			assert.Assert(t, err == nil)
 		}
 	}
 
 	// Ensure that each page was rendered.
-	if nBatchesRendered != 88/2 {
-		t.Fatalf(
-			"pdf had %d pages but only %d %d-page batches were rendered",
-			88, nBatchesRendered, 2,
-		)
-	}
+	assert.Assert(t, nBatchesRendered == 88/2)
 }
 
 func TestRenderPageBlocks_MalformedData(t *testing.T) {
@@ -73,9 +58,7 @@ func TestRenderPageBlocks_MalformedData(t *testing.T) {
 	// Check a text file. This should not be parseable at all by the PDF
 	// renderer.
 	buf, err := testData.ReadFile("testdata/not_a_pdf.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	_, _, err = RenderPageBlocks(
 		bytes.NewReader(buf),
@@ -83,17 +66,11 @@ func TestRenderPageBlocks_MalformedData(t *testing.T) {
 		2,
 		0,
 	)
-	if err != ErrMalformedPdf {
-		t.Fatal("expected ErrMalformedPdf error")
-	}
+	assert.Assert(t, err == ErrMalformedPdf)
 
-	// Check an image file. The MagickWand library is able to handle all kinds
-	// of images, so it's conceivable that it would fail silently. We need to
-	// ensure that it doesn't.
+	// Check an image file. This should also not be parseable.
 	buf, err = testData.ReadFile("testdata/not_a_pdf.jpg")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	_, _, err = RenderPageBlocks(
 		bytes.NewReader(buf),
@@ -101,17 +78,13 @@ func TestRenderPageBlocks_MalformedData(t *testing.T) {
 		2,
 		0,
 	)
-	if err != ErrMalformedPdf {
-		t.Fatal("expected ErrMalformedPdf error")
-	}
+	assert.Assert(t, err == ErrMalformedPdf)
 }
 
 func TestRenderPageBlocks_PageMismatch(t *testing.T) {
 	// The large sample PDF has 88 pages.
 	buf, err := testData.ReadFile("testdata/sample_large.pdf")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	// 3 does not divide 88, so we expect this to err.
 	_, _, err = RenderPageBlocks(
@@ -120,9 +93,7 @@ func TestRenderPageBlocks_PageMismatch(t *testing.T) {
 		3,
 		0,
 	)
-	if err != ErrPageCountMismatch {
-		t.Fatalf("expected ErrPageCountMismatch, got %s", err.Error())
-	}
+	assert.Assert(t, err == ErrPageCountMismatch)
 }
 
 //
@@ -130,7 +101,7 @@ func TestRenderPageBlocks_PageMismatch(t *testing.T) {
 //
 
 func TestBlockPartition(t *testing.T) {
-	tests := []struct {
+	tt := []struct {
 		name            string
 		n               uint
 		blockSize       uint
@@ -306,22 +277,20 @@ func TestBlockPartition(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := blockPartition(tt.n, tt.blockSize, tt.numberOfSubsets)
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := blockPartition(
+				test.n,
+				test.blockSize,
+				test.numberOfSubsets,
+			)
 
-			if err != tt.err {
-				t.Fatalf("expected error %v, got %v", tt.err, err)
-			}
+			assert.Assert(t, err == test.err)
 
 			if err != nil {
 				return
 			}
-
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("blockPartition(%d, %d, %d) = %#v, want %#v",
-					tt.n, tt.blockSize, tt.numberOfSubsets, got, tt.want)
-			}
+			assert.Assert(t, reflect.DeepEqual(got, test.want))
 		})
 	}
 }
@@ -329,18 +298,14 @@ func TestBlockPartition(t *testing.T) {
 func TestRenderPages(t *testing.T) {
 
 	f, err := testData.Open("testdata/sample_large.pdf")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
 	doc, err := fitz.NewFromReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Assert(t, err == nil)
 
-	var tests = []struct {
+	tt := []struct {
 		startIdx uint
-		count    uint
+		count    int
 		err      error
 	}{
 		{1, 2, nil},
@@ -350,31 +315,23 @@ func TestRenderPages(t *testing.T) {
 		{88, 0, ErrPageOutOfBounds},
 	}
 
-	for _, tt := range tests {
+	for _, test := range tt {
 		name := fmt.Sprintf(
 			"startIdx=%d count=%d (88 pages)",
-			tt.startIdx, tt.count,
+			test.startIdx, test.count,
 		)
-		if tt.err != nil {
-			name += fmt.Sprintf("; error=%s", tt.err.Error())
+		if test.err != nil {
+			name += fmt.Sprintf("; error=%s", test.err.Error())
 		}
 		t.Run(name, func(t *testing.T) {
-			mats, err := renderPages(doc, 74, tt.startIdx, tt.count)
-			if err == nil {
-				for i := range mats {
-					mats[i].Close()
-				}
-			}
-			if err != tt.err {
-				t.Errorf("err: got %v, want %v", err, tt.err)
-			}
-
+			mats, err := renderPages(doc, 74, test.startIdx, uint(test.count))
+			defer omr.CloseAll(mats)
+			
+			assert.Assert(t, err == test.err)
 			if err != nil {
 				return
 			}
-			if uint(len(mats)) != tt.count {
-				t.Errorf("len: got %d, want %d", len(mats), tt.count)
-			}
+			assert.Assert(t, len(mats) == test.count)
 		})
 	}
 }
@@ -391,7 +348,7 @@ func TestPageSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var tests = []struct {
+	tt := []struct {
 		from uint
 		thru uint
 		err  error
@@ -403,22 +360,22 @@ func TestPageSpan(t *testing.T) {
 		{56, 102, ErrPageOutOfBounds},
 	}
 
-	for _, tt := range tests {
+	for _, test := range tt {
 		name := fmt.Sprintf(
 			"from=%d thru=%d (88 pages)",
-			tt.from, tt.thru,
+			test.from, test.thru,
 		)
-		if tt.err != nil {
-			name += fmt.Sprintf("; error=%s", tt.err.Error())
+		if test.err != nil {
+			name += fmt.Sprintf("; error=%s", test.err.Error())
 		}
 		t.Run(name, func(t *testing.T) {
 			buf := bytes.Buffer{}
-			err := pageSpan(&buf, ctx, tt.from, tt.thru)
-			if err != tt.err {
-				t.Errorf("err: got %v, want %v", err, tt.err)
+			err := pageSpan(&buf, ctx, test.from, test.thru)
+			if err != test.err {
+				t.Errorf("err: got %v, want %v", err, test.err)
 			}
 
-			if tt.err != nil {
+			if test.err != nil {
 				return
 			}
 		})
