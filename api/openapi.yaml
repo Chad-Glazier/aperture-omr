@@ -425,7 +425,7 @@ paths:
                 - page0anchor2
               properties:
                 template:
-                  $ref: "#/components/schemas/PreprocessingTemplate"
+                  $ref: "#/components/schemas/PreprocessTemplate"
                 page0anchor0:
                   type: string
                   format: binary
@@ -1428,7 +1428,7 @@ components:
           description: |
             The region of interest (ROI) for the anchor in output space. That is, the location of its top-left and bottom-right corners.
           $ref: "#/components/schemas/ROI"
-    PreprocessingTemplate:
+    PreprocessTemplate:
       description: |
         Represents the template used for preprocessing an image scan.
       type: object

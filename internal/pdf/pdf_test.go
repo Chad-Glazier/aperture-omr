@@ -326,7 +326,7 @@ func TestRenderPages(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mats, err := renderPages(doc, 74, test.startIdx, uint(test.count))
 			defer omr.CloseAll(mats)
-			
+
 			assert.Assert(t, err == test.err)
 			if err != nil {
 				return

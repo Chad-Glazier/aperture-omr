@@ -1,9 +1,11 @@
 package omr
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"image"
 	"io"
@@ -123,11 +125,11 @@ func EncodeMatToImage(w io.Writer, contentType ImageEncoding, mat Mat) (int, err
 // Converts an image encoded in base64 to a grayscale matrix. The image format
 // can be any of the formats supported by OpenCV.
 //
-// If an error is returned, it will be [ErrDecoding].
+// If an error is returned, it will be [ErrBase64Decoding] or [ErrDecoding].
 func DecodeBase64(in string) (Mat, error) {
 	buf, err := base64.StdEncoding.DecodeString(in)
 	if err != nil {
-		return Mat{}, ErrDecoding
+		return Mat{}, ErrBase64Decoding
 	}
 	mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
 	if err != nil {
@@ -323,4 +325,122 @@ func DecodeM4t(r io.Reader) (Mat, error) {
 	}
 
 	return newMatFromGoCV(mat), nil
+}
+
+// Serializes a marking template in a format suitable for storage but not for
+// human readers.
+//
+// If an error is returned, it will be [ErrEncoding].
+func EncodeMarkTemplate(w io.Writer, m MarkTemplate) error {
+	var (
+		compressor = lz4.NewWriter(w)
+		encoder    = json.NewEncoder(compressor)
+	)
+	defer compressor.Close()
+
+	err := encoder.Encode(m)
+	if err != nil {
+		return ErrEncoding
+	}
+	return nil
+}
+
+// Deserializes a marking template previous encoded with [EncodeMarkTemplate].
+//
+// If an error is returned, it will be [ErrDecoding].
+func DecodeMarkTemplate(r io.Reader) (MarkTemplate, error) {
+	var (
+		out          MarkTemplate
+		decompressor = lz4.NewReader(r)
+		decoder      = json.NewDecoder(decompressor)
+	)
+
+	err := decoder.Decode(&out)
+	if err != nil {
+		return MarkTemplate{}, ErrDecoding
+	}
+	return out, nil
+}
+
+// Serializes a preprocessing template in a format suitable for storage but not
+// for human readers.
+//
+// If an error is returned, it will be [ErrEncoding], [ErrWriting], or
+// [ErrWrongMatType].
+func EncodePreprocessTemplate(w io.Writer, p PreprocessTemplate) error {
+
+	var serialized serializedPreprocessTemplate
+
+	serialized.Anchors = make([][]serializedAnchor, len(p.Anchors))
+	for i := range p.Anchors {
+
+		serialized.Anchors[i] = make([]serializedAnchor, len(p.Anchors[i]))
+		for j := range p.Anchors[i] {
+
+			matBytes := bytes.Buffer{}
+			err := EncodeM4t(&matBytes, p.Anchors[i][j].Mat)
+			if err != nil {
+				return err
+			}
+
+			serialized.Anchors[i][j].MatBytes = matBytes.Bytes()
+			serialized.Anchors[i][j].Pos = p.Anchors[i][j].Pos
+		}
+	}
+
+	p.Anchors = nil
+	serialized.Template = p
+
+	encoder := json.NewEncoder(w)
+	err := encoder.Encode(serialized)
+	if err != nil {
+		return ErrEncoding
+	}
+	return nil
+}
+
+type serializedPreprocessTemplate struct {
+	Template PreprocessTemplate
+	Anchors  [][]serializedAnchor
+}
+
+type serializedAnchor struct {
+	MatBytes []byte
+	Pos      NormalPoint
+}
+
+// Deserializes a preprocessing template encoded by [EncodePreprocessTemplate].
+//
+// If an error is returned, it will be [ErrEncoding], [ErrReading], or
+// [ErrWrongMatType].
+func DecodePreprocessTemplate(r io.Reader) (PreprocessTemplate, error) {
+	var (
+		serialized serializedPreprocessTemplate
+		decoder    = json.NewDecoder(r)
+	)
+
+	err := decoder.Decode(&serialized)
+	if err != nil {
+		return PreprocessTemplate{}, ErrDecoding
+	}
+
+	out := serialized.Template
+
+	out.Anchors = make([][]Anchor, len(serialized.Anchors))
+	for i := range serialized.Anchors {
+
+		out.Anchors[i] = make([]Anchor, len(serialized.Anchors[i]))
+		for j, a := range serialized.Anchors[i] {
+
+			mat, err := DecodeM4t(bytes.NewReader(a.MatBytes))
+			if err != nil {
+				return PreprocessTemplate{}, err
+			}
+
+			out.Anchors[i][j].Mat = mat
+			out.Anchors[i][j].Pos = a.Pos
+		}
+	}
+
+	return out, nil
 }

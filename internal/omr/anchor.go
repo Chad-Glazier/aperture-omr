@@ -63,21 +63,14 @@ func FindAnchors(
 	page Mat,
 	anchors []Anchor,
 	minConfidence float64,
-	conf *FindAnchorConfig,
+	conf FindAnchorConfig,
 ) ([]image.Point, error) {
 
 	//
 	// Set the default configuration values.
 	//
 
-	var c FindAnchorConfig
-	if conf == nil {
-		c = FindAnchorConfig{}
-	} else {
-		c = *conf
-	}
-
-	setDefaultConfig(&c)
+	setDefaultConfig(&conf)
 
 	//
 	// Search for the anchors.
@@ -85,7 +78,7 @@ func FindAnchors(
 
 	positions := make([]image.Point, len(anchors))
 	for i, anchor := range anchors {
-		result, err := findAnchor(page, anchor, c)
+		result, err := findAnchor(page, anchor, conf)
 		if err != nil {
 			return nil, err
 		}
@@ -96,8 +89,8 @@ func FindAnchors(
 
 		// If the confidence was very high, it's likely that the orientation
 		// was good. We can start with that orientation for subsequent anchors.
-		if result.Confidence >= c.MaxQuality {
-			c.InitialAngle = result.Orientation
+		if result.Confidence >= conf.MaxQuality {
+			conf.InitialAngle = result.Orientation
 		}
 	}
 

@@ -53,10 +53,10 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 		// Load the resources.
 		//
 
-		pTempl, anchors, err := s.LoadPreprocessingTemplate(q.PreprocessingTemplate)
+		pTempl, anchors, err := s.LoadPreprocessingTemplate(q.PreprocessTemplate)
 		if err != nil {
 			http.Error(w,
-				"no template with ID "+q.PreprocessingTemplate+" was found",
+				"no template with ID "+q.PreprocessTemplate+" was found",
 				http.StatusNotFound,
 			)
 			return
@@ -69,9 +69,9 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 
 		scannerTmpl, err := dto.AdaptScannerTemplate(pTempl, anchors)
 		if err != nil {
-			s.DeletePreprocessingTemplate(q.PreprocessingTemplate)
+			s.DeletePreprocessingTemplate(q.PreprocessTemplate)
 			http.Error(w,
-				"template "+q.PreprocessingTemplate+" is corrupted",
+				"template "+q.PreprocessTemplate+" is corrupted",
 				http.StatusInternalServerError,
 			)
 			return
@@ -173,7 +173,7 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 				scanId, err := s.SaveScan(
 					binarized,
 					pictures,
-					q.PreprocessingTemplate,
+					q.PreprocessTemplate,
 				)
 				if err != nil {
 					scanIds[idx] = ""

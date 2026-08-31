@@ -9,20 +9,6 @@ import (
 	"context"
 )
 
-const countAnchors = `-- name: CountAnchors :one
-SELECT
-    count(*)
-FROM
-    anchors
-`
-
-func (q *Queries) CountAnchors(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAnchors)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countScans = `-- name: CountScans :one
 SELECT
     count(*)
@@ -37,66 +23,37 @@ func (q *Queries) CountScans(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const createAnchor = `-- name: CreateAnchor :exec
-INSERT INTO
-    anchors (
-        id,
-        template_id,
-        page_index,
-        anchor_index
-    )
-VALUES
-    (?, ?, ?, ?)
-`
-
-type CreateAnchorParams struct {
-	ID          string
-	TemplateID  string
-	PageIndex   int64
-	AnchorIndex int64
-}
-
-func (q *Queries) CreateAnchor(ctx context.Context, arg CreateAnchorParams) error {
-	_, err := q.db.ExecContext(ctx, createAnchor,
-		arg.ID,
-		arg.TemplateID,
-		arg.PageIndex,
-		arg.AnchorIndex,
-	)
-	return err
-}
-
 const createMarkingTemplate = `-- name: CreateMarkingTemplate :exec
 INSERT INTO
-    marking_templates (id, json)
+    marking_templates (id, bytes)
 VALUES
     (?, ?)
 `
 
 type CreateMarkingTemplateParams struct {
-	ID   string
-	Json []byte
+	ID    string
+	Bytes []byte
 }
 
 func (q *Queries) CreateMarkingTemplate(ctx context.Context, arg CreateMarkingTemplateParams) error {
-	_, err := q.db.ExecContext(ctx, createMarkingTemplate, arg.ID, arg.Json)
+	_, err := q.db.ExecContext(ctx, createMarkingTemplate, arg.ID, arg.Bytes)
 	return err
 }
 
 const createPreprocessingTemplate = `-- name: CreatePreprocessingTemplate :exec
 INSERT INTO
-    preprocessing_templates (id, json)
+    preprocessing_templates (id, bytes)
 VALUES
     (?, ?)
 `
 
 type CreatePreprocessingTemplateParams struct {
-	ID   string
-	Json string
+	ID    string
+	Bytes []byte
 }
 
 func (q *Queries) CreatePreprocessingTemplate(ctx context.Context, arg CreatePreprocessingTemplateParams) error {
-	_, err := q.db.ExecContext(ctx, createPreprocessingTemplate, arg.ID, arg.Json)
+	_, err := q.db.ExecContext(ctx, createPreprocessingTemplate, arg.ID, arg.Bytes)
 	return err
 }
 
@@ -120,13 +77,13 @@ func (q *Queries) CreateScan(ctx context.Context, arg CreateScanParams) error {
 
 const createScanPage = `-- name: CreateScanPage :exec
 INSERT INTO
-    scan_pages (id, picture_key, page_index, scan_id)
+    scan_pages (matrix_key, picture_key, page_index, scan_id)
 VALUES
     (?, ?, ?, ?)
 `
 
 type CreateScanPageParams struct {
-	ID         string
+	MatrixKey  string
 	PictureKey string
 	PageIndex  int64
 	ScanID     string
@@ -134,27 +91,12 @@ type CreateScanPageParams struct {
 
 func (q *Queries) CreateScanPage(ctx context.Context, arg CreateScanPageParams) error {
 	_, err := q.db.ExecContext(ctx, createScanPage,
-		arg.ID,
+		arg.MatrixKey,
 		arg.PictureKey,
 		arg.PageIndex,
 		arg.ScanID,
 	)
 	return err
-}
-
-const deleteAnchorsForTemplate = `-- name: DeleteAnchorsForTemplate :execrows
-DELETE FROM
-    anchors
-WHERE
-    template_id = ?
-`
-
-func (q *Queries) DeleteAnchorsForTemplate(ctx context.Context, templateID string) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAnchorsForTemplate, templateID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const deleteMarkingTemplate = `-- name: DeleteMarkingTemplate :execrows
@@ -217,49 +159,9 @@ func (q *Queries) DeleteScan(ctx context.Context, id string) (int64, error) {
 	return result.RowsAffected()
 }
 
-const getAnchorsForTemplate = `-- name: GetAnchorsForTemplate :many
-SELECT
-    id, template_id, page_index, anchor_index
-FROM
-    anchors
-WHERE
-    template_id = ?
-ORDER BY
-    page_index ASC,
-    anchor_index ASC
-`
-
-func (q *Queries) GetAnchorsForTemplate(ctx context.Context, templateID string) ([]Anchor, error) {
-	rows, err := q.db.QueryContext(ctx, getAnchorsForTemplate, templateID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Anchor
-	for rows.Next() {
-		var i Anchor
-		if err := rows.Scan(
-			&i.ID,
-			&i.TemplateID,
-			&i.PageIndex,
-			&i.AnchorIndex,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getMarkingTemplate = `-- name: GetMarkingTemplate :one
 SELECT
-    id, json
+    id, bytes
 FROM
     marking_templates
 WHERE
@@ -269,42 +171,13 @@ WHERE
 func (q *Queries) GetMarkingTemplate(ctx context.Context, id string) (MarkingTemplate, error) {
 	row := q.db.QueryRowContext(ctx, getMarkingTemplate, id)
 	var i MarkingTemplate
-	err := row.Scan(&i.ID, &i.Json)
-	return i, err
-}
-
-const getOneAnchorForTemplate = `-- name: GetOneAnchorForTemplate :one
-SELECT
-    id, template_id, page_index, anchor_index
-FROM
-    anchors
-WHERE
-    template_id = ?
-    AND page_index = ?
-    AND anchor_index = ?
-`
-
-type GetOneAnchorForTemplateParams struct {
-	TemplateID  string
-	PageIndex   int64
-	AnchorIndex int64
-}
-
-func (q *Queries) GetOneAnchorForTemplate(ctx context.Context, arg GetOneAnchorForTemplateParams) (Anchor, error) {
-	row := q.db.QueryRowContext(ctx, getOneAnchorForTemplate, arg.TemplateID, arg.PageIndex, arg.AnchorIndex)
-	var i Anchor
-	err := row.Scan(
-		&i.ID,
-		&i.TemplateID,
-		&i.PageIndex,
-		&i.AnchorIndex,
-	)
+	err := row.Scan(&i.ID, &i.Bytes)
 	return i, err
 }
 
 const getPagesForScan = `-- name: GetPagesForScan :many
 SELECT 
-    id, picture_key, page_index, scan_id
+    matrix_key, picture_key, page_index, scan_id
 FROM
     scan_pages
 WHERE
@@ -323,7 +196,7 @@ func (q *Queries) GetPagesForScan(ctx context.Context, scanID string) ([]ScanPag
 	for rows.Next() {
 		var i ScanPage
 		if err := rows.Scan(
-			&i.ID,
+			&i.MatrixKey,
 			&i.PictureKey,
 			&i.PageIndex,
 			&i.ScanID,
@@ -343,7 +216,7 @@ func (q *Queries) GetPagesForScan(ctx context.Context, scanID string) ([]ScanPag
 
 const getPreprocessingTemplate = `-- name: GetPreprocessingTemplate :one
 SELECT
-    id, json
+    id, bytes
 FROM
     preprocessing_templates
 WHERE
@@ -353,13 +226,13 @@ WHERE
 func (q *Queries) GetPreprocessingTemplate(ctx context.Context, id string) (PreprocessingTemplate, error) {
 	row := q.db.QueryRowContext(ctx, getPreprocessingTemplate, id)
 	var i PreprocessingTemplate
-	err := row.Scan(&i.ID, &i.Json)
+	err := row.Scan(&i.ID, &i.Bytes)
 	return i, err
 }
 
 const getScanPage = `-- name: GetScanPage :one
 SELECT 
-    id, picture_key, page_index, scan_id
+    matrix_key, picture_key, page_index, scan_id
 FROM
     scan_pages
 WHERE
@@ -377,7 +250,7 @@ func (q *Queries) GetScanPage(ctx context.Context, arg GetScanPageParams) (ScanP
 	row := q.db.QueryRowContext(ctx, getScanPage, arg.ScanID, arg.PageIndex)
 	var i ScanPage
 	err := row.Scan(
-		&i.ID,
+		&i.MatrixKey,
 		&i.PictureKey,
 		&i.PageIndex,
 		&i.ScanID,

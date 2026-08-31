@@ -16,6 +16,7 @@ import (
 
 var (
 	ErrEncoding              = errors.New("omr: error while encoding a matrix")
+	ErrBase64Decoding        = errors.New("the input string is not valid base64")
 	ErrDecoding              = errors.New("omr: error decoding input")
 	ErrUnsupportedEncoding   = errors.New("omr: attempted to encode a matrix to an unsupported image format")
 	ErrWrongMatType          = errors.New("omr: a matrix operand was not of the correct type")

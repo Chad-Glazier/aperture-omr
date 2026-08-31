@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
@@ -13,8 +14,7 @@ import (
 
 	"github.com/Chad-Glazier/aperture-omr/internal/database"
 	"github.com/Chad-Glazier/aperture-omr/internal/fstore"
-	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
-	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/google/uuid"
 	"gocv.io/x/gocv"
 )
@@ -86,17 +86,10 @@ func (s *local) Close() error {
 //
 // Marking Templates
 //
-// Marking templates are just big JSON things; we store them as bytes in the
-// database. It might be better to create proper tables for them (to avoid
-// storing the JSON), but the shape of the templates may still change at the
-// time of writing so I will postpone that work.
-//
 
-func (s *local) SaveMarkingTemplate(
-	tmpl *dto.MarkingTemplate,
-) (string, error) {
-
-	buf, err := json.Marshal(tmpl)
+func (s *local) SaveMarkingTemplate(tmpl omr.MarkTemplate) (string, error) {
+	buf := bytes.Buffer{}
+	err := omr.EncodeMarkTemplate(&buf, tmpl)
 	if err != nil {
 		return "", ErrSerializing
 	}
@@ -105,8 +98,8 @@ func (s *local) SaveMarkingTemplate(
 	err = s.DB.CreateMarkingTemplate(
 		context.Background(),
 		database.CreateMarkingTemplateParams{
-			ID:   id,
-			Json: buf,
+			ID:    id,
+			Bytes: buf.Bytes(),
 		},
 	)
 	if err != nil {
@@ -116,24 +109,22 @@ func (s *local) SaveMarkingTemplate(
 	return id, nil
 }
 
-func (s *local) LoadMarkingTemplate(
-	id string,
-) (*dto.MarkingTemplate, error) {
+func (s *local) LoadMarkingTemplate(id string) (omr.MarkTemplate, error) {
 
 	record, err := s.DB.GetMarkingTemplate(context.Background(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
+			return omr.MarkTemplate{}, ErrNotFound
 		}
-		return nil, ErrDatabaseRead
+		return omr.MarkTemplate{}, ErrDatabaseRead
 	}
 
-	tmpl := &dto.MarkingTemplate{}
-	if err := json.Unmarshal(record.Json, tmpl); err != nil {
-		return nil, ErrDeserializing
+	out, err := omr.DecodeMarkTemplate(bytes.NewReader(record.Bytes))
+	if err != nil {
+		return omr.MarkTemplate{}, ErrDeserializing
 	}
 
-	return tmpl, nil
+	return out, nil
 }
 
 func (s *local) DeleteMarkingTemplate(id string) {
@@ -143,12 +134,9 @@ func (s *local) DeleteMarkingTemplate(id string) {
 //
 // Preprocessing Templates
 //
-// Unlike marking templates, preprocessing templates are a lot more modest in
-// size. We just store the uncompressed JSON.
-//
 
 func (s *local) SavePreprocessingTemplate(
-	tmpl *dto.PreprocessingTemplate,
+	tmpl *dto.PreprocessTemplate,
 ) (string, error) {
 
 	//
@@ -268,7 +256,7 @@ func (s *local) SavePreprocessingTemplate(
 
 func (s *local) LoadPreprocessingTemplate(
 	id string,
-) (*dto.PreprocessingTemplate, [][]gocv.Mat, error) {
+) (*dto.PreprocessTemplate, [][]gocv.Mat, error) {
 
 	record, err := s.DB.GetPreprocessingTemplate(context.Background(), id)
 	if err != nil {
@@ -278,7 +266,7 @@ func (s *local) LoadPreprocessingTemplate(
 		return nil, nil, ErrDatabaseRead
 	}
 
-	tmpl := &dto.PreprocessingTemplate{}
+	tmpl := &dto.PreprocessTemplate{}
 	if err := json.Unmarshal([]byte(record.Json), tmpl); err != nil {
 		return nil, nil, ErrDeserializing
 	}

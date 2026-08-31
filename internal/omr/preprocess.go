@@ -18,7 +18,7 @@ const TolerableAspectRatioDifference = 0.10
 // [ErrMatTypeMismatch], [ErrEmptyMat], [ErrOpenCV], or
 // [ErrIncompatibleAspect].
 func Preprocess(
-	template PreprocessingTemplate,
+	template PreprocessTemplate,
 	pages []Mat,
 ) ([]Mat, error) {
 
@@ -124,7 +124,7 @@ outer:
 // A template used to inform the preprocessing steps. This template describes
 // the "target" scan; i.e., the shape and size of the desired scan. The
 // coordinates used for anchors are relative to the target scan.
-type PreprocessingTemplate struct {
+type PreprocessTemplate struct {
 	Width  uint // The width of the target scan.
 	Height uint // The height of the target scan.
 
@@ -140,11 +140,11 @@ type PreprocessingTemplate struct {
 	// The configuration used during the search for anchors. Leaving this empty
 	// should be fine, though it can be fine-tuned to yield performance
 	// improvements.
-	AnchorSearchConfig *FindAnchorConfig
+	AnchorSearchConfig FindAnchorConfig
 }
 
 // Closes all matrices used by this template.
-func (p PreprocessingTemplate) Close() {
+func (p PreprocessTemplate) Close() {
 	for i := range p.Anchors {
 		for j := range p.Anchors[i] {
 			p.Anchors[i][j].Close()
@@ -155,24 +155,24 @@ func (p PreprocessingTemplate) Close() {
 // Returns true if and only if the given matrix's aspect ratio is close to the
 // template's (the maximum difference is set by
 // [TolerableAspectRatioDifference]).
-func (p PreprocessingTemplate) AspectRatioIsTolerable(m Mat) bool {
+func (p PreprocessTemplate) AspectRatioIsTolerable(m Mat) bool {
 	return math.Abs(m.Aspect()-p.Aspect()) <= TolerableAspectRatioDifference
 }
 
 // Returns the number of pages expected by the template.
-func (p PreprocessingTemplate) PageCount() int {
+func (p PreprocessTemplate) PageCount() int {
 	return len(p.Anchors)
 }
 
 // Returns the aspect ratio (width : height) of the template.
-func (p PreprocessingTemplate) Aspect() float64 {
+func (p PreprocessTemplate) Aspect() float64 {
 	return float64(p.Width) / float64(p.Height)
 }
 
 // Visualizes a preprocessing template as an image.
 //
 // If an error is returned, it will be [ErrEncoding] or [ErrIndexOutOfBounds].
-func (p PreprocessingTemplate) Image(pageIdx uint) (image.Image, error) {
+func (p PreprocessTemplate) Image(pageIdx uint) (image.Image, error) {
 
 	r := image.Rect(0, 0, int(p.Width), int(p.Height))
 	img := image.NewGray(r)
@@ -198,7 +198,7 @@ func (p PreprocessingTemplate) Image(pageIdx uint) (image.Image, error) {
 // Returns the anchor locations in terms of the template's coordinates. The
 // returned positions mark the centers of the anchors, not their top-left
 // corners.
-func (p PreprocessingTemplate) AnchorCenters() [][]image.Point {
+func (p PreprocessTemplate) AnchorCenters() [][]image.Point {
 	out := make([][]image.Point, len(p.Anchors))
 	for i := range p.Anchors {
 		out[i] = make([]image.Point, len(p.Anchors[i]))
@@ -227,16 +227,16 @@ func pointsToPoint2f(points []image.Point) gocv.Point2fVector {
 // If an error is returned, it will be [ErrOpenCV].
 func ScalePreprocessingTemplate(
 	method FitMethod,
-	src PreprocessingTemplate,
+	src PreprocessTemplate,
 	targetWidth, targetHeight uint,
-) (PreprocessingTemplate, error) {
+) (PreprocessTemplate, error) {
 
 	targetWidth, targetHeight = FittedBounds(
 		src.Width, src.Height, targetWidth, targetHeight, method,
 	)
 	scaled, err := scalePreprocessingTemplateTo(src, targetWidth, targetHeight)
 	if err != nil {
-		return PreprocessingTemplate{}, ErrOpenCV
+		return PreprocessTemplate{}, ErrOpenCV
 	}
 
 	return scaled, nil
@@ -248,10 +248,10 @@ func ScalePreprocessingTemplate(
 //
 // If an error is returned, it will be [ErrOpenCV].
 func scalePreprocessingTemplateTo(
-	src PreprocessingTemplate,
+	src PreprocessTemplate,
 	width, height uint,
 ) (
-	PreprocessingTemplate,
+	PreprocessTemplate,
 	error,
 ) {
 	var (
@@ -259,7 +259,7 @@ func scalePreprocessingTemplateTo(
 		scaleY = float64(height) / float64(src.Height)
 	)
 
-	scaled := PreprocessingTemplate{
+	scaled := PreprocessTemplate{
 		Width:               width,
 		Height:              height,
 		MinAnchorConfidence: src.MinAnchorConfidence,
@@ -280,7 +280,7 @@ func scalePreprocessingTemplateTo(
 			)
 			if err != nil {
 				scaled.Close()
-				return PreprocessingTemplate{}, ErrOpenCV
+				return PreprocessTemplate{}, ErrOpenCV
 			}
 
 			scaled.Anchors[i][j] = scaledAnchor

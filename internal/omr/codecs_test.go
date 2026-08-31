@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"io"
 	"os"
+	"reflect"
 	"testing"
 
 	"gocv.io/x/gocv"
@@ -144,7 +145,7 @@ func TestBase64(t *testing.T) {
 		)
 	})
 
-	t.Run("decode-encode is stable", func(t *testing.T) {
+	t.Run("codec is stable", func(t *testing.T) {
 		r, err := os.Open("testdata/input/sample_image.png")
 		assert.Assert(t, err == nil)
 		defer r.Close()
@@ -183,6 +184,49 @@ func TestEncodeDecodeM4t(t *testing.T) {
 		defer mat2.Close()
 
 		assert.Assert(t, Equal(mat1, mat2))
+	})
+}
+
+func TestEncodeDecodeMarkTemplate(t *testing.T) {
+	t.Run("codec is stable", func(t *testing.T) {
+		original := getSampleMarkTemplate()
+		buf := bytes.Buffer{}
+
+		err := EncodeMarkTemplate(&buf, original)
+		assert.Assert(t, err == nil)
+		t.Log("stored size", buf.Len())
+
+		decoded, err := DecodeMarkTemplate(&buf)
+		assert.Assert(t, err == nil)
+
+		assert.Assert(t, reflect.DeepEqual(decoded, original))
+	})
+}
+
+func TestEncodeDecodePreprocessTemplate(t *testing.T) {
+	t.Run("codec is stable", func(t *testing.T) {
+		original, err := getSampleTemplate()
+		assert.Assert(t, err == nil)
+
+		buf := bytes.Buffer{}
+		err = EncodePreprocessTemplate(&buf, original)
+		assert.Assert(t, err == nil)
+		t.Log("stored size", buf.Len())
+
+		decoded, err := DecodePreprocessTemplate(&buf)
+		assert.Assert(t, err == nil)
+
+		assert.Assert(t, reflect.DeepEqual(
+			decoded.AnchorSearchConfig,
+			original.AnchorSearchConfig,
+		))
+		for i := range original.Anchors {
+			for j := range original.Anchors[i] {
+				a, b := original.Anchors[i][j], decoded.Anchors[i][j]
+				assert.Assert(t, Equal(a.Mat, b.Mat))
+				assert.Assert(t, a.Pos == b.Pos)
+			}
+		}
 	})
 }
 
@@ -262,4 +306,36 @@ func BenchmarkM4t(b *testing.B) {
 		}
 	})
 
+}
+
+func BenchmarkMarkTemplateCodec(b *testing.B) {
+	var (
+		original = getSampleMarkTemplate()
+		encoded  = bytes.Buffer{}
+	)
+	EncodeMarkTemplate(&encoded, original)
+
+	b.Run("encode to new buffer", func(b *testing.B) {
+		EncodeMarkTemplate(&bytes.Buffer{}, original)
+	})
+
+	b.Run("decode", func(b *testing.B) {
+		DecodeMarkTemplate(bytes.NewReader(encoded.Bytes()))
+	})
+}
+
+func BenchmarkPreprocessTemplateCodec(b *testing.B) {
+	original, err := getSampleTemplate()
+	assert.Assert(b, err == nil)
+
+	encoded := bytes.Buffer{}
+	EncodePreprocessTemplate(&encoded, original)
+
+	b.Run("encode to new buffer", func(b *testing.B) {
+		EncodePreprocessTemplate(&bytes.Buffer{}, original)
+	})
+
+	b.Run("decode", func(b *testing.B) {
+		DecodePreprocessTemplate(bytes.NewReader(encoded.Bytes()))
+	})
 }

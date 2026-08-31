@@ -15,26 +15,26 @@ import (
 // Helpers
 //
 
-func getSampleTemplate() (PreprocessingTemplate, error) {
+func getSampleTemplate() (PreprocessTemplate, error) {
 
-	tmpl := PreprocessingTemplate{}
+	tmpl := PreprocessTemplate{}
 	tmpl.Width = 1952
 	tmpl.Height = 2496
 	tmpl.MinAnchorConfidence = 0.50
 
 	ancMat0, err := getTestAnchor0Mat()
 	if err != nil {
-		return PreprocessingTemplate{}, err
+		return PreprocessTemplate{}, err
 	}
 
 	ancMat1, err := getTestAnchor1Mat()
 	if err != nil {
-		return PreprocessingTemplate{}, err
+		return PreprocessTemplate{}, err
 	}
 
 	ancMat2, err := getTestAnchor2Mat()
 	if err != nil {
-		return PreprocessingTemplate{}, err
+		return PreprocessTemplate{}, err
 	}
 
 	tmpl.Anchors = make([][]Anchor, 1)
@@ -61,10 +61,11 @@ func getSampleTemplate() (PreprocessingTemplate, error) {
 		},
 	}
 
-	tmpl.AnchorSearchConfig = &FindAnchorConfig{
+	tmpl.AnchorSearchConfig = FindAnchorConfig{
 		MaxQuality:         0.85,
 		SearchAreaPadding:  .10,
 		AngleSearchBreadth: rad(10),
+		InitialAngle:       0,
 	}
 
 	return tmpl, nil

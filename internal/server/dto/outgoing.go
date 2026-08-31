@@ -1,7 +1,9 @@
 package dto
 
 import (
-	"github.com/Chad-Glazier/aperture-omr/internal/marker"
+	"errors"
+
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
 )
 
@@ -15,36 +17,22 @@ type ScanResult struct {
 }
 
 type ScanError struct {
-	// The starting page (1-based) of the PDF where the error occurred.
-	From uint `json:"from"`
-	// The ending page (1-based; inclusive) of the PDF where the error
-	// occurred.
-	Thru uint `json:"thru"`
+	// May contain metadata about the scan that was attached during a
+	// preprocessing pipeline.
+	Metadata map[string]string `json:"metadata"`
 	// The error message. This is meant for debugging, not for end-users.
 	Debug string `json:"debug"`
 }
 
-// Makes a new ScanResult struct. All zero-values from the given slices will
-// be omitted.
-func NewScanResult(scanIds []string, errors []*ScanError) ScanResult {
-
-	ids := make([]string, 0, len(scanIds))
-	errs := make([]ScanError, 0, len(errors))
-
-	for _, scanId := range scanIds {
-		if scanId != "" {
-			ids = append(ids, scanId)
-		}
-	}
-	for _, err := range errors {
-		if err != nil {
-			errs = append(errs, *err)
-		}
+func AdaptScanError(pages omr.PageSet) ScanError {
+	err := pages.Error()
+	if pages.Error() == nil {
+		err = errors.New("unspecified error")
 	}
 
-	return ScanResult{
-		ScanIds: ids,
-		Errors:  errs,
+	return ScanError{
+		Metadata: pages.Metadata(),
+		Debug:    err.Error(),
 	}
 }
 
@@ -52,66 +40,51 @@ func NewScanResult(scanIds []string, errors []*ScanError) ScanResult {
 // MarkingResult
 //
 
-type MarkingResult struct {
-	PagesMarked int            `json:"pagesMarked"`
-	TemplateId  string         `json:"templateId"`
-	Scans       []Scan         `json:"scans"`
-	Errors      []MarkingError `json:"errors"`
+type MarkResult struct {
+	Results []ScanMarks    `json:"results"`
+	Errors  []MarkingError `json:"errors"`
 }
+
+type ScanMarks struct {
+	ScanId    string    `json:"scanId"`
+	Questions Questions `json:"questions"`
+}
+
+// Question ID |-> marked bubbles
+type Questions map[string]MarkedBubbles
+
+// Marked bubble ID |-> confidence
+type MarkedBubbles map[string]float64
 
 type MarkingError struct {
 	ScanId string `json:"scanId"`
-	// The error message. This is meant for debugging, not for end-users.
-	Debug string `json:"debug"`
+	Debug  string `json:"debug"`
 }
 
-type Scan struct {
-	ScanId string `json:"scanId"`
-	Marks  []Mark `json:"marks"`
-}
+// Converts an [omr.MarkResult] struct to an equivalent [ScanMarks]
+// representation.
+func AdaptScanMarks(scanId string, marks omr.MarkResult) ScanMarks {
+	var out ScanMarks
 
-type Mark struct {
-	QuestionId string   `json:"questionId"`
-	Flagged    bool     `json:"flagged"`
-	Selected   []string `json:"selected"`
-	Confidence float64  `json:"confidence"`
-}
-
-func NewMarkingResult(
-	templateId string,
-	pagesPerScan int,
-	scans []Scan,
-	errs []*MarkingError,
-) MarkingResult {
-	successfulScans := make([]Scan, 0, len(scans))
-	errors := make([]MarkingError, 0, len(errs))
-
-	for i := range scans {
-		if errs[i] != nil {
-			errors = append(errors, *errs[i])
-			continue
+	out.ScanId = scanId
+	out.Questions = make(Questions)
+	for _, p := range marks.Pages {
+		for _, q := range p.Questions {
+			out.Questions[q.Id] = make(MarkedBubbles)
+			for _, b := range q.SelectedBubbles {
+				out.Questions[q.Id][b.Id] = b.Confidence
+			}
 		}
-		successfulScans = append(successfulScans, scans[i])
 	}
 
-	return MarkingResult{
-		PagesMarked: len(successfulScans) * pagesPerScan,
-		TemplateId:  templateId,
-		Scans:       successfulScans,
-		Errors:      errors,
-	}
+	return out
 }
 
-func AdaptMark(a *marker.Answer) Mark {
-
-	var m Mark
-	m.Flagged = a.Flag
-	m.QuestionId = a.QuestionID
-	m.Selected = a.Selected
-	copy(m.Selected, a.Selected)
-	m.Confidence = a.Confidence
-
-	return m
+func AdaptMarkingError(scanId string, err error) MarkingError {
+	return MarkingError{
+		ScanId: scanId,
+		Debug:  err.Error(),
+	}
 }
 
 //

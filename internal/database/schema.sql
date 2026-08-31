@@ -1,19 +1,11 @@
 CREATE TABLE IF NOT EXISTS marking_templates (
     id TEXT PRIMARY KEY,
-    json BLOB NOT NULL
+    bytes BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS preprocessing_templates (
     id TEXT PRIMARY KEY,
-    json TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS anchors (
-    id TEXT PRIMARY KEY,
-    template_id TEXT NOT NULL,
-    page_index INT NOT NULL,
-    anchor_index INT NOT NULL,
-    FOREIGN KEY(template_id) REFERENCES preprocessing_templates(id)
+    bytes BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS scans (
@@ -24,7 +16,7 @@ CREATE TABLE IF NOT EXISTS scans (
 );
 
 CREATE TABLE IF NOT EXISTS scan_pages (
-    id TEXT PRIMARY KEY,
+    matrix_key TEXT PRIMARY KEY,
     picture_key TEXT NOT NULL,
     page_index INT NOT NULL,
     scan_id TEXT NOT NULL,

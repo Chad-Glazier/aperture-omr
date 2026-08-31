@@ -56,7 +56,7 @@ func ForEach(
 			}()
 
 			for pageSet := range in {
-				
+
 				if err := pageSet.Error(); err != nil {
 					out <- pageSet
 					continue
@@ -98,7 +98,7 @@ func ForEach(
 //
 // If an error is returned, it will be [ErrCouldNotCalibrate] or [ErrOpenCV].
 func PreprocessStream(
-	template PreprocessingTemplate,
+	template PreprocessTemplate,
 	parallelism uint,
 	pageStream <-chan PageSet,
 ) (<-chan PageSet, error) {
@@ -158,7 +158,7 @@ func PreprocessStream(
 	return out, nil
 }
 
-func preprocessSet(template PreprocessingTemplate, set PageSet) PageSet {
+func preprocessSet(template PreprocessTemplate, set PageSet) PageSet {
 	if err := set.Error(); err != nil {
 		return set
 	}

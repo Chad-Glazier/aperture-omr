@@ -105,9 +105,9 @@ func RenderPageBlocks(
 				mats, err := renderPages(doc.doc, dpi, startIdx, blockSize)
 				if err != nil {
 					out <- pageBlock{
-						from:  block.from,
-						thru:  block.thru,
-						err:   err,
+						from: block.from,
+						thru: block.thru,
+						err:  err,
 					}
 					continue
 				}

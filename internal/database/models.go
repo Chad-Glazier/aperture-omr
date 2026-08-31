@@ -4,21 +4,14 @@
 
 package database
 
-type Anchor struct {
-	ID          string
-	TemplateID  string
-	PageIndex   int64
-	AnchorIndex int64
-}
-
 type MarkingTemplate struct {
-	ID   string
-	Json []byte
+	ID    string
+	Bytes []byte
 }
 
 type PreprocessingTemplate struct {
-	ID   string
-	Json string
+	ID    string
+	Bytes []byte
 }
 
 type Scan struct {
@@ -28,7 +21,7 @@ type Scan struct {
 }
 
 type ScanPage struct {
-	ID         string
+	MatrixKey  string
 	PictureKey string
 	PageIndex  int64
 	ScanID     string

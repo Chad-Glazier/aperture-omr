@@ -10,9 +10,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
-
-	"gocv.io/x/gocv"
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 )
 
 var (
@@ -38,13 +36,13 @@ type ServerResources interface {
 	//
 	// If an error is returned, it will be [ErrDatabaseWrite] or
 	// [ErrSeializing].
-	SaveMarkingTemplate(tmpl *dto.MarkingTemplate) (string, error)
+	SaveMarkingTemplate(tmpl omr.MarkTemplate) (string, error)
 
 	// Loads a marking template and returns the new ID for it.
 	//
 	// If an error is returned, it will be [ErrNotFound],
 	// [ErrDatabaseRead], or [ErrDeserializing].
-	LoadMarkingTemplate(id string) (*dto.MarkingTemplate, error)
+	LoadMarkingTemplate(id string) (omr.MarkTemplate, error)
 
 	// Deletes a marking template. Redundant calls are safe.
 	DeleteMarkingTemplate(id string)
@@ -53,7 +51,7 @@ type ServerResources interface {
 	//
 	// If an error is returned, it will be [ErrDecodingImage],
 	// [ErrDatabaseWrite], or [ErrFileStorageWrite].
-	SavePreprocessingTemplate(tmpl *dto.PreprocessingTemplate) (string, error)
+	SavePreprocessingTemplate(tmpl omr.PreprocessTemplate) (string, error)
 
 	// Loads a preprocessing template and returns the ID for it. In the
 	// returned set of matrices, the element [i][j] is the i-th oage's j-th
@@ -61,34 +59,25 @@ type ServerResources interface {
 	//
 	// If an error is returned, it will be [ErrNotFound],
 	// [ErrDatabaseRead], or [ErrDeserializing].
-	LoadPreprocessingTemplate(id string) (
-		*dto.PreprocessingTemplate,
-		[][]gocv.Mat,
-		error,
-	)
+	LoadPreprocessingTemplate(id string) (omr.PreprocessTemplate, error)
 
 	// Deletes a preprocessing template and its anchors. Redundant calls are
 	// safe.
 	DeletePreprocessingTemplate(id string)
 
-	// Saves a preprocessed scan via two slices of matrices: the first
-	// represents the binarized images we will use for marking, and the second
-	// represents the grayscaled image we will use to make human-readable
-	// snippets. The template ID refers to the preprocessing template used to
-	// produce these scans.
+	// Saves a preprocessed scan's pages.
 	//
 	// If an error is returned, it will be [ErrDatabaseWrite],
 	// [ErrFileStorageWrite], or [ErrEncodingImage].
 	SaveScan(
-		pages []gocv.Mat,
-		pagePictures []gocv.Mat,
+		pages []omr.Mat,
 		templateId string,
 	) (string, error)
 
 	// Loads a preprocessed scan's binarized pages.
 	//
 	// If an error is returned, it will be [ErrNotFound] or [ErrDatabaseRead].
-	LoadScan(scanId string) ([]gocv.Mat, error)
+	LoadScan(scanId string) ([]omr.Mat, error)
 
 	// Deletes a scan and its pages. Redundant calls are safe.
 	DeleteScan(scanId string)
@@ -101,7 +90,7 @@ type ServerResources interface {
 	//
 	// If an error is returned, it will be [ErrDatabaseRead], [ErrNotFound], or
 	// [ErrFileStorageRead].
-	LoadScanPicture(scanId string, pageIdx uint) (image.Image, error)
+	LoadScanImage(scanId string, pageIdx uint) (image.Image, error)
 
 	// Opens a scan picture for reading.
 	//

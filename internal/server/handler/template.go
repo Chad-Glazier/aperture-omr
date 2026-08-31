@@ -61,7 +61,7 @@ func DeleteMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
 func PostPreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessingTemplate](
+		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessTemplate](
 			w, r, MaxSizePreprocessingTemplate,
 		)
 		if !ok {

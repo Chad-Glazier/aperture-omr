@@ -61,7 +61,7 @@ func postCanonicalPreprocessingTemplate(
 	)
 	assert.Assert(t, err == nil)
 
-	var templ dto.PreprocessingTemplate
+	var templ dto.PreprocessTemplate
 	err = json.Unmarshal(data, &templ)
 	assert.Assert(t, err == nil)
 

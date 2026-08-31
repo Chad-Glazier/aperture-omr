@@ -1,6 +1,6 @@
 -- name: CreateMarkingTemplate :exec
 INSERT INTO
-    marking_templates (id, json)
+    marking_templates (id, bytes)
 VALUES
     (?, ?);
 
@@ -20,7 +20,7 @@ WHERE
 
 -- name: CreatePreprocessingTemplate :exec
 INSERT INTO
-    preprocessing_templates (id, json)
+    preprocessing_templates (id, bytes)
 VALUES
     (?, ?);
 
@@ -38,50 +38,6 @@ DELETE FROM
 WHERE
     id = ?;
 
--- name: CreateAnchor :exec
-INSERT INTO
-    anchors (
-        id,
-        template_id,
-        page_index,
-        anchor_index
-    )
-VALUES
-    (?, ?, ?, ?);
-
--- name: CountAnchors :one
-SELECT
-    count(*)
-FROM
-    anchors;
-
--- name: GetAnchorsForTemplate :many
-SELECT
-    *
-FROM
-    anchors
-WHERE
-    template_id = ?
-ORDER BY
-    page_index ASC,
-    anchor_index ASC;
-
--- name: GetOneAnchorForTemplate :one
-SELECT
-    *
-FROM
-    anchors
-WHERE
-    template_id = ?
-    AND page_index = ?
-    AND anchor_index = ?;
-
--- name: DeleteAnchorsForTemplate :execrows
-DELETE FROM
-    anchors
-WHERE
-    template_id = ?;
-
 -- name: CreateScan :exec
 INSERT INTO
     scans (id, preprocessing_template_id, created_at_unix_ms)
@@ -90,7 +46,7 @@ VALUES
 
 -- name: CreateScanPage :exec
 INSERT INTO
-    scan_pages (id, picture_key, page_index, scan_id)
+    scan_pages (matrix_key, picture_key, page_index, scan_id)
 VALUES
     (?, ?, ?, ?);
 

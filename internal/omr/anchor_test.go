@@ -227,7 +227,7 @@ func TestFindAnchors(t *testing.T) {
 			rotatedPage,
 			tmpl.Anchors[0],
 			0.95,
-			&FindAnchorConfig{
+			FindAnchorConfig{
 				MaxQuality:        0.95,
 				SearchAreaPadding: 0.10,
 			},
@@ -648,13 +648,13 @@ func BenchmarkFindAnchors(b *testing.B) {
 
 	b.Run("unrotated with good initial guess", func(b *testing.B) {
 		for b.Loop() {
-			FindAnchors(page, tmpl.Anchors[0], 0.85, &conf)
+			FindAnchors(page, tmpl.Anchors[0], 0.85, conf)
 		}
 	})
 
 	b.Run("rotated with bad initial guess", func(b *testing.B) {
 		for b.Loop() {
-			FindAnchors(rotated, tmpl.Anchors[0], 0.85, &conf)
+			FindAnchors(rotated, tmpl.Anchors[0], 0.85, conf)
 		}
 	})
 
@@ -662,7 +662,7 @@ func BenchmarkFindAnchors(b *testing.B) {
 		conf := conf
 		conf.InitialAngle = rad(-1.23)
 		for b.Loop() {
-			FindAnchors(rotated, tmpl.Anchors[0], 0.85, &conf)
+			FindAnchors(rotated, tmpl.Anchors[0], 0.85, conf)
 		}
 	})
 }

@@ -62,8 +62,8 @@ type GetImageQuery struct {
 func (g GetImageQuery) Validate() error { return nil }
 
 type PostScanPdfQuery struct {
-	PreprocessingTemplate string
-	Dpi                   uint `default:"300"`
+	PreprocessTemplate string
+	Dpi                uint `default:"300"`
 }
 
 func (p PostScanPdfQuery) Validate() error {
