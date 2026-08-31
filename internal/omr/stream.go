@@ -47,8 +47,8 @@ func ForEach(
 		threads atomic.Int32
 	)
 	for range parallelism {
+		threads.Add(1)
 		go func() {
-			threads.Add(1)
 			defer func() {
 				if threads.Add(-1) == 0 {
 					close(out)
@@ -84,6 +84,14 @@ func ForEach(
 	return out
 }
 
+// Simply closes all matrices as they are received from the given stream. This
+// function blocks until the stream is exhausted.
+func CloseAllInStream(pageStream <-chan PageSet) {
+	for set := range pageStream {
+		CloseAll(set.Pages())
+	}
+}
+
 // Preprocesses page sets as they are received from the given channel, sending
 // the results through the output channel. Importantly, all received matrices
 // will be closed by this function. Each input slice must have exactly as many
@@ -97,6 +105,8 @@ func ForEach(
 // error to its respective output. It will not stop the stream.
 //
 // If an error is returned, it will be [ErrCouldNotCalibrate] or [ErrOpenCV].
+// It will only err if the pipeline could not be calibrated; in that case, the
+// matrices from the input stream will still be closed as they are received.
 func PreprocessStream(
 	template PreprocessTemplate,
 	parallelism uint,
@@ -116,6 +126,7 @@ func PreprocessStream(
 	defer CloseAll(firstPages)
 
 	if len(firstPages) == 0 {
+		go CloseAllInStream(pageStream)
 		return nil, ErrCouldNotCalibrate
 	}
 
@@ -125,6 +136,7 @@ func PreprocessStream(
 		firstPages[0].Width(), firstPages[0].Height(),
 	)
 	if err != nil {
+		go CloseAllInStream(pageStream)
 		return nil, ErrOpenCV
 	}
 	defer template.Close()
@@ -140,8 +152,8 @@ func PreprocessStream(
 		threads atomic.Int32
 	)
 	for range parallelism {
+		threads.Add(1)
 		go func() {
-			threads.Add(1)
 			defer func() {
 				if threads.Add(-1) == 0 {
 					close(out)

@@ -3,18 +3,15 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"runtime"
 	"sync"
 	"sync/atomic"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/Chad-Glazier/aperture-omr/internal/pdf"
-	"github.com/Chad-Glazier/aperture-omr/internal/scanner"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/mw"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"github.com/Chad-Glazier/aperture-omr/internal/sys"
-
-	"gocv.io/x/gocv"
 )
 
 const (
@@ -53,7 +50,7 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 		// Load the resources.
 		//
 
-		pTempl, anchors, err := s.LoadPreprocessingTemplate(q.PreprocessTemplate)
+		tmpl, err := s.LoadPreprocessingTemplate(q.PreprocessTemplate)
 		if err != nil {
 			http.Error(w,
 				"no template with ID "+q.PreprocessTemplate+" was found",
@@ -61,32 +58,16 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 			)
 			return
 		}
-		for i := range anchors {
-			for j := range anchors[i] {
-				defer anchors[i][j].Close()
-			}
-		}
-
-		scannerTmpl, err := dto.AdaptScannerTemplate(pTempl, anchors)
-		if err != nil {
-			s.DeletePreprocessingTemplate(q.PreprocessTemplate)
-			http.Error(w,
-				"template "+q.PreprocessTemplate+" is corrupted",
-				http.StatusInternalServerError,
-			)
-			return
-		}
+		defer tmpl.Close()
 
 		//
 		// Start the PDF rendering.
 		//
 
-		pagesPerExam := uint(len(pTempl.Pages))
-
 		exams, nExams, err := pdf.RenderPageBlocks(
 			body,
 			q.Dpi,
-			pagesPerExam,
+			tmpl.PageCount(),
 			0,
 		)
 		switch err {
@@ -112,102 +93,60 @@ func PostScanPdf(s resources.ServerResources) mw.JobHandlerFunc {
 			return
 		}
 
-		j.SetNotes(
-			fmt.Sprintf("preprocessing %d pages", nExams*uint(pagesPerExam)),
-		)
+		j.SetNotes(fmt.Sprintf("preprocessing %d exams", nExams))
 
 		//
 		// Process the exam scans as they're rendered.
 		//
 
+		preprocessed, err := omr.PreprocessStream(tmpl, 4, exams)
+		if err != nil {
+			http.Error(w,
+				"error calibrating the preprocessing pipeline. It's likely "+
+					"that the first exam in the PDF was malformed",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
 		scanIds := make([]string, nExams)
-		errorMsgs := make([]*dto.ScanError, nExams)
+		errors := make([]dto.ScanError, nExams)
+		examsRendered := atomic.Int32{}
+		for exam := range preprocessed {
+			idx := examsRendered.Add(1) - 1
+			j.SetProgress(float64(idx+1) / float64(nExams))
 
-		examsRendered := atomic.Uint32{}
-		examIdx := atomic.Int32{}
-		semaphore := make(chan int, max(1, min(runtime.GOMAXPROCS(0)-1, 4)))
-
-		wg := sync.WaitGroup{}
-		for exam := range exams {
-			idx := examIdx.Add(1) - 1
-
-			if exam.Error != nil {
-				scanIds[idx] = ""
-				errorMsgs[idx] = &dto.ScanError{
-					From:  exam.From,
-					Thru:  exam.Thru,
-					Debug: exam.Error.Error(),
-				}
+			if exam.Error() != nil {
+				errors[idx] = dto.AdaptScanError(exam)
 				continue
 			}
 
-			wg.Go(func() {
-				semaphore <- 0
-				defer exam.Close()
-				defer func() {
-					<-semaphore
-					rendered := examsRendered.Add(1)
-					j.SetProgress(float64(rendered) / float64(nExams))
-				}()
-
-				result, err := scanner.ScanExamMats(exam.Pages, scannerTmpl)
-				if err != nil {
-					scanIds[idx] = ""
-					errorMsgs[idx] = &dto.ScanError{
-						From:  exam.From,
-						Thru:  exam.Thru,
-						Debug: err.Error(),
-					}
-					return
+			id, err := s.SaveScan(exam.Pages(), q.PreprocessTemplate)
+			if err != nil {
+				errors[idx] = dto.ScanError{
+					Metadata: exam.Metadata(),
+					Debug:    err.Error(),
 				}
-				exam.Close()
-				defer result.Close()
-
-				pictures := make([]gocv.Mat, pagesPerExam)
-				binarized := make([]gocv.Mat, pagesPerExam)
-				for i := range result.Pages {
-					binarized[i] = result.Pages[i].Binary
-					pictures[i] = result.Pages[i].Picture
-				}
-
-				scanId, err := s.SaveScan(
-					binarized,
-					pictures,
-					q.PreprocessTemplate,
-				)
-				if err != nil {
-					scanIds[idx] = ""
-					errorMsgs[idx] = &dto.ScanError{
-						From:  exam.From,
-						Thru:  exam.Thru,
-						Debug: err.Error(),
-					}
-					return
-				}
-
-				scanIds[idx] = scanId
-			})
+				continue
+			}
+			scanIds[idx] = id
 		}
-		wg.Wait()
+
 		j.SetProgress(1.0)
-		j.SetNotes(
-			fmt.Sprintf("preprocessed %d pages", nExams*uint(pagesPerExam)),
-		)
+		j.SetNotes(fmt.Sprintf("preprocessed %d exams", nExams))
 
 		//
 		// Send the response.
 		//
 
-		results := dto.NewScanResult(scanIds, errorMsgs)
+		results := dto.NewScanResult(scanIds, errors)
 
 		switch {
 		case len(results.ScanIds) == 0:
 			// The PDF was well-formed, but none of the scanned exams passed
 			// preprocessing.
-			http.Error(w,
-				"none of the scans passed preprocessing",
-				http.StatusUnprocessableEntity,
-			)
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			dto.SendJson(w, results)
 			return
 		case len(results.Errors) == 0:
 			// All scans were successfully preprocessed.

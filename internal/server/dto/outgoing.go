@@ -36,6 +36,30 @@ func AdaptScanError(pages omr.PageSet) ScanError {
 	}
 }
 
+// Creates a new [ScanResult] struct that omits all zero-valued elements of the
+// input slices.
+func NewScanResult(scanIds []string, errors []ScanError) ScanResult {
+	
+	filteredScanIds := make([]string, 0, len(scanIds))
+	for _, s := range scanIds {
+		if s != "" {
+			filteredScanIds = append(filteredScanIds, s)
+		}
+	}
+
+	filteredErrors := make([]ScanError, 0, len(errors))
+	for _, e := range errors {
+		if e.Metadata != nil || e.Debug != "" {
+			filteredErrors = append(filteredErrors, e)
+		}
+	}
+
+	return ScanResult{
+		ScanIds: filteredScanIds,
+		Errors: filteredErrors,
+	}
+}
+
 //
 // MarkingResult
 //

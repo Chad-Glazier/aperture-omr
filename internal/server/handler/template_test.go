@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"bytes"
 	"embed"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -56,38 +54,18 @@ func postCanonicalPreprocessingTemplate(
 ) string {
 	t.Helper()
 
-	data, err := testData.ReadFile(
+	body, err := testData.Open(
 		"testdata/preprocessing_templates/canonical.json",
 	)
 	assert.Assert(t, err == nil)
 
-	var templ dto.PreprocessTemplate
-	err = json.Unmarshal(data, &templ)
-	assert.Assert(t, err == nil)
-
-	anchorData, err := testData.ReadFile(
-		"testdata/preprocessing_templates/canonical_anchor.jpeg",
-	)
-	assert.Assert(t, err == nil)
-
-	anchor := base64.StdEncoding.EncodeToString(anchorData)
-	for i := range templ.Pages {
-		for j := range templ.Pages[i].Anchors {
-			templ.Pages[i].Anchors[j].Image = anchor
-		}
-	}
-
-	bodyBytes, err := json.Marshal(templ)
-	assert.Assert(t, err == nil)
-
 	var (
-		r = httptest.NewRequest("POST", "/", bytes.NewReader(bodyBytes))
+		r = httptest.NewRequest("POST", "/", body)
 		w = httptest.NewRecorder()
 	)
 	r.Header.Set("Content-Type", "application/json")
 
 	PostPreprocessingTemplate(s).ServeHTTP(w, r)
-
 	assert.Assert(t, w.Result().StatusCode == http.StatusOK)
 
 	var respBody dto.IdResponse

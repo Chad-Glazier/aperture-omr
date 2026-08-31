@@ -18,15 +18,15 @@ const (
 
 func PostMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		tmpl, ok := dto.ParseJsonBody[*dto.MarkingTemplate](
+		
+		tmpl, ok := dto.ParseJsonBody[dto.MarkTemplate](
 			w, r, MaxSizeMarkingTemplate,
 		)
 		if !ok {
 			return
 		}
 
-		id, err := s.SaveMarkingTemplate(tmpl)
+		id, err := s.SaveMarkingTemplate(tmpl.Adapt())
 		if err != nil {
 			http.Error(
 				w, "error saving template: "+err.Error(),
@@ -60,15 +60,23 @@ func DeleteMarkingTemplate(s resources.ServerResources) http.HandlerFunc {
 
 func PostPreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		tmpl, ok := dto.ParseJsonBody[*dto.PreprocessTemplate](
+		tmpl, ok := dto.ParseJsonBody[dto.PreprocessTemplate](
 			w, r, MaxSizePreprocessingTemplate,
 		)
 		if !ok {
 			return
 		}
 
-		templateId, err := s.SavePreprocessingTemplate(tmpl)
+		omrTmpl, err := tmpl.Adapt()
+		if err != nil {
+			http.Error(
+				w, "error encoding template: "+err.Error(),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		templateId, err := s.SavePreprocessingTemplate(omrTmpl)
 		if err != nil {
 			http.Error(
 				w, "error saving template: "+err.Error(),
@@ -83,20 +91,12 @@ func PostPreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
 
 func DeletePreprocessingTemplate(s resources.ServerResources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		id := r.URL.Query().Get("id")
-		if id == "" {
-			http.Error(
-				w,
-				"id query parameter is missing",
-				http.StatusBadRequest,
-			)
+		q, ok := dto.ParseQuery[dto.IdQuery](w, r)
+		if !ok {
 			return
 		}
 
-		s.DeletePreprocessingTemplate(id)
-
+		s.DeletePreprocessingTemplate(q.Id)
 		w.WriteHeader(http.StatusOK)
-
 	}
 }

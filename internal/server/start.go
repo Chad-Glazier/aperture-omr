@@ -77,7 +77,6 @@ func setup(port string, globalKey string) *http.Server {
 	core.routes["DELETE /scan"] = handler.DeleteScan(s)
 	core.routes["POST /mark"] = j.SyncJob(handler.RequestMarks(s))
 	core.routes["POST /mark/async"] = j.AsyncJob(handler.RequestMarks(s))
-	core.routes["GET /image/snippet"] = handler.GetSnippet(s)
 	core.routes["GET /image"] = handler.GetImage(s)
 	core.routes["GET /job"] = j.Handler()
 	core.routes["GET /job/result"] = j.ResultHandler()

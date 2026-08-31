@@ -1,117 +1,43 @@
 {
   "width": 1200,
   "height": 1700,
-  "config": {
-    "blurSize": 3,
-    "morphCloseSize": 3,
-    "minAnchorConfidence": 0.5,
-    "adaptiveBlockSize": 91,
-    "adaptiveC": -5
+
+  "minAnchorConfidence": 0.75,
+  "anchorSearchConfig": {
+    "initialAngle": 0.0,
+    "angleSearchBreadth": 0.1745329,
+    "searchAreaPadding": 0.10,
+    "maxQuality": 0.85
   },
-  "pages": [
-    {
-      "anchors": [
-        {
-          "center": {
-            "X": 36,
-            "Y": 36
-          },
-          "roi": {
-            "Min": {
-              "X": 0,
-              "Y": 0
-            },
-            "Max": {
-              "X": 186,
-              "Y": 186
-            }
-          }
-        },
-        {
-          "center": {
-            "X": 1164,
-            "Y": 36
-          },
-          "roi": {
-            "Min": {
-              "X": 1014,
-              "Y": 0
-            },
-            "Max": {
-              "X": 1200,
-              "Y": 186
-            }
-          }
-        },
-        {
-          "center": {
-            "X": 36,
-            "Y": 1664
-          },
-          "roi": {
-            "Min": {
-              "X": 0,
-              "Y": 1514
-            },
-            "Max": {
-              "X": 186,
-              "Y": 1700
-            }
-          }
-        }
-      ]
-    },
-    {
-      "anchors": [
-        {
-          "center": {
-            "X": 36,
-            "Y": 36
-          },
-          "roi": {
-            "Min": {
-              "X": 0,
-              "Y": 0
-            },
-            "Max": {
-              "X": 186,
-              "Y": 186
-            }
-          }
-        },
-        {
-          "center": {
-            "X": 1164,
-            "Y": 36
-          },
-          "roi": {
-            "Min": {
-              "X": 1014,
-              "Y": 0
-            },
-            "Max": {
-              "X": 1200,
-              "Y": 186
-            }
-          }
-        },
-        {
-          "center": {
-            "X": 1164,
-            "Y": 1664
-          },
-          "roi": {
-            "Min": {
-              "X": 1014,
-              "Y": 1514
-            },
-            "Max": {
-              "X": 1200,
-              "Y": 1700
-            }
-          }
-        }
-      ]
-    }
+  
+  "anchors": [
+    [
+      { 
+        "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAAYABgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAkH/8QANhAAAQEGAgcECQUAAAAAAAAAAwIBBAUHExQGCAAREhYXNDUJFSM3GBkiJCgzNkFDRmNkhJT/2gAIAQEAAD8A1Sek9J45uJ4xHKJlEjMVwdBMHRBgpizFEwzsRwIEzUrdXZaWoInUQS0MYlSSPJBqSlSHYZjEep3lZ9XcfZq8Sepb037t1z5neFOlccx4uzc1PtW2vE0SLnpPHKPPGHZRM3cZiuMYJjGINFLqYpWGeSP5DGYlDq8rU1ZFayFQhrFKUR2IRKVKW7ECYbsd/Kyae93mTxAet6e8uucsGnfVPeOYv9VX8lzq9qppNX4yfTJ/VfpC7wft3l5T/wA9nb/1bX+PpSrtiPKyVm6PmTxAdd1u7eucsapY0/eOYsNdL8ltr9qnonpIueOUeeMRzd5RINFcYwTGMQYWYsuhNM8kfyGM1S3p2QliyK1kKtbGpSojsQilJSt2IYI3riJWfSPAKavEnpu61g7dc+X3fUq3HMeFtW1T70drw9Ei5FzxzcTxh2bvN3Borg6CYOiDSy6l0VpnYjgQJmKQ9PKFMQROogkLa1SUkeSDSpSUOwwhJ//Z",
+        "x": 0.020000, "y": 0.014118
+      },
+      { 
+        "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAAYABgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAkH/8QANhAAAQEGAgcECQUAAAAAAAAAAwIBBAUHExQGCAAREhYXNDUJFSM3GBkiJCgzNkFDRmNkhJT/2gAIAQEAAD8A1Sek9J45uJ4xHKJlEjMVwdBMHRBgpizFEwzsRwIEzUrdXZaWoInUQS0MYlSSPJBqSlSHYZjEep3lZ9XcfZq8Sepb037t1z5neFOlccx4uzc1PtW2vE0SLnpPHKPPGHZRM3cZiuMYJjGINFLqYpWGeSP5DGYlDq8rU1ZFayFQhrFKUR2IRKVKW7ECYbsd/Kyae93mTxAet6e8uucsGnfVPeOYv9VX8lzq9qppNX4yfTJ/VfpC7wft3l5T/wA9nb/1bX+PpSrtiPKyVm6PmTxAdd1u7eucsapY0/eOYsNdL8ltr9qnonpIueOUeeMRzd5RINFcYwTGMQYWYsuhNM8kfyGM1S3p2QliyK1kKtbGpSojsQilJSt2IYI3riJWfSPAKavEnpu61g7dc+X3fUq3HMeFtW1T70drw9Ei5FzxzcTxh2bvN3Borg6CYOiDSy6l0VpnYjgQJmKQ9PKFMQROogkLa1SUkeSDSpSUOwwhJ//Z",
+        "x": 0.960000, "y": 0.014118
+      },
+      { 
+        "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAAYABgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAkH/8QANhAAAQEGAgcECQUAAAAAAAAAAwIBBAUHExQGCAAREhYXNDUJFSM3GBkiJCgzNkFDRmNkhJT/2gAIAQEAAD8A1Sek9J45uJ4xHKJlEjMVwdBMHRBgpizFEwzsRwIEzUrdXZaWoInUQS0MYlSSPJBqSlSHYZjEep3lZ9XcfZq8Sepb037t1z5neFOlccx4uzc1PtW2vE0SLnpPHKPPGHZRM3cZiuMYJjGINFLqYpWGeSP5DGYlDq8rU1ZFayFQhrFKUR2IRKVKW7ECYbsd/Kyae93mTxAet6e8uucsGnfVPeOYv9VX8lzq9qppNX4yfTJ/VfpC7wft3l5T/wA9nb/1bX+PpSrtiPKyVm6PmTxAdd1u7eucsapY0/eOYsNdL8ltr9qnonpIueOUeeMRzd5RINFcYwTGMQYWYsuhNM8kfyGM1S3p2QliyK1kKtbGpSojsQilJSt2IYI3riJWfSPAKavEnpu61g7dc+X3fUq3HMeFtW1T70drw9Ei5FzxzcTxh2bvN3Borg6CYOiDSy6l0VpnYjgQJmKQ9PKFMQROogkLa1SUkeSDSpSUOwwhJ//Z",
+        "x": 0.020000, "y": 0.971765
+      }
+    ],
+    [
+      { 
+        "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAAYABgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAkH/8QANhAAAQEGAgcECQUAAAAAAAAAAwIBBAUHExQGCAAREhYXNDUJFSM3GBkiJCgzNkFDRmNkhJT/2gAIAQEAAD8A1Sek9J45uJ4xHKJlEjMVwdBMHRBgpizFEwzsRwIEzUrdXZaWoInUQS0MYlSSPJBqSlSHYZjEep3lZ9XcfZq8Sepb037t1z5neFOlccx4uzc1PtW2vE0SLnpPHKPPGHZRM3cZiuMYJjGINFLqYpWGeSP5DGYlDq8rU1ZFayFQhrFKUR2IRKVKW7ECYbsd/Kyae93mTxAet6e8uucsGnfVPeOYv9VX8lzq9qppNX4yfTJ/VfpC7wft3l5T/wA9nb/1bX+PpSrtiPKyVm6PmTxAdd1u7eucsapY0/eOYsNdL8ltr9qnonpIueOUeeMRzd5RINFcYwTGMQYWYsuhNM8kfyGM1S3p2QliyK1kKtbGpSojsQilJSt2IYI3riJWfSPAKavEnpu61g7dc+X3fUq3HMeFtW1T70drw9Ei5FzxzcTxh2bvN3Borg6CYOiDSy6l0VpnYjgQJmKQ9PKFMQROogkLa1SUkeSDSpSUOwwhJ//Z",
+        "x": 0.020000, "y": 0.014118
+      },
+      { 
+        "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAAYABgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAkH/8QANhAAAQEGAgcECQUAAAAAAAAAAwIBBAUHExQGCAAREhYXNDUJFSM3GBkiJCgzNkFDRmNkhJT/2gAIAQEAAD8A1Sek9J45uJ4xHKJlEjMVwdBMHRBgpizFEwzsRwIEzUrdXZaWoInUQS0MYlSSPJBqSlSHYZjEep3lZ9XcfZq8Sepb037t1z5neFOlccx4uzc1PtW2vE0SLnpPHKPPGHZRM3cZiuMYJjGINFLqYpWGeSP5DGYlDq8rU1ZFayFQhrFKUR2IRKVKW7ECYbsd/Kyae93mTxAet6e8uucsGnfVPeOYv9VX8lzq9qppNX4yfTJ/VfpC7wft3l5T/wA9nb/1bX+PpSrtiPKyVm6PmTxAdd1u7eucsapY0/eOYsNdL8ltr9qnonpIueOUeeMRzd5RINFcYwTGMQYWYsuhNM8kfyGM1S3p2QliyK1kKtbGpSojsQilJSt2IYI3riJWfSPAKavEnpu61g7dc+X3fUq3HMeFtW1T70drw9Ei5FzxzcTxh2bvN3Borg6CYOiDSy6l0VpnYjgQJmKQ9PKFMQROogkLa1SUkeSDSpSUOwwhJ//Z",
+        "x": 0.960000, "y": 0.014118
+      },
+      { 
+        "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAAYABgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAkH/8QANhAAAQEGAgcECQUAAAAAAAAAAwIBBAUHExQGCAAREhYXNDUJFSM3GBkiJCgzNkFDRmNkhJT/2gAIAQEAAD8A1Sek9J45uJ4xHKJlEjMVwdBMHRBgpizFEwzsRwIEzUrdXZaWoInUQS0MYlSSPJBqSlSHYZjEep3lZ9XcfZq8Sepb037t1z5neFOlccx4uzc1PtW2vE0SLnpPHKPPGHZRM3cZiuMYJjGINFLqYpWGeSP5DGYlDq8rU1ZFayFQhrFKUR2IRKVKW7ECYbsd/Kyae93mTxAet6e8uucsGnfVPeOYv9VX8lzq9qppNX4yfTJ/VfpC7wft3l5T/wA9nb/1bX+PpSrtiPKyVm6PmTxAdd1u7eucsapY0/eOYsNdL8ltr9qnonpIueOUeeMRzd5RINFcYwTGMQYWYsuhNM8kfyGM1S3p2QliyK1kKtbGpSojsQilJSt2IYI3riJWfSPAKavEnpu61g7dc+X3fUq3HMeFtW1T70drw9Ei5FzxzcTxh2bvN3Borg6CYOiDSy6l0VpnYjgQJmKQ9PKFMQROogkLa1SUkeSDSpSUOwwhJ//Z",
+        "x": 0.960000, "y": 0.971765
+      }
+    ]
   ]
 }

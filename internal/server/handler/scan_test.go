@@ -34,7 +34,7 @@ func postCanonicalScan(
 		r = httptest.NewRequest("POST", "/", body)
 		w = httptest.NewRecorder()
 	)
-	r.URL.RawQuery = "preprocessingTemplate=" + preprocessingTemplateId
+	r.URL.RawQuery = "preprocessTemplate=" + preprocessingTemplateId
 	r.URL.RawQuery += "&dpi=250"
 	r.Header.Set("Content-Type", "application/pdf")
 
@@ -158,13 +158,16 @@ func TestPostScanPdf(t *testing.T) {
 				r = httptest.NewRequest("POST", "/", body)
 				w = httptest.NewRecorder()
 			)
-			r.URL.RawQuery = "preprocessingTemplate=" + test.templateId
+			r.URL.RawQuery = "preprocessTemplate=" + test.templateId
 			if test.dpi != "" {
 				r.URL.RawQuery += "&dpi=" + test.dpi
 			}
 			r.Header.Set("Content-Type", "application/pdf")
 
 			PostScanPdf(s).ServeHTTP(w, r)
+
+			t.Log(string(w.Body.Bytes()))
+
 			assert.Assert(t, w.Result().StatusCode == test.expectStatus)
 			if test.expectStatus >= 300 || test.expectStatus < 200 {
 				return

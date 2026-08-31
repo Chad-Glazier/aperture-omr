@@ -160,8 +160,8 @@ func (p PreprocessTemplate) AspectRatioIsTolerable(m Mat) bool {
 }
 
 // Returns the number of pages expected by the template.
-func (p PreprocessTemplate) PageCount() int {
-	return len(p.Anchors)
+func (p PreprocessTemplate) PageCount() uint {
+	return uint(len(p.Anchors))
 }
 
 // Returns the aspect ratio (width : height) of the template.

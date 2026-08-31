@@ -36,7 +36,7 @@ type MarkingJobRequest struct {
 	ScanIds    []string `json:"scans"`
 }
 
-func (m *MarkingJobRequest) Validate() error {
+func (m MarkingJobRequest) Validate() error {
 
 	switch {
 	case m.TemplateId == "":
@@ -62,8 +62,9 @@ type MarkTemplate struct {
 	Aspect            float64        `json:"aspectRatio"`
 	BubbleRadius      float64        `json:"bubbleRadius"`
 	MinimumConfidence float64        `json:"minimumConfidence"`
-	Pages             []Page         `json:"pages"`
 	Binarization      BinarizeConfig `json:"binarization"`
+
+	Pages []Page `json:"pages"`
 }
 
 func (m MarkTemplate) Validate() error {
@@ -176,7 +177,7 @@ func (b BinarizeConfig) Validate(prefix string) error {
 		return errors.New(prefix + " blurSize must be in the interval (0, 1]")
 	case b.BlockSize <= 0:
 		return errors.New(prefix + " blockSize must be greater than 0")
-	case b.MorphCloseSize <= 0, b.MorphCloseSize > 0:
+	case b.MorphCloseSize <= 0, b.MorphCloseSize > 1:
 		return errors.New(prefix + " morphCloseSize must be in the interval (0, 1]")
 	}
 
@@ -239,7 +240,7 @@ func (p PreprocessTemplate) Validate() error {
 
 	for i := range p.Anchors {
 		if len(p.Anchors[i]) < 3 {
-			return fmt.Errorf("page %: each page must have at least 3 anchors", i)
+			return fmt.Errorf("page %d: each page must have at least 3 anchors", i)
 		}
 
 		for j, a := range p.Anchors[i] {
@@ -311,7 +312,6 @@ func (p PreprocessTemplate) Adapt() (omr.PreprocessTemplate, error) {
 			mat, err := omr.DecodeBase64(a.Image)
 			switch err {
 			case nil:
-				break
 			case omr.ErrBase64Decoding:
 				return omr.PreprocessTemplate{}, ErrInvalidBase64
 			default:
