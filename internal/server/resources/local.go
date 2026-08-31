@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
-	"encoding/json"
 	"image"
 	"io"
 	"os"
@@ -16,7 +14,6 @@ import (
 	"github.com/Chad-Glazier/aperture-omr/internal/fstore"
 	"github.com/Chad-Glazier/aperture-omr/internal/omr"
 	"github.com/google/uuid"
-	"gocv.io/x/gocv"
 )
 
 //
@@ -136,209 +133,61 @@ func (s *local) DeleteMarkingTemplate(id string) {
 //
 
 func (s *local) SavePreprocessingTemplate(
-	tmpl *dto.PreprocessTemplate,
+	tmpl omr.PreprocessTemplate,
 ) (string, error) {
-
-	//
-	// The anchor images are base64-encoded in the template struct. We will
-	// decode them and convert them to preprocessed matrices before storing,
-	// since that makes future use of them more efficient. This also means that
-	// we do not need to keep their base64 versions inside of the JSON body
-	// when we store it, so we zero those fields before writing to the
-	// database.
-	//
-
-	binarizeConf := scanner.Config{
-		BlurSize:            tmpl.Config.BlurSize,
-		MorphCloseSize:      tmpl.Config.MorphCloseSize,
-		MinAnchorConfidence: float32(tmpl.Config.MinAnchorConfidence),
-		AdaptiveBlockSize:   tmpl.Config.AdaptiveBlockSize,
-		AdaptiveC:           float32(tmpl.Config.AdaptiveC),
-	}
-
-	anchors := make([][]gocv.Mat, len(tmpl.Pages))
-	for i := range tmpl.Pages {
-		anchors[i] = make([]gocv.Mat, len(tmpl.Pages[i].Anchors))
-		for j := range len(tmpl.Pages[i].Anchors) {
-
-			anchorBase64 := tmpl.Pages[i].Anchors[j].Image
-			tmpl.Pages[i].Anchors[j].Image = ""
-
-			buf, err := base64.StdEncoding.DecodeString(anchorBase64)
-			if err != nil {
-				return "", ErrDecodingImage
-			}
-
-			mat, err := gocv.IMDecode(buf, gocv.IMReadGrayScale)
-			if err != nil {
-				return "", ErrDecodingImage
-			}
-			defer mat.Close()
-
-			err = scanner.Binarize(&mat, &mat, binarizeConf)
-			if err != nil {
-				return "", ErrDecodingImage
-			}
-
-			anchors[i][j] = mat
-		}
-	}
-
-	//
-	// Now that we've prepared the matrices and the template, we can begin
-	// storing them.
-	//
-
-	templateId := uuid.New().String()
-	jsonStr, err := json.Marshal(tmpl)
+	buf := bytes.Buffer{}
+	err := omr.EncodePreprocessTemplate(&buf, tmpl)
 	if err != nil {
-		return "", ErrDatabaseWrite
+		return "", ErrSerializing
 	}
+
+	id := uuid.New().String()
 	err = s.DB.CreatePreprocessingTemplate(
 		context.Background(),
 		database.CreatePreprocessingTemplateParams{
-			ID:   templateId,
-			Json: string(jsonStr),
+			ID:    id,
+			Bytes: buf.Bytes(),
 		},
 	)
 	if err != nil {
 		return "", ErrDatabaseWrite
 	}
 
-	//
-	// Below, we implement a function that cleans up all resources that have
-	// been saved thus far in the operation. That way if there is a failure
-	// partway through we won't leave behind any mess in the persistent
-	// storage.
-	//
-
-	savedAnchors := make([]string, 0)
-	cleanupFailure := func() {
-		for _, key := range savedAnchors {
-			s.Mats.Delete(key)
-		}
-		s.DB.DeleteAnchorsForTemplate(context.Background(), templateId)
-		s.DB.DeletePreprocessingTemplate(context.Background(), templateId)
-	}
-
-	//
-	// Now, we save the anchors.
-	//
-
-	for i := range anchors {
-		for j, anchor := range anchors[i] {
-
-			id := uuid.New().String() + ".m4t"
-			if err := s.Mats.Set(id, anchor); err != nil {
-				cleanupFailure()
-				return "", ErrFileStorageWrite
-			}
-			savedAnchors = append(savedAnchors, id)
-
-			err := s.DB.CreateAnchor(
-				context.Background(),
-				database.CreateAnchorParams{
-					ID:          id,
-					TemplateID:  templateId,
-					PageIndex:   int64(i),
-					AnchorIndex: int64(j),
-				},
-			)
-			if err != nil {
-				cleanupFailure()
-				return "", ErrDatabaseWrite
-			}
-		}
-	}
-
-	return templateId, nil
+	return id, nil
 }
 
 func (s *local) LoadPreprocessingTemplate(
 	id string,
-) (*dto.PreprocessTemplate, [][]gocv.Mat, error) {
+) (omr.PreprocessTemplate, error) {
 
 	record, err := s.DB.GetPreprocessingTemplate(context.Background(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil, ErrNotFound
+			return omr.PreprocessTemplate{}, ErrNotFound
 		}
-		return nil, nil, ErrDatabaseRead
+		return omr.PreprocessTemplate{}, ErrDatabaseRead
 	}
 
-	tmpl := &dto.PreprocessTemplate{}
-	if err := json.Unmarshal([]byte(record.Json), tmpl); err != nil {
-		return nil, nil, ErrDeserializing
-	}
-
-	expectedAnchors := 0
-	for i := range tmpl.Pages {
-		expectedAnchors += len(tmpl.Pages[i].Anchors)
-	}
-
-	anchorRows, err := s.DB.GetAnchorsForTemplate(
-		context.Background(),
-		id,
-	)
+	out, err := omr.DecodePreprocessTemplate(bytes.NewReader(record.Bytes))
 	if err != nil {
-		return nil, nil, ErrDatabaseRead
-	}
-	if len(anchorRows) != expectedAnchors {
-		// The preprocessing template is corrupted. We'll delete it and then
-		// return [ErrNotFound].
-		s.DeletePreprocessingTemplate(id)
-		return nil, nil, ErrNotFound
+		return omr.PreprocessTemplate{}, ErrDeserializing
 	}
 
-	//
-	// The query will sort the anchors by ascending page index and then
-	// anchor index. That's the reason the following loop works as intended.
-	//
-
-	mats := make([][]gocv.Mat, 0)
-	for _, record := range anchorRows {
-		if record.AnchorIndex == 0 {
-			mats = append(mats, make([]gocv.Mat, 0))
-		}
-
-		anchor, err := s.Mats.Get(record.ID)
-		if err != nil {
-			// The template is corrupted. We'll delete it and then return
-			// [ErrNotFound].
-			s.DeletePreprocessingTemplate(id)
-			return nil, nil, ErrNotFound
-		}
-
-		mats[record.PageIndex] = append(mats[record.PageIndex], anchor)
-	}
-
-	return tmpl, mats, nil
+	return out, nil
 }
 
 func (s *local) DeletePreprocessingTemplate(id string) {
 	s.DB.DeletePreprocessingTemplate(context.Background(), id)
-	anchors, _ := s.DB.GetAnchorsForTemplate(context.Background(), id)
-	for _, anchor := range anchors {
-		s.Mats.Delete(anchor.ID)
-	}
-	s.DB.DeleteAnchorsForTemplate(context.Background(), id)
 }
 
 //
 // Scans
 //
-// Scans used for processing are stored as matrices. Each scan also needs a
-// matching human-viewable picture for producing snippets.
-//
 
 func (s *local) SaveScan(
-	pages []gocv.Mat,
-	pagePictures []gocv.Mat,
+	pages []omr.Mat,
 	templateId string,
 ) (string, error) {
-	if len(pages) != len(pagePictures) {
-		panic("resources: SaveScan called with len(pages) != len(pagePictures)")
-	}
 
 	scanId := uuid.New().String()
 	err := s.DB.CreateScan(context.Background(), database.CreateScanParams{
@@ -351,7 +200,7 @@ func (s *local) SaveScan(
 	}
 
 	//
-	// Below, we implement a function that cleans up all resources that have
+	// Below we implement a function that cleans up all resources that have
 	// been saved thus far in the operation. That way if there is a failure
 	// partway through we won't leave behind any mess in the persistent
 	// storage.
@@ -371,37 +220,37 @@ func (s *local) SaveScan(
 	}
 
 	//
-	// Now, we iterate over the pages in the scan and store the resources.
+	// Now we iterate over the pages in the scan and store the resources.
 	//
 
-	for i := range pages {
+	for i, page := range pages {
 
-		pageId := uuid.New().String() + ".m4t"
-		if err := s.Mats.Set(pageId, pages[i]); err != nil {
+		matrixId := uuid.New().String() + ".m4t"
+		if err := s.Mats.Set(matrixId, page); err != nil {
 			cleanupFailure()
 			return "", ErrFileStorageWrite
 		}
-		savedMats = append(savedMats, pageId)
+		savedMats = append(savedMats, matrixId)
 
 		pictureId := uuid.New().String() + fstore.ImgFileExt
-		pictureBuf, err := gocv.IMEncode(fstore.OpenCVImgExt, pagePictures[i])
-		if err != nil {
-			cleanupFailure()
-			return "", ErrEncodingImage
-		}
-		defer pictureBuf.Close()
-
-		err = s.Images.SetBytes(pictureId, pictureBuf.GetBytes())
+		w, err := s.Images.Create(pictureId)
 		if err != nil {
 			cleanupFailure()
 			return "", ErrFileStorageWrite
 		}
 		savedImages = append(savedImages, pictureId)
 
+		_, err = omr.EncodeMatToImage(w, fstore.ImgContentType, page)
+		w.Close()
+		if err != nil {
+			cleanupFailure()
+			return "", ErrEncodingImage
+		}
+
 		err = s.DB.CreateScanPage(
 			context.Background(),
 			database.CreateScanPageParams{
-				ID:         pageId,
+				MatrixKey:  matrixId,
 				PictureKey: pictureId,
 				PageIndex:  int64(i),
 				ScanID:     scanId,
@@ -416,7 +265,7 @@ func (s *local) SaveScan(
 	return scanId, nil
 }
 
-func (s *local) LoadScan(scanId string) ([]gocv.Mat, error) {
+func (s *local) LoadScan(scanId string) ([]omr.Mat, error) {
 	records, err := s.DB.GetPagesForScan(context.Background(), scanId)
 	if err != nil {
 		return nil, ErrDatabaseRead
@@ -425,9 +274,9 @@ func (s *local) LoadScan(scanId string) ([]gocv.Mat, error) {
 		return nil, ErrNotFound
 	}
 
-	mats := make([]gocv.Mat, len(records))
+	mats := make([]omr.Mat, len(records))
 	for i, record := range records {
-		mat, err := s.Mats.Get(record.ID)
+		mat, err := s.Mats.Get(record.MatrixKey)
 		if err != nil {
 			// The scan is corrupted.
 			s.DeleteScan(scanId)
@@ -443,7 +292,7 @@ func (s *local) DeleteScan(id string) {
 	pages, _ := s.DB.GetPagesForScan(context.Background(), id)
 	for _, page := range pages {
 		s.Images.Delete(page.PictureKey)
-		s.Mats.Delete(page.ID)
+		s.Mats.Delete(page.MatrixKey)
 	}
 	s.DB.DeletePagesForScan(context.Background(), id)
 	s.DB.DeleteScan(context.Background(), id)
@@ -456,7 +305,7 @@ func (s *local) DeleteAllScansFromBefore(t time.Time) {
 	}
 }
 
-func (s *local) LoadScanPicture(
+func (s *local) LoadScanImage(
 	scanId string,
 	pageIdx uint,
 ) (image.Image, error) {

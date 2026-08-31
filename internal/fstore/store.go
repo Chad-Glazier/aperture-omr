@@ -54,6 +54,12 @@ type ImageStore interface {
 	//
 	// If an error is returned, it will be [ErrNotFound].
 	Open(key string) (io.ReadCloser, error)
+
+	// Creates a new image and returns a writer for it. If the key was already
+	// associated with an image, it will be overwritten.
+	//
+	// If an error is returned, it will be [ErrCreatingFile].
+	Create(key string) (io.WriteCloser, error)
 }
 
 // Represents an OpenCV matrix store, implementing a map-like interface to

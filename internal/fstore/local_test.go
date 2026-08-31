@@ -108,6 +108,37 @@ func TestLocalImageStore(t *testing.T) {
 		_, err = store.Get(name)
 		assert.Assert(t, err == ErrNotFound)
 	})
+
+	t.Run("create", func(t *testing.T) {
+		const name = "from_writer"
+
+		_, err = store.Get(name)
+		assert.Assert(t, err == ErrNotFound)
+
+		w, err := store.Create(name)
+		assert.NilError(t, err)
+		n, err := w.Write(srcImgBytes)
+		w.Close()
+		assert.Assert(t, err == nil)
+		assert.Assert(t, n == len(srcImgBytes))
+
+		r, err := store.Open(name)
+		assert.NilError(t, err)
+		defer r.Close()
+
+		storedBytes, err := io.ReadAll(r)
+		assert.NilError(t, err)
+		assert.Assert(t, len(storedBytes) == len(srcImgBytes))
+		for i := range storedBytes {
+			assert.Assert(t, storedBytes[i] == srcImgBytes[i])
+		}
+
+		r.Close()
+		store.Delete(name)
+
+		_, err = store.Get(name)
+		assert.Assert(t, err == ErrNotFound)
+	})
 }
 
 func TestLocalMatStore(t *testing.T) {

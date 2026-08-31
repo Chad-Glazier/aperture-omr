@@ -79,6 +79,14 @@ func (s *localImageStore) Open(key string) (io.ReadCloser, error) {
 	return r, nil
 }
 
+func (s *localImageStore) Create(key string) (io.WriteCloser, error) {
+	w, err := os.Create(filepath.Join(s.root, key))
+	if err != nil {
+		return nil, ErrCreatingFile
+	}
+	return w, nil
+}
+
 func (s *localImageStore) Count() (int, uint64) {
 	files, err := os.ReadDir(s.root)
 	if err != nil {
