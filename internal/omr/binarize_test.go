@@ -60,7 +60,9 @@ func TestBinarize(t *testing.T) {
 		err = Binarize(dst, src, nil)
 		assert.Assert(t, err == nil)
 
-		drawInputOutput(t, src, dst, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, src, dst)
 	})
 
 	t.Run("write noisy to output", func(t *testing.T) {
@@ -74,7 +76,9 @@ func TestBinarize(t *testing.T) {
 		err = Binarize(dst, src, nil)
 		assert.Assert(t, err == nil)
 
-		drawInputOutput(t, src, dst, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, src, dst)
 	})
 
 	t.Run("bad inputs", func(t *testing.T) {

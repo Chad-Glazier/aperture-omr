@@ -2,10 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
+	"github.com/Chad-Glazier/aperture-omr/internal/omr"
+	"github.com/Chad-Glazier/aperture-omr/internal/pdf"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
 	"github.com/Chad-Glazier/aperture-omr/internal/server/resources"
 	"gotest.tools/v3/assert"
@@ -55,6 +59,61 @@ func postCanonicalScan(
 // Tests
 //
 
+func TestVisualizeScanPdf(t *testing.T) {
+	s := resources.NewTesting(t)
+	defer s.Close()
+
+	pTmplId := postCanonicalPreprocessingTemplate(s, t)
+
+	pTmplOut0, err := os.Create("testdata/output/visualizedPreprocessingTemplate_page0.png")
+	assert.Assert(t, err == nil)
+	defer pTmplOut0.Close()
+	pTmplOut1, err := os.Create("testdata/output/visualizedPreprocessingTemplate_page1.png")
+	assert.Assert(t, err == nil)
+	defer pTmplOut1.Close()
+
+	tmpl, err := s.LoadPreprocessingTemplate(pTmplId)
+	assert.Assert(t, err == nil)
+
+	tmpl, err = omr.ScalePreprocessingTemplate(omr.FitMethodContain, tmpl, 1890, 2677)
+	assert.Assert(t, err == nil)
+
+	img0, err := tmpl.Image(0)
+	assert.Assert(t, err == nil)
+	img1, err := tmpl.Image(1)
+	assert.Assert(t, err == nil)
+
+	err = png.Encode(pTmplOut0, img0)
+	assert.Assert(t, err == nil)
+	err = png.Encode(pTmplOut1, img1)
+	assert.Assert(t, err == nil)
+
+	r, err := os.Open("testdata/scans/1_funky_exam.pdf")
+	assert.Assert(t, err == nil)
+	defer r.Close()
+
+	examCh, nExams, err := pdf.RenderPageBlocks(r, 250, 2, 1)
+	assert.Assert(t, err == nil)
+	assert.Assert(t, nExams == 1)
+	pageSet := <-examCh
+	assert.Assert(t, pageSet.Error() == nil)
+	omr.CloseAllInStream(examCh)
+	
+	pages := pageSet.Pages()
+	assert.Assert(t, len(pages) == 2)
+
+	renderedPagesOut, err := os.Create("testdata/output/renderedPages.png")
+	assert.Assert(t, err == nil)
+	omr.VisualizeSideBySide(renderedPagesOut, pages[0], pages[1])
+
+	out0, err := os.Create("testdata/output/visualizedPreprocessing_page0.png")
+	err = omr.VisualizePreprocess(out0, tmpl, pages, 0)
+	assert.Assert(t, err == nil)
+	out1, err := os.Create("testdata/output/visualizedPreprocessing_page1.png")
+	err = omr.VisualizePreprocess(out1, tmpl, pages, 1)
+	assert.Assert(t, err == nil)
+}
+
 func TestPostScanPdf(t *testing.T) {
 
 	s := resources.NewTesting(t)
@@ -88,7 +147,7 @@ func TestPostScanPdf(t *testing.T) {
 		{
 			name:         "dpi too low",
 			fileName:     "canonical.pdf",
-			dpi:          "100",
+			dpi:          "50",
 			expectStatus: http.StatusUnprocessableEntity,
 			templateId:   pTmplId,
 		},
@@ -165,8 +224,6 @@ func TestPostScanPdf(t *testing.T) {
 			r.Header.Set("Content-Type", "application/pdf")
 
 			PostScanPdf(s).ServeHTTP(w, r)
-
-			t.Log(string(w.Body.Bytes()))
 
 			assert.Assert(t, w.Result().StatusCode == test.expectStatus)
 			if test.expectStatus >= 300 || test.expectStatus < 200 {

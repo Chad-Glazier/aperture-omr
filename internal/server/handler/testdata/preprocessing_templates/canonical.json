@@ -2,11 +2,11 @@
   "width": 1200,
   "height": 1700,
 
-  "minAnchorConfidence": 0.75,
+  "minAnchorConfidence": 0.60,
   "anchorSearchConfig": {
     "initialAngle": 0.0,
     "angleSearchBreadth": 0.1745329,
-    "searchAreaPadding": 0.10,
+    "searchAreaPadding": 0.05,
     "maxQuality": 0.85
   },
   

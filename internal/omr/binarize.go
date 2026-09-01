@@ -43,7 +43,7 @@ const (
 	DefaultBlurSize       float64 = 0.0015
 	DefaultMorphCloseSize float64 = 0.0015
 	DefaultBlockSize      float64 = 0.0255
-	DefaultAdaptiveC      float64 = 10.000
+	DefaultAdaptiveC      float64 = 0.0000
 )
 
 // Binarizes a grayscale matrix.

@@ -139,7 +139,6 @@ func PreprocessStream(
 		go CloseAllInStream(pageStream)
 		return nil, ErrOpenCV
 	}
-	defer template.Close()
 
 	firstResult := preprocessSet(template, first)
 
@@ -154,14 +153,13 @@ func PreprocessStream(
 	for range parallelism {
 		threads.Add(1)
 		go func() {
-			defer func() {
-				if threads.Add(-1) == 0 {
-					close(out)
-				}
-			}()
-
 			for pageSet := range pageStream {
 				out <- preprocessSet(template, pageSet)
+			}
+
+			if threads.Add(-1) == 0 {
+				close(out)
+				template.Close()
 			}
 		}()
 	}

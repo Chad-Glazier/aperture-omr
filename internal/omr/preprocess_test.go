@@ -91,12 +91,14 @@ func TestPreprocess(t *testing.T) {
 	tName := t.Name()
 
 	t.Run("preprocess ideal input", func(t *testing.T) {
-		var output = "testdata/output/" + tName + "_ideal.png"
+		var outputName = "testdata/output/" + tName + "_ideal.png"
 
 		result, err := Preprocess(tmpl, []Mat{page})
 		assert.Assert(t, err == nil)
 
-		drawInputOutput(t, page, result[0], output)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, page, result[0])
 	})
 
 	t.Run("preprocess noisy and rotated", func(t *testing.T) {
@@ -107,7 +109,7 @@ func TestPreprocess(t *testing.T) {
 
 			t.Logf("trying %.1f\u00b0 rotation", degrees)
 
-			var output = fmt.Sprintf(
+			var outputName = fmt.Sprintf(
 				"testdata/output/%s_%.0fdeg_noisy.png",
 				tName, degrees,
 			)
@@ -119,10 +121,11 @@ func TestPreprocess(t *testing.T) {
 				color.RGBA{},
 			)
 
-			result, err := Preprocess(tmpl, []Mat{rotated})
-			assert.Assert(t, err == nil)
 
-			drawInputOutput(t, rotated, result[0], output)
+			out, err := os.Create(outputName)
+			assert.Assert(t, err == nil)
+			err = VisualizePreprocess(out, tmpl, []Mat{rotated}, 0)
+			assert.Assert(t, err == nil)
 		}
 	})
 
@@ -134,7 +137,7 @@ func TestPreprocess(t *testing.T) {
 
 			t.Logf("trying %.0f%% sizing", scaling*100)
 
-			var output = fmt.Sprintf(
+			var outputName = fmt.Sprintf(
 				"testdata/output/%s_%.0fscaling_noisy.png",
 				tName, scaling*100,
 			)
@@ -159,7 +162,9 @@ func TestPreprocess(t *testing.T) {
 			result, err := Preprocess(scaledTmpl, []Mat{scaled})
 			assert.Assert(t, err == nil)
 
-			drawInputOutput(t, scaled, result[0], output)
+			out, err := os.Create(outputName)
+			assert.Assert(t, err == nil)
+			VisualizeSideBySide(out, scaled, result[0])
 		}
 	})
 }

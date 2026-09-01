@@ -3,8 +3,6 @@ package omr
 import (
 	"image"
 	"image/color"
-	"image/draw"
-	"image/png"
 	"math"
 	"os"
 	"testing"
@@ -34,67 +32,6 @@ func makeDivergentFunc() func(float64) (float64, float64, error) {
 		x += 1.0
 		return 0, x, nil
 	}
-}
-
-// Draws two matrices side-by-side, then writes them to the given file (as an
-// image). On failure, the test is failed.
-func drawInputOutput(t *testing.T, input, output Mat, filename string) {
-	t.Helper()
-
-	if !input.m.IsContinuous() {
-		input = Clone(input)
-		defer input.Close()
-	}
-	if !output.m.IsContinuous() {
-		output = Clone(output)
-		defer output.Close()
-	}
-
-	l, err := MatToImage(input)
-	assert.Assert(t, err == nil)
-	r, err := MatToImage(output)
-	assert.Assert(t, err == nil)
-
-	var (
-		lw = l.Bounds().Dx()
-		lh = l.Bounds().Dy()
-		rw = r.Bounds().Dx()
-		rh = r.Bounds().Dy()
-
-		padding = int(0.05 * float64(max(lw, rw, lh, rh)))
-		w       = int(3*padding + lw + rw)
-		h       = int(2*padding + max(lh, rh))
-
-		out = image.NewRGBA(image.Rect(0, 0, w, h))
-	)
-
-	draw.Draw(
-		out,
-		image.Rect(
-			padding, padding,
-			padding+lw, padding+lh,
-		),
-		l,
-		image.Point{},
-		draw.Over,
-	)
-	draw.Draw(
-		out,
-		image.Rect(
-			padding*2+lw, padding,
-			padding*2+lw+rw, padding+rh,
-		),
-		r,
-		image.Point{},
-		draw.Over,
-	)
-
-	f, err := os.Create(filename)
-	assert.Assert(t, err == nil)
-	defer f.Close()
-
-	err = png.Encode(f, out)
-	assert.Assert(t, err == nil)
 }
 
 func getTestAnchor0Mat() (Mat, error) {
@@ -157,47 +94,6 @@ func overlayCross(
 	return overlayCrosses(mat, []image.Point{center}, w, h, orientation)
 }
 
-func overlayCrosses(
-	mat Mat,
-	centers []image.Point,
-	w, h uint,
-	orientation float64,
-) Mat {
-	copy := Clone(mat)
-	angle := orientation * -1
-
-	sin, cos := math.Sin(angle), math.Cos(angle)
-
-	rotate := func(pt image.Point, x, y int) image.Point {
-		rx := float64(x)*cos - float64(y)*sin
-		ry := float64(x)*sin + float64(y)*cos
-
-		return image.Pt(
-			pt.X-int(math.Round(rx)),
-			pt.Y-int(math.Round(ry)),
-		)
-	}
-
-	for _, center := range centers {
-		gocv.Line(
-			&copy.m,
-			rotate(center, 0, -int(h/2)),
-			rotate(center, 0, int(h/2)),
-			color.RGBA{255, 0, 0, 255},
-			5,
-		)
-		gocv.Line(
-			&copy.m,
-			rotate(center, -int(w/2), 0),
-			rotate(center, int(w/2), 0),
-			color.RGBA{255, 0, 0, 255},
-			5,
-		)
-	}
-
-	return copy
-}
-
 func rad(degrees float64) float64 {
 	return degrees / 180.0 * math.Pi
 }
@@ -242,7 +138,9 @@ func TestFindAnchors(t *testing.T) {
 		)
 		defer output.Close()
 
-		drawInputOutput(t, rotatedPage, output, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, rotatedPage, output)
 	})
 }
 
@@ -277,7 +175,9 @@ func TestFindAnchor(t *testing.T) {
 		)
 		defer output.Close()
 
-		drawInputOutput(t, page, output, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, page, output)
 	})
 
 	t.Run("unrotated with noise", func(t *testing.T) {
@@ -301,7 +201,9 @@ func TestFindAnchor(t *testing.T) {
 		)
 		defer output.Close()
 
-		drawInputOutput(t, noisyPage, output, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, noisyPage, output)
 	})
 
 	t.Run("near-max rotation with noise", func(t *testing.T) {
@@ -328,7 +230,9 @@ func TestFindAnchor(t *testing.T) {
 		)
 		defer output.Close()
 
-		drawInputOutput(t, rotatedPage, output, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, rotatedPage, output)
 	})
 
 	t.Run("various angles", func(t *testing.T) {
@@ -526,6 +430,8 @@ func TestSearchRegion(t *testing.T) {
 	})
 
 	t.Run("draw test template regions", func(t *testing.T) {
+		var outputName = "testdata/output/"+tName+"_regions.png"
+
 		tmpl, err := getSampleTemplate()
 		assert.Assert(t, err == nil)
 		defer tmpl.Close()
@@ -555,9 +461,9 @@ func TestSearchRegion(t *testing.T) {
 			assert.Assert(t, err == nil)
 		}
 
-		drawInputOutput(t, page, annotated,
-			"testdata/output/"+tName+"_regions.png",
-		)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, page, annotated)
 	})
 }
 
@@ -566,7 +472,6 @@ func TestRotateAnchor(t *testing.T) {
 
 	t.Run("15deg", func(t *testing.T) {
 		var outputName = "testdata/output/" + tName + "_15deg.png"
-		var maskOutName = "testdata/output/" + tName + "_mask_15deg.png"
 
 		ancMat, err := getTestAnchor0Mat()
 		assert.Assert(t, err == nil)
@@ -577,8 +482,9 @@ func TestRotateAnchor(t *testing.T) {
 		rotated, mask, err := RotateAnchor(anc, 15.0/180.0*math.Pi)
 		assert.Assert(t, err == nil)
 
-		drawInputOutput(t, ancMat, rotated.Mat, outputName)
-		drawInputOutput(t, ancMat, mask, maskOutName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, ancMat, rotated.Mat, mask)
 	})
 
 	t.Run("-15deg", func(t *testing.T) {
@@ -594,7 +500,9 @@ func TestRotateAnchor(t *testing.T) {
 		gocv.BitwiseAnd(rotated.Mat.m, mask.m, &rotated.Mat.m)
 		assert.Assert(t, err == nil)
 
-		drawInputOutput(t, ancMat, rotated.Mat, outputName)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, ancMat, rotated.Mat)
 	})
 }
 

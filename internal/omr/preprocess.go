@@ -11,7 +11,8 @@ import (
 const TolerableAspectRatioDifference = 0.10
 
 // Uses a preprocessing template to produce a set of correctly rotated/
-// positioned matrices.
+// positioned matrices. The input matrices will be mutated, but only by 
+// reordering them or flipping them to match the correct form.
 //
 // If an error is returned, it will be [ErrIncompatiblePageCount],
 // [ErrEmptyMat], [ErrWrongMatType], [ErrCannotMatchAnchor],
@@ -68,15 +69,27 @@ outer:
 				template.AnchorSearchConfig,
 			)
 			if err == ErrCannotMatchAnchor {
-				// The match failed on this page. We can try subsequent pages
-				// though.
-				continue
+				// Try the inverted page.
+				gocv.Flip(pages[j].m, &pages[j].m, -1)
+				locations, err = FindAnchors(
+					pages[j],
+					anchors,
+					template.MinAnchorConfidence,
+					template.AnchorSearchConfig,
+				)
+
+				if err == ErrCannotMatchAnchor {
+					// The match failed on this page. We flip the page back and
+					// then continue to try subsequent pages.
+					gocv.Flip(pages[j].m, &pages[j].m, -1)
+					continue
+				}
 			}
 			if err != nil {
 				return nil, err
 			}
 
-			// the match was successful
+			// The match was successful.
 			pages[i], pages[j] = pages[j], pages[i]
 			trueAnchorLocations[i] = locations
 			continue outer

@@ -123,6 +123,8 @@ func TestBase64(t *testing.T) {
 	tName := t.Name()
 
 	t.Run("decode", func(t *testing.T) {
+		var outputName = "testdata/output/"+tName+".png"
+
 		r, err := os.Open("testdata/input/sample_image.png")
 		assert.Assert(t, err == nil)
 		defer r.Close()
@@ -140,9 +142,9 @@ func TestBase64(t *testing.T) {
 		assert.Assert(t, err == nil)
 		defer outMat.Close()
 
-		drawInputOutput(t, inMat, outMat,
-			"testdata/output/"+tName+".png",
-		)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, inMat, outMat)
 	})
 
 	t.Run("codec is stable", func(t *testing.T) {

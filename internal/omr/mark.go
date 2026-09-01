@@ -44,7 +44,7 @@ func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 	if err != nil {
 		return MarkResult{}, err
 	}
-	NormalizeFillRatios(fillRatios)
+	// NormalizeFillRatios(fillRatios)
 
 	// (3)
 	out := MarkResult{}

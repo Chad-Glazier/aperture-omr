@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/Chad-Glazier/aperture-omr/internal/server/dto"
@@ -87,6 +88,14 @@ func TestRequestMarks(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 
 		RequestMarks(s).ServeHTTP(w, r)
+
+		f, err := os.Create("testdata/output/canonical_marks.json")
+		assert.Assert(t, err == nil)
+		defer f.Close()
+
+		_, err = f.Write(w.Body.Bytes())
+		assert.Assert(t, err == nil)
+
 		assert.Assert(t, w.Result().StatusCode == http.StatusOK)
 
 		var markResult dto.MarkResult

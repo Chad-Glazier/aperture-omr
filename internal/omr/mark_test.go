@@ -3,6 +3,7 @@ package omr
 import (
 	"fmt"
 	"image/color"
+	"os"
 	"testing"
 
 	"gocv.io/x/gocv"
@@ -67,7 +68,7 @@ func TestMarkTemplateMask(t *testing.T) {
 	tName := t.Name()
 
 	t.Run("preprocess and then mask", func(t *testing.T) {
-		output := "testdata/output/" + tName + "_preprocessed.png"
+		outputName := "testdata/output/" + tName + "_preprocessed.png"
 
 		page, err := getNoisyPageMat()
 		assert.Assert(t, err == nil)
@@ -92,7 +93,9 @@ func TestMarkTemplateMask(t *testing.T) {
 
 		gocv.BitwiseAnd(preprocessed[0].m, mask.m, &mask.m)
 
-		drawInputOutput(t, preprocessed[0], mask, output)
+		out, err := os.Create(outputName)
+		assert.Assert(t, err == nil)
+		VisualizeSideBySide(out, preprocessed[0], mask)
 	})
 
 }

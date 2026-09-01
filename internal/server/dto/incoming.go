@@ -204,6 +204,7 @@ func (m MarkTemplate) Adapt() omr.MarkTemplate {
 				out.Questions[i][j].Bubbles[k].Pos.X = b.X
 				out.Questions[i][j].Bubbles[k].Pos.Y = b.Y
 			}
+			out.Questions[i][j].Id = q.Id
 		}
 	}
 

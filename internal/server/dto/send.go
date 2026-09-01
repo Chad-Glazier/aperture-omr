@@ -16,7 +16,9 @@ import (
 // Sends a JSON body.
 func SendJson(w http.ResponseWriter, v any) {
 	w.Header().Add("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(v); err != nil {
 		http.Error(w, "error writing response", http.StatusInternalServerError)
 	}
 }
