@@ -11,7 +11,7 @@ import (
 const TolerableAspectRatioDifference = 0.10
 
 // Uses a preprocessing template to produce a set of correctly rotated/
-// positioned matrices. The input matrices will be mutated, but only by 
+// positioned matrices. The input matrices will be mutated, but only by
 // reordering them or flipping them to match the correct form.
 //
 // If an error is returned, it will be [ErrIncompatiblePageCount],

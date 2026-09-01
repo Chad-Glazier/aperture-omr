@@ -123,7 +123,7 @@ func TestBase64(t *testing.T) {
 	tName := t.Name()
 
 	t.Run("decode", func(t *testing.T) {
-		var outputName = "testdata/output/"+tName+".png"
+		var outputName = "testdata/output/" + tName + ".png"
 
 		r, err := os.Open("testdata/input/sample_image.png")
 		assert.Assert(t, err == nil)

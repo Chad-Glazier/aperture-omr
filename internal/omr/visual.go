@@ -32,37 +32,36 @@ func VisualizeSideBySide(out io.Writer, mats ...Mat) error {
 			defer mats[i].Close()
 		}
 		if m.Type() != MatTypeGray && m.Type() != MatTypeBinary {
+			panic("here1")
 			return ErrWrongMatType
 		}
 	}
 
 	var (
-		padding = 50
-		x int
-		bounds = make([]image.Rectangle, len(mats))
+		padding   = 50
+		x         int
+		bounds    = make([]image.Rectangle, len(mats))
 		maxHeight = 0
 	)
 	for i, mat := range mats {
 		bounds[i] = image.Rect(
-			x + padding,
+			x+padding,
 			padding,
-			x + padding + int(mat.Width()),
-			padding + int(mat.Height()),
+			x+padding+int(mat.Width()),
+			padding+int(mat.Height()),
 		)
 		x += padding + int(mat.Width())
 		maxHeight = max(maxHeight, int(mat.Height()))
 	}
 
 	dst := newMatFromGoCV(gocv.NewMatWithSize(
-		maxHeight + padding*2, 
-		x + padding, 
+		maxHeight+padding*2,
+		x+padding,
 		gocv.MatTypeCV8U,
 	))
 	defer dst.Close()
 
 	for i, mat := range mats {
-		// vertOffset := (maxHeight - int(mat.Height()))/2
-		// bounds[i].Min.Y += vertOffset
 		target := dst.m.Region(bounds[i])
 		defer target.Close()
 
@@ -81,17 +80,17 @@ func VisualizeSideBySide(out io.Writer, mats ...Mat) error {
 }
 
 // Visualizes the preprocessing step, producing an image showing three parts:
-// the input, the search regions and identified locations of the images, and 
-// the preprocessed output. 
-// 
+// the input, the search regions and identified locations of the images, and
+// the preprocessed output.
+//
 // The image will be written to the given output (encoded as PNG). The input
 // matrices should be grayscale or binary.
 //
 // If an error is returned, it will be [ErrOpenCV], [ErrWrongMatType], or
-// [ErrEncoding], [ErrPageNotDefined], 
+// [ErrEncoding], [ErrPageNotDefined],
 func VisualizePreprocess(
-	out io.Writer, 
-	template PreprocessTemplate, 
+	out io.Writer,
+	template PreprocessTemplate,
 	pages []Mat,
 	pageIdx int,
 ) error {
@@ -102,7 +101,7 @@ func VisualizePreprocess(
 	//
 	// (C) Preprocessed Page
 	//
-	
+
 	preprocessed, err := Preprocess(template, pages)
 	var c Mat
 	if err != nil {
@@ -111,17 +110,17 @@ func VisualizePreprocess(
 		))
 		defer c.Close()
 		gocv.PutText(
-			&c.m, 
-			"preprocessing failed", 
-			image.Pt(100, 400), 
-			gocv.FontHersheyPlain, 
-			2, 
-			color.RGBA{255, 255, 255, 255}, 
+			&c.m,
+			"preprocessing failed",
+			image.Pt(100, 400),
+			gocv.FontHersheyPlain,
+			2,
+			color.RGBA{255, 255, 255, 255},
 			3,
 		)
 	} else {
 		defer CloseAll(preprocessed)
-		c = preprocessed[pageIdx]		
+		c = preprocessed[pageIdx]
 	}
 
 	//
@@ -136,9 +135,9 @@ func VisualizePreprocess(
 	//
 
 	anchorLocations, err := FindAnchors(
-		pages[pageIdx], 
-		template.Anchors[pageIdx], 
-		template.MinAnchorConfidence, 
+		pages[pageIdx],
+		template.Anchors[pageIdx],
+		template.MinAnchorConfidence,
 		template.AnchorSearchConfig,
 	)
 	var markedAnchors Mat
@@ -146,10 +145,10 @@ func VisualizePreprocess(
 		markedAnchors = Clone(pages[pageIdx])
 	} else {
 		markedAnchors = overlayCrosses(
-			pages[pageIdx], 
-			anchorLocations, 
+			pages[pageIdx],
+			anchorLocations,
 			500, 500, 0.0,
-		)		
+		)
 	}
 	defer markedAnchors.Close()
 
@@ -221,8 +220,8 @@ func overlayCrosses(
 
 //
 func VisualizeMark(
-	out io.Writer, 
-	template MarkTemplate, 
+	out io.Writer,
+	template MarkTemplate,
 	pages []Mat,
 	pageIdx uint,
 ) error {
@@ -238,13 +237,13 @@ func VisualizeMark(
 	defer a.Close()
 
 	//
-	// (B) Binarized
+	// (B) Binarized Input
 	//
-	
+
 	b := NewMat()
 	defer b.Close()
 
-	err := Binarize(b, a, &template.Binarization)
+	err := Binarize(b, a, template.Binarization)
 	if err != nil {
 		return err
 	}
@@ -254,7 +253,11 @@ func VisualizeMark(
 	//
 
 	mask, err := template.Mask(uint(pageIdx), int(a.Height()))
+	if err != nil {
+		return err
+	}
 	defer mask.Close()
+
 	c := mask
 
 	//
@@ -262,8 +265,9 @@ func VisualizeMark(
 	//
 
 	d := NewMat()
+	*d.t = MatTypeGray
 	defer d.Close()
-	
+
 	err = gocv.BitwiseAnd(mask.m, b.m, &d.m)
 	if err != nil {
 		return ErrOpenCV

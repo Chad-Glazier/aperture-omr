@@ -67,12 +67,6 @@ func FindAnchors(
 ) ([]image.Point, error) {
 
 	//
-	// Set the default configuration values.
-	//
-
-	setDefaultConfig(&conf)
-
-	//
 	// Search for the anchors.
 	//
 
@@ -110,50 +104,20 @@ type FindAnchorResult struct {
 
 type FindAnchorConfig struct {
 	// The initial orientation of the anchor.
-	//
-	// Defaults to [DefaultInitialAngle].
 	InitialAngle float64
 
 	// The breadth of the angles that should be searched. E.g., if the angle
 	// breadth is π/2 and the initial angle is 0, then the search will
 	// consider angles in the interval [-π/4, π/4].
-	//
-	// Defaults to [DefaultAngleSearchBreadth].
 	AngleSearchBreadth float64
 
 	// The initial padding on the search area. See [searchRegion].
-	//
-	// Defaults to [DefaultSearchAreaPadding].
 	SearchAreaPadding float64
 
 	// The maximum quality of an anchor match. If this value is met or
 	// exceeded, the search will be terminated early (which can dramatically
 	// improve performance).
-	//
-	// Defaults to [DefaultMaxQuality].
 	MaxQuality float64
-}
-
-const (
-	DefaultInitialAngle       float64 = 0.00
-	DefaultAngleSearchBreadth float64 = 10.0 / 180.0 * math.Pi
-	DefaultSearchAreaPadding  float64 = 0.10
-	DefaultMaxQuality         float64 = 0.95
-)
-
-func setDefaultConfig(c *FindAnchorConfig) {
-	if c.AngleSearchBreadth == 0 {
-		c.AngleSearchBreadth = DefaultAngleSearchBreadth
-	}
-	if c.InitialAngle == 0 {
-		c.InitialAngle = DefaultInitialAngle
-	}
-	if c.SearchAreaPadding == 0 {
-		c.SearchAreaPadding = DefaultSearchAreaPadding
-	}
-	if c.MaxQuality == 0 {
-		c.MaxQuality = DefaultMaxQuality
-	}
 }
 
 // Attempts to locate an anchor on the given matrix. The return value describes
@@ -172,8 +136,6 @@ func findAnchor(
 	case mat.Empty(), anchor.Mat.Empty():
 		return FindAnchorResult{}, ErrEmptyMat
 	}
-
-	setDefaultConfig(&conf)
 
 	//
 	// Search for the anchor.

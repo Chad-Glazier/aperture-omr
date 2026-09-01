@@ -1,12 +1,12 @@
 {
   "aspectRatio": 0.705882352941,
-  "bubbleRadius": 0.016667,
+  "bubbleRadius": 0.008000,
   "minimumConfidence": 0.010,
   "binarization": {
     "blurSize": 0.0015,
     "morphCloseSize": 0.0015,
-    "blockSize": 0.0255,
-    "adaptiveC": 0.00
+    "blockSize": 0.0555,
+    "adaptiveC": 10.00
   },
   "pages": [
     {

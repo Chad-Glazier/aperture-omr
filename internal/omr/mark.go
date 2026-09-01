@@ -33,7 +33,7 @@ func Mark(template MarkTemplate, pages []Mat) (MarkResult, error) {
 
 	// (1)
 	for _, page := range pages {
-		err := Binarize(page, page, &template.Binarization)
+		err := Binarize(page, page, template.Binarization)
 		if err != nil {
 			return MarkResult{}, err
 		}
@@ -193,6 +193,7 @@ func (m MarkTemplate) Mask(pageIdx uint, height int) (Mat, error) {
 		int(float64(height)*m.Aspect),
 		gocv.MatTypeCV8U,
 	))
+	*out.t = MatTypeBinary
 
 	for _, q := range m.Questions[pageIdx] {
 		for _, b := range q.Bubbles {

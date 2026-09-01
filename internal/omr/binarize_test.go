@@ -41,6 +41,15 @@ func getNoisyPageMat() (Mat, error) {
 	return mat, nil
 }
 
+func sampleBinarizeConfig() BinarizeConfig {
+	return BinarizeConfig{
+		BlurSize:       0.0015,
+		MorphCloseSize: 0.0015,
+		BlockSize:      0.0555,
+		AdaptiveC:      10,
+	}
+}
+
 //
 // Tests
 //
@@ -57,7 +66,7 @@ func TestBinarize(t *testing.T) {
 		defer src.Close()
 		dst := NewMat()
 		defer dst.Close()
-		err = Binarize(dst, src, nil)
+		err = Binarize(dst, src, sampleBinarizeConfig())
 		assert.Assert(t, err == nil)
 
 		out, err := os.Create(outputName)
@@ -73,7 +82,7 @@ func TestBinarize(t *testing.T) {
 		defer src.Close()
 		dst := NewMat()
 		defer dst.Close()
-		err = Binarize(dst, src, nil)
+		err = Binarize(dst, src, sampleBinarizeConfig())
 		assert.Assert(t, err == nil)
 
 		out, err := os.Create(outputName)
@@ -83,13 +92,13 @@ func TestBinarize(t *testing.T) {
 
 	t.Run("bad inputs", func(t *testing.T) {
 		empty := NewMat()
-		err := Binarize(empty, empty, nil)
+		err := Binarize(empty, empty, sampleBinarizeConfig())
 		assert.Assert(t, err == ErrEmptyMat)
 
 		mat, err := getSamplePageMat()
 		assert.Assert(t, err == nil)
 		*mat.t = MatTypeUnknown
-		err = Binarize(mat, mat, nil)
+		err = Binarize(mat, mat, sampleBinarizeConfig())
 		assert.Assert(t, err == ErrWrongMatType)
 	})
 }
@@ -107,7 +116,7 @@ func BenchmarkBinarize(b *testing.B) {
 	assert.NilError(b, err)
 
 	for b.Loop() {
-		Binarize(mat, mat, &BinarizeConfig{
+		Binarize(mat, mat, BinarizeConfig{
 			BlurSize:       0.0015,
 			MorphCloseSize: 0.0015,
 			BlockSize:      0.0255,

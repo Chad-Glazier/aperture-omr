@@ -88,7 +88,7 @@ func TestMarkTemplateMask(t *testing.T) {
 		assert.Assert(t, err == nil)
 		defer mask.Close()
 
-		err = Binarize(preprocessed[0], preprocessed[0], &tmpl.Binarization)
+		err = Binarize(preprocessed[0], preprocessed[0], tmpl.Binarization)
 		assert.Assert(t, err == nil)
 
 		gocv.BitwiseAnd(preprocessed[0].m, mask.m, &mask.m)

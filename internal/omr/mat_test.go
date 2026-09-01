@@ -141,7 +141,7 @@ func TestScale(t *testing.T) {
 		binary := NewMat()
 		defer binary.Close()
 
-		err := Binarize(binary, src, nil)
+		err := Binarize(binary, src, sampleBinarizeConfig())
 		assert.Assert(t, err == nil)
 		assert.Assert(t, binary.Type() == MatTypeBinary)
 

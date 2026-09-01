@@ -10,15 +10,11 @@ type BinarizeConfig struct {
 	// The Gaussian kernel size, used for blurring.  Represented as a
 	// proportion of the matrix's width.
 	//
-	// Defaults to [DefaultBlurSize].
-	//
 	// <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#gae8bdcd9154ed5ca3cbc1766d960f45c1>
 	BlurSize float64
 
 	// The kernel size for the morphological closing operation. Represented as
 	// a proportion of the matrix's width.
-	//
-	// Defaults to [DefaultMorphCloseSize].
 	//
 	// <https://docs.opencv.org/4.12.0/d4/d86/group__imgproc__filter.html#ga67493776e3ad1a3df63883829375201f>
 	MorphCloseSize float64
@@ -26,32 +22,21 @@ type BinarizeConfig struct {
 	// The size of a pixel neighborhood that is used to calculate a threshold
 	// value for each pixel. Represented as a proportion of the matrix's width.
 	//
-	// Defaults to [DefaultBlockSize].
-	//
 	// <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3?>
 	BlockSize float64
 
 	// A constant that is subtracted from each pixel's threshold value.
 	//
-	// Defaults to [DefaultAdaptiveC].
-	//
 	// <https://docs.opencv.org/4.12.0/d7/d1b/group__imgproc__misc.html#ga72b913f352e4a1b1b397736707afcde3>
 	AdaptiveC float64
 }
-
-const (
-	DefaultBlurSize       float64 = 0.0015
-	DefaultMorphCloseSize float64 = 0.0015
-	DefaultBlockSize      float64 = 0.0255
-	DefaultAdaptiveC      float64 = 0.0000
-)
 
 // Binarizes a grayscale matrix.
 //
 // If an error is returned, it will be [ErrWrongMatType], [ErrEmptyMat], or
 // [ErrOpenCV]. If it's [ErrOpenCV], then the destination matrix may have
 // corrupted values from a partial operation and should be closed.
-func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
+func Binarize(dst Mat, src Mat, conf BinarizeConfig) error {
 	switch { // Handle bad inputs.
 	case src.Empty():
 		return ErrEmptyMat
@@ -59,36 +44,12 @@ func Binarize(dst Mat, src Mat, conf *BinarizeConfig) error {
 		return ErrWrongMatType
 	}
 
-	//
-	// Set the default configuration values.
-	//
-
-	var c BinarizeConfig
-	if conf == nil {
-		c = BinarizeConfig{}
-	} else {
-		c = *conf
-	}
-
-	if c.BlurSize == 0 {
-		c.BlurSize = DefaultBlurSize
-	}
-	if c.MorphCloseSize == 0 {
-		c.MorphCloseSize = DefaultMorphCloseSize
-	}
-	if c.BlockSize == 0 {
-		c.BlockSize = DefaultBlockSize
-	}
-	if c.AdaptiveC == 0 {
-		c.AdaptiveC = DefaultAdaptiveC
-	}
-
 	var (
 		w              = src.Width()
-		blurSize       = mpyOdd(c.BlurSize, w)
-		morphCloseSize = mpyOdd(c.MorphCloseSize, w)
-		blockSize      = mpyOdd(c.BlockSize, w)
-		adaptiveC      = c.AdaptiveC
+		blurSize       = mpyOdd(conf.BlurSize, w)
+		morphCloseSize = mpyOdd(conf.MorphCloseSize, w)
+		blockSize      = mpyOdd(conf.BlockSize, w)
+		adaptiveC      = conf.AdaptiveC
 	)
 
 	//

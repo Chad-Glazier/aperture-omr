@@ -124,8 +124,9 @@ func TestFindAnchors(t *testing.T) {
 			tmpl.Anchors[0],
 			0.95,
 			FindAnchorConfig{
-				MaxQuality:        0.95,
-				SearchAreaPadding: 0.10,
+				MaxQuality:         0.95,
+				SearchAreaPadding:  0.10,
+				AngleSearchBreadth: rad(10),
 			},
 		)
 		assert.Assert(t, err == nil)
@@ -160,7 +161,9 @@ func TestFindAnchor(t *testing.T) {
 			page,
 			tmpl.Anchors[0][0],
 			FindAnchorConfig{
-				MaxQuality: 0.99,
+				MaxQuality:         0.99,
+				SearchAreaPadding:  0.10,
+				AngleSearchBreadth: rad(10),
 			},
 		)
 		assert.Assert(t, err == nil)
@@ -187,7 +190,9 @@ func TestFindAnchor(t *testing.T) {
 			page,
 			tmpl.Anchors[0][0],
 			FindAnchorConfig{
-				MaxQuality: 0.95,
+				MaxQuality:         0.95,
+				SearchAreaPadding:  0.10,
+				AngleSearchBreadth: rad(10),
 			},
 		)
 		assert.Assert(t, err == nil)
@@ -216,7 +221,9 @@ func TestFindAnchor(t *testing.T) {
 			rotatedPage,
 			tmpl.Anchors[0][0],
 			FindAnchorConfig{
-				MaxQuality: 0.95,
+				MaxQuality:         0.95,
+				SearchAreaPadding:  0.10,
+				AngleSearchBreadth: rad(10),
 			},
 		)
 		assert.Assert(t, err == nil)
@@ -430,7 +437,7 @@ func TestSearchRegion(t *testing.T) {
 	})
 
 	t.Run("draw test template regions", func(t *testing.T) {
-		var outputName = "testdata/output/"+tName+"_regions.png"
+		var outputName = "testdata/output/" + tName + "_regions.png"
 
 		tmpl, err := getSampleTemplate()
 		assert.Assert(t, err == nil)

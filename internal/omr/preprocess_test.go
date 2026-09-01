@@ -63,7 +63,7 @@ func getSampleTemplate() (PreprocessTemplate, error) {
 
 	tmpl.AnchorSearchConfig = FindAnchorConfig{
 		MaxQuality:         0.85,
-		SearchAreaPadding:  .10,
+		SearchAreaPadding:  0.10,
 		AngleSearchBreadth: rad(10),
 		InitialAngle:       0,
 	}
@@ -120,7 +120,6 @@ func TestPreprocess(t *testing.T) {
 				rad(degrees),
 				color.RGBA{},
 			)
-
 
 			out, err := os.Create(outputName)
 			assert.Assert(t, err == nil)

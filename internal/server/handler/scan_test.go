@@ -112,6 +112,24 @@ func TestVisualizeScanPdf(t *testing.T) {
 	out1, err := os.Create("testdata/output/visualizedPreprocessing_page1.png")
 	err = omr.VisualizePreprocess(out1, tmpl, pages, 1)
 	assert.Assert(t, err == nil)
+
+	preprocessed, err := omr.Preprocess(tmpl, pages)
+	assert.Assert(t, err == nil)
+	defer omr.CloseAll(preprocessed)
+
+	mTmplId := postCanonicalMarkingTemplate(s, t)
+	mTmpl, err := s.LoadMarkingTemplate(mTmplId)
+	assert.Assert(t, err == nil)
+
+	markOut0, err := os.Create("testdata/output/markedPages0.png")
+	assert.Assert(t, err == nil)
+	err = omr.VisualizeMark(markOut0, mTmpl, preprocessed, 0)
+	assert.Assert(t, err == nil)
+
+	markOut1, err := os.Create("testdata/output/markedPages1.png")
+	assert.Assert(t, err == nil)
+	err = omr.VisualizeMark(markOut1, mTmpl, preprocessed, 1)
+	assert.Assert(t, err == nil)
 }
 
 func TestPostScanPdf(t *testing.T) {
