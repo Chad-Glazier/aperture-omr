@@ -32,7 +32,6 @@ func VisualizeSideBySide(out io.Writer, mats ...Mat) error {
 			defer mats[i].Close()
 		}
 		if m.Type() != MatTypeGray && m.Type() != MatTypeBinary {
-			panic("here1")
 			return ErrWrongMatType
 		}
 	}
@@ -216,62 +215,4 @@ func overlayCrosses(
 	}
 
 	return copy
-}
-
-//
-func VisualizeMark(
-	out io.Writer,
-	template MarkTemplate,
-	pages []Mat,
-	pageIdx uint,
-) error {
-	if pageIdx > uint(len(pages)) || pageIdx > template.PageCount() {
-		return ErrPageNotDefined
-	}
-
-	//
-	// (A) Input
-	//
-
-	a := Clone(pages[pageIdx])
-	defer a.Close()
-
-	//
-	// (B) Binarized Input
-	//
-
-	b := NewMat()
-	defer b.Close()
-
-	err := Binarize(b, a, template.Binarization)
-	if err != nil {
-		return err
-	}
-
-	//
-	// (C) Marking Mask
-	//
-
-	mask, err := template.Mask(uint(pageIdx), int(a.Height()))
-	if err != nil {
-		return err
-	}
-	defer mask.Close()
-
-	c := mask
-
-	//
-	// (D) Masked Input
-	//
-
-	d := NewMat()
-	*d.t = MatTypeGray
-	defer d.Close()
-
-	err = gocv.BitwiseAnd(mask.m, b.m, &d.m)
-	if err != nil {
-		return ErrOpenCV
-	}
-
-	return VisualizeSideBySide(out, a, b, c, d)
 }

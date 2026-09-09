@@ -81,3 +81,7 @@ If you get an error that mentions missing C/C++ objects, it's likely that GoCV i
 ## Acknowledgements
 
 This service was originally developed as a part of a capstone project at UBC. During the development, [Kaden Harris](https://github.com/KadenHarris) implemented the original `internal/scanner` and `internal/marker` packages. The rest of my group also indirectly contributed by reviewing my PRs and doing manual testing. Thanks gang.
+
+## TODO: Development Notes
+
+Bubbles may not be aligned perfectly. We can add some padding to the *mask*, but not to the computed maximum (i.e., the area of the circle; this would require computing the maximum value via the true bubble radius rather than the mask diameter), then cap the quotient at `1.0`. This would be functionally identical to locating the circle within the search area and then calculating its fill, *except* in the scenario where the space outside of the bubble but within the search padding is filled. This can simply be noted as a known limitation. However, unlike true template-matching, it would still be on the order of nanoseconds.
