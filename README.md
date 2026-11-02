@@ -10,7 +10,16 @@ Aperture OMR is a high-performance [Optical Mark Recognition](https://en.wikiped
 
 ## Benchmarks
 
-[Placeholder.]
+The OMR pipeline is bottlenecked by two expensive operations: the PDF-to-image conversion, and the preprocessing step where input scans are warped to match the template. Benchmarks for the preprocessing step are included below.
+
+> Benchmarks were run single-threaded on an AMD Ryzen 5 7400F 6-Core Processor. The source code for the benchmarks can be found [here](./internal/omr/preprocess_test.go).
+
+| Task | Details | Time |
+|------|---------|------|
+| Preprocess one scanned page | [Clean, ideal scan](./internal/omr/testdata/input/sample_page.png). 1952x2946 resolution. | 20.16 ms |
+| Preprocess one scanned page | [Noisy, rotated scan](./internal/omr/testdata/input/sample_page_noisy.png). 1952x2946 resolution. | 32.17 ms |
+
+PDF rendering is done using parallel calls to the [fitz](https://pkg.go.dev/github.com/gen2brain/go-fitz@v1.28.2) package which wraps the [MuPDF/Fitz](https://mupdf.com/) software written by Artifex; independent benchmarks for that software have already been conducted by others ([example 1](https://github.com/py-pdf/benchmarks), [example 2](https://community.hyland.com/discussion/125428/pdf-rendering-engine-performance-and-fidelity-comparison)).
 
 ## Setup
 
@@ -80,8 +89,4 @@ If you get an error that mentions missing C/C++ objects, it's likely that GoCV i
 
 ## Acknowledgements
 
-This service was originally developed as a part of a capstone project at UBC. During the development, [Kaden Harris](https://github.com/KadenHarris) implemented the original `internal/scanner` and `internal/marker` packages. The rest of my group also indirectly contributed by reviewing my PRs and doing manual testing. Thanks gang.
-
-## TODO: Development Notes
-
-Bubbles may not be aligned perfectly. We can add some padding to the *mask*, but not to the computed maximum (i.e., the area of the circle; this would require computing the maximum value via the true bubble radius rather than the mask diameter), then cap the quotient at `1.0`. This would be functionally identical to locating the circle within the search area and then calculating its fill, *except* in the scenario where the space outside of the bubble but within the search padding is filled. This can simply be noted as a known limitation. However, unlike true template-matching, it would still be on the order of nanoseconds.
+This service was originally developed as a part of a capstone project at UBC. During the development, [Kaden Harris](https://github.com/KadenHarris) implemented the original `internal/scanner` and `internal/marker` packages. The rest of my group (4 others) also indirectly contributed by reviewing my PRs and doing manual testing.
